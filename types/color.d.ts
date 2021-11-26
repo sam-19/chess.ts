@@ -1,0 +1,5 @@
+
+interface PieceColor {
+}
+
+export { PieceColor }

@@ -1,0 +1,5 @@
+interface ChessTimeControl {
+
+}
+
+export { ChessTimeControl }

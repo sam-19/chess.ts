@@ -1,0 +1,5 @@
+interface ChessGame {
+
+}
+
+export { ChessGame }

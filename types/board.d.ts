@@ -1,0 +1,3 @@
+interface ChessBoard {
+}
+export { ChessBoard }

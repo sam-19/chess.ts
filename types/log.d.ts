@@ -1,0 +1,4 @@
+interface ChessLog {
+}
+
+export { ChessLog }
