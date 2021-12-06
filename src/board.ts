@@ -16,21 +16,20 @@ class Board implements ChessBoard {
     // Instance properties
     id: number
     game: Game
-    parentVar: Board | null
-    parentLastMoveIndex: number | null
-    turn: string
+    parentBoard: Board | null
+    parentBranchTurnIndex: number | null
+    turn: typeof Color.WHITE | typeof Color.BLACK
     enPassantSqr: number | null
     moveNum: number
     plyNum: number
     halfMoveCount: number
-    board: Piece[]
     castlingRights: { [color: string]: Flags }
     // King position can be null in analysis mode (before kings are set on the board)
     kingPos: { [color: string]: number | null }
     history: Turn[]
     selectedTurnIndex: number
+    squares: Piece[]
     posCount: Map<string, number>
-    turnAnnotations: Annotation[][]
     continuation: boolean
     /** Cache possible moves, so it doesn't have to be calculated multiple times per turn */
     moveCache= {
@@ -42,15 +41,15 @@ class Board implements ChessBoard {
     constructor(game: Game) {
         this.id = game.boardVars.length
         this.game = game
-        this.parentVar = null
-        this.parentLastMoveIndex = null
+        this.parentBoard = null
+        this.parentBranchTurnIndex = null
         this.turn = Color.WHITE
         this.enPassantSqr = null
         this.moveNum = 1
         this.plyNum = 0
         this.halfMoveCount = 0 // For tracking 50/75 move rule
         // Create a 0x88 board presentation and populate it with NONE pieces
-        this.board = Array.apply(null, new Array(128)).map(() => (Piece.NONE))
+        this.squares = Array.apply(null, new Array(128)).map(() => (Piece.NONE))
         // Castling rights
         this.castlingRights = {
             [Color.WHITE]: new Flags([Flags.KSIDE_CASTLING, Flags.QSIDE_CASTLING]),
@@ -64,7 +63,6 @@ class Board implements ChessBoard {
         this.history = [] // Turn history
         this.selectedTurnIndex = -1 // -1 means no move is selected; selecting next move returns the first move
         this.posCount = new Map() // Used to track unique positions for three fold repetition rule
-        this.turnAnnotations = [] // PGN annotations
         this.continuation = false
         // Add this board to parent game's board variations
         game.boardVars.push(this)
@@ -78,14 +76,14 @@ class Board implements ChessBoard {
         let newBoard = Object.create(Board.prototype)
         newBoard.id = orig.game.boardVars.length
         newBoard.game = orig.game
-        newBoard.parentVar = orig.parentVar
-        newBoard.parentLastMoveIndex = orig.parentLastMoveIndex
+        newBoard.parentBoard = orig.parentBoard
+        newBoard.parentBranchTurnIndex = orig.parentBranchTurnIndex
         newBoard.turn = orig.turn
         newBoard.enPassantSqr = orig.enPassantSqr
         newBoard.moveNum = orig.moveNum
         newBoard.plyNum = orig.plyNum
         newBoard.halfMoveCount = orig.halfMoveCount
-        newBoard.board = orig.board.slice(0) // Can't copy mutable array directly
+        newBoard.squares = orig.squares.slice(0) // Can't copy mutable array directly
         newBoard.castlingRights = {
             [Color.WHITE]: orig.castlingRights[Color.WHITE].copy(),
             [Color.BLACK]: orig.castlingRights[Color.BLACK].copy()
@@ -97,7 +95,6 @@ class Board implements ChessBoard {
         newBoard.history = orig.history.slice(0)
         newBoard.selectedTurnIndex = orig.selectedTurnIndex
         newBoard.posCount = new Map(orig.posCount)
-        newBoard.turnAnnotations = orig.turnAnnotations.slice(0)
         newBoard.moveCache = {
             includeFen: orig.moveCache.includeFen,
             includeSan: orig.moveCache.includeSan,
@@ -119,8 +116,8 @@ class Board implements ChessBoard {
         if (!options.continuation) {
             newBoard.undoMoves({ move: parent.selectedTurnIndex })
         }
-        newBoard.parentVar = parent
-        newBoard.parentLastMoveIndex = parent.selectedTurnIndex
+        newBoard.parentBoard = parent
+        newBoard.parentBranchTurnIndex = parent.selectedTurnIndex
         newBoard.continuation = options.continuation
         // Start with fresh history
         newBoard.selectedTurnIndex = -1
@@ -170,7 +167,7 @@ class Board implements ChessBoard {
                 sqr++
             }
         }
-        this.turn = tokens[1]
+        this.turn = tokens[1] as typeof Color.WHITE | typeof Color.BLACK
         this.castlingRights[Color.WHITE] = new Flags()
         this.castlingRights[Color.BLACK] = new Flags()
         // Check for remaining castling rights
@@ -208,13 +205,13 @@ class Board implements ChessBoard {
                 Log.error(`Cannot return piece at ${square}: Value is not a valid 0x88 board square.`)
                 return Piece.NONE
             }
-            return this.board[square]
+            return this.squares[square]
         } else {
             if (!(square in Move.SQUARE_INDICES)) {
                 Log.error(`Cannot return piece at ${square}: Value is not a valid algebraic representation of a square.`)
                 return Piece.NONE
             }
-            return this.board[Move.SQUARE_INDICES[square as keyof typeof Move.SQUARE_INDICES]]
+            return this.squares[Move.SQUARE_INDICES[square as keyof typeof Move.SQUARE_INDICES]]
         }
     }
     /**
@@ -236,7 +233,7 @@ class Board implements ChessBoard {
         // Check if there is a piece already in the square and return it
         const prevPiece = this.pieceAt(square)
         // Place the piece and save possible king position
-        this.board[square] = piece
+        this.squares[square] = piece
         if (piece.type === Piece.TYPE_KING) {
             this.kingPos[piece.color] = square
         }
@@ -260,7 +257,7 @@ class Board implements ChessBoard {
             this.kingPos[piece.color] = null
         }
         // Assign empty square
-        this.board[square] = Piece.NONE
+        this.squares[square] = Piece.NONE
         return piece
     }
     /**
@@ -328,7 +325,7 @@ class Board implements ChessBoard {
         let fen = ""
         // Loop through all the squares
         for (let i=Move.SQUARE_INDICES.a8; i<=Move.SQUARE_INDICES.h1; i++) {
-            if (this.board[i] === Piece.NONE) {
+            if (this.squares[i] === Piece.NONE) {
                 empty++
             } else {
                 if (empty) {
@@ -336,7 +333,7 @@ class Board implements ChessBoard {
                     fen += empty
                     empty = 0
                 }
-                fen += this.board[i]
+                fen += this.squares[i]
             }
             if ((i + 1) & 0x88) {
                 // New rank
@@ -488,20 +485,20 @@ class Board implements ChessBoard {
         // Helper method to add new moves to the list
         const addMove = (orig: number, dest: number, board: Board, flags: number[] = []) => {
             // Get the captured piece, with a special rule for en passant (on rank lower for white, one rank higher for black)
-            // Checking board.board[] looks a bit dull, but considering how many this these methods are called
+            // Checking board.squares[] looks a bit dull, but considering how many this these methods are called
             // there could be a considerable performance penalty in using board.pieceAt() with its error checking
-            const captPiece = (flags.indexOf(Flags.EN_PASSANT) !== -1 ? board.board[dest + (passive === Color.BLACK? 16 : -16)] : board.board[dest])
+            const captPiece = (flags.indexOf(Flags.EN_PASSANT) !== -1 ? board.squares[dest + (passive === Color.BLACK? 16 : -16)] : board.squares[dest])
             const moveOpts = {
                 orig: orig,
                 dest: dest,
-                movedPiece: board.board[orig],
+                movedPiece: board.squares[orig],
                 capturedPiece: captPiece,
                 promotionPiece: undefined as Piece | undefined,
                 flags: flags
             } as MethodOptions.MoveOptions
             let newMove: Move
             // Check if a pawn has reached then last rank for promotion
-            if (board.board[orig].type === Piece.TYPE_PAWN
+            if (board.squares[orig].type === Piece.TYPE_PAWN
                 && (Board.rank(dest) === 0 || Board.rank(dest) === 7))
             {
                 const promoPieces = (board.turn === Color.WHITE ? Piece.WHITE_PROMO_PIECES : Piece.BLACK_PROMO_PIECES)
@@ -551,7 +548,7 @@ class Board implements ChessBoard {
                 i += 7
                 continue
             }
-            const piece = this.board[i]
+            const piece = this.squares[i]
             // Don't calculate moves for empty squares or opponent pieces
             if (piece === Piece.NONE || piece.color !== active) {
                 continue
@@ -561,13 +558,13 @@ class Board implements ChessBoard {
             if (piece.type === Piece.TYPE_PAWN) {
                 // Single square advancement moves
                 sqr = i + Move.PAWN_OFFSETS[active as keyof typeof Move.PAWN_OFFSETS][0]
-                if (this.board[sqr] === Piece.NONE) {
+                if (this.squares[sqr] === Piece.NONE) {
                     addMove(i, sqr, this, [Flags.NORMAL])
                     // If the first square was vacant, check for double advancement
                     sqr = i + Move.PAWN_OFFSETS[active as keyof typeof Move.PAWN_OFFSETS][1]
                     // The move must originate from the pawn rank and destination square must be vacant
                     if (secondRank[active as keyof typeof secondRank] === Board.rank(i)) {
-                        if (this.board[sqr] === Piece.NONE) {
+                        if (this.squares[sqr] === Piece.NONE) {
                             addMove(i, sqr, this, [Flags.DOUBLE_ADV])
                         } else {
                             addMove(i, sqr, this, [Flags.MOVE_BLOCKED])
@@ -585,7 +582,7 @@ class Board implements ChessBoard {
                     sqr = i + Move.PAWN_OFFSETS[active as keyof typeof Move.PAWN_OFFSETS][j]
                     if (sqr & 0x88) { // Dont' check out of board squares
                         continue
-                    } else if (this.board[sqr] !== Piece.NONE && this.board[sqr].color === passive) {
+                    } else if (this.squares[sqr] !== Piece.NONE && this.squares[sqr].color === passive) {
                         addMove(i, sqr, this, [Flags.CAPTURE])
                     } else if (sqr === this.enPassantSqr) { // En passant capture
                         addMove(i, sqr, this, [Flags.EN_PASSANT])
@@ -605,10 +602,10 @@ class Board implements ChessBoard {
                             sqr += offset
                             continue
                         }
-                        if (this.board[sqr] === Piece.NONE) {
+                        if (this.squares[sqr] === Piece.NONE) {
                             addMove(i, sqr, this, [Flags.NORMAL])
                         } else {
-                            if (this.board[sqr].color !== active) {
+                            if (this.squares[sqr].color !== active) {
                                 addMove(i, sqr, this, [Flags.CAPTURE])
                             } else {
                                 addMove(i, sqr, this, [Flags.MOVE_BLOCKED])
@@ -632,8 +629,8 @@ class Board implements ChessBoard {
                 const orig = this.kingPos[active] as number
                 if (this.castlingRights[active].contains(Flags.KSIDE_CASTLING)) {
                     const dest = orig + 2
-                    if (this.board[orig + 1] === Piece.NONE
-                        && this.board[dest] === Piece.NONE // Squares must be vacant
+                    if (this.squares[orig + 1] === Piece.NONE
+                        && this.squares[dest] === Piece.NONE // Squares must be vacant
                         && !this.isAttacked(passive, this.kingPos[active]) // Cannot castle a king in check
                         && !this.isAttacked(passive, orig + 1) // Can't castle a king across an attacked square
                         && !this.isAttacked(passive, dest)) // Can't move king into an attacked square
@@ -645,9 +642,9 @@ class Board implements ChessBoard {
                 }
                 if (this.castlingRights[active].contains(Flags.QSIDE_CASTLING)) {
                     const dest = orig - 2
-                    if (this.board[orig - 1] === Piece.NONE
-                        && this.board[orig - 2] === Piece.NONE
-                        && this.board[orig - 3] === Piece.NONE
+                    if (this.squares[orig - 1] === Piece.NONE
+                        && this.squares[orig - 2] === Piece.NONE
+                        && this.squares[orig - 3] === Piece.NONE
                         && !this.isAttacked(passive, orig)
                         && !this.isAttacked(passive, orig - 1)
                         && !this.isAttacked(passive, dest))
@@ -904,8 +901,8 @@ class Board implements ChessBoard {
         const passive = (active === Color.WHITE ? Color.BLACK : Color.WHITE)
         let removedPiece = Piece.NONE
         // Move the piece to destination square and clear origin square
-        this.board[move.dest as number] = this.board[move.orig as number]
-        this.board[move.orig as number] = Piece.NONE
+        this.squares[move.dest as number] = this.squares[move.orig as number]
+        this.squares[move.orig as number] = Piece.NONE
         // Remove a pawn captured en passant
         if (move.flags?.contains(Flags.EN_PASSANT)) {
             if (active === Color.WHITE) {
@@ -924,11 +921,11 @@ class Board implements ChessBoard {
             this.kingPos[active] = move.dest
             // Handle rook moves when castling
             if (move.flags?.contains(Flags.KSIDE_CASTLING)) {
-                this.board[move.dest as number - 1] = this.board[move.dest as number + 1]
-                this.board[move.dest as number + 1] = Piece.NONE
+                this.squares[move.dest as number - 1] = this.squares[move.dest as number + 1]
+                this.squares[move.dest as number + 1] = Piece.NONE
             } else if (move.flags?.contains(Flags.QSIDE_CASTLING)) {
-                this.board[move.dest as number + 1] = this.board[move.dest as number - 2]
-                this.board[move.dest as number - 2] = Piece.NONE
+                this.squares[move.dest as number + 1] = this.squares[move.dest as number - 2]
+                this.squares[move.dest as number - 2] = Piece.NONE
             }
             // This player can no longer castle
             this.castlingRights[active].clear()
@@ -1060,26 +1057,26 @@ class Board implements ChessBoard {
             const move = moves[i].move
             // Undo capture and en passant
             if (move.flags?.contains(Flags.CAPTURE)) {
-                this.board[move.dest as number] = move.capturedPiece as Piece
+                this.squares[move.dest as number] = move.capturedPiece as Piece
             }
             else if (move.flags?.contains(Flags.EN_PASSANT)) {
                 if (active === Color.WHITE) {
-                    this.board[move.dest as number + 16] = move.capturedPiece as Piece // Must be pawn
+                    this.squares[move.dest as number + 16] = move.capturedPiece as Piece // Must be pawn
                 } else {
-                    this.board[move.dest as number - 16] = move.capturedPiece as Piece
+                    this.squares[move.dest as number - 16] = move.capturedPiece as Piece
                 }
             } else {
-                this.board[move.dest as number] = Piece.NONE
+                this.squares[move.dest as number] = Piece.NONE
             }
             // Undo castling
             if (move.flags?.contains(Flags.KSIDE_CASTLING)) {
-                this.board[move.dest as number + 1] = this.board[move.dest as number - 1]
-                this.board[move.dest as number - 1] = Piece.NONE
+                this.squares[move.dest as number + 1] = this.squares[move.dest as number - 1]
+                this.squares[move.dest as number - 1] = Piece.NONE
             } else if (move.flags?.contains(Flags.QSIDE_CASTLING)) {
-                this.board[move.dest as number - 2] = this.board[move.dest as number + 1]
-                this.board[move.dest as number + 1] = Piece.NONE
+                this.squares[move.dest as number - 2] = this.squares[move.dest as number + 1]
+                this.squares[move.dest as number + 1] = Piece.NONE
             }
-            this.board[move.orig as number] = move.movedPiece as Piece
+            this.squares[move.orig as number] = move.movedPiece as Piece
             this.resetMoveCache()
         }
     }
@@ -1137,7 +1134,7 @@ class Board implements ChessBoard {
         mockBoard.moveNum = this.moveNum
         mockBoard.plyNum = this.plyNum
         mockBoard.halfMoveCount = this.halfMoveCount
-        mockBoard.board = [...this.board] // Can't copy mutable array directly
+        mockBoard.squares = [...this.squares] // Can't copy mutable array directly
         mockBoard.castlingRights = {
             [Color.WHITE]: this.castlingRights[Color.WHITE].copy(),
             [Color.BLACK]: this.castlingRights[Color.BLACK].copy()
@@ -1231,13 +1228,6 @@ class Board implements ChessBoard {
     getMoveIndexPosition () {
         return [this.selectedTurnIndex, this.history.length]
     }
-    /**
-     * Get annotations for turn.
-     * @param turn index of the turn (optional, default current turn)
-     */
-    getTurnAnnotations (turn=this.selectedTurnIndex) {
-        return this.turnAnnotations[turn+1]
-    }
 
     /*
     ========================
@@ -1310,12 +1300,12 @@ class Board implements ChessBoard {
             if (i & 0x88) {
                 i += 7
                 continue // Not a "physical" square
-            } else if (this.board[i] === Piece.NONE || this.board[i].color !== color) {
+            } else if (this.squares[i] === Piece.NONE || this.squares[i].color !== color) {
                 continue // Empty square or a friendly piece can't attack a square
             }
             const diff = i - square as number
             const idx = diff + 119 // On a 0x88 board
-            let piece = this.board[i]
+            let piece = this.squares[i]
             if (Move.ATTACKS[idx] & (1 << Move.SHIFTS[piece.type as keyof typeof Move.SHIFTS])) {
                 // TODO: Find out the actual math behind this bit-wise comparison
                 if (piece.type === Piece.TYPE_PAWN) {
@@ -1347,7 +1337,7 @@ class Board implements ChessBoard {
                 let j = i + offset
                 let blocked = false
                 while (j !== square) {
-                    if (this.board[j] !== Piece.NONE) {
+                    if (this.squares[j] !== Piece.NONE) {
                         blocked = true // There is a piece blocking the ray to this square
                         break // Move on to check next possible attacker
                     }
@@ -1421,7 +1411,7 @@ class Board implements ChessBoard {
                 continue // Outside the "physical" board
             }
             sqrType = (sqrType + 1)%2
-            const piece = this.board[i]
+            const piece = this.squares[i]
             // Piece.NONE is a special case and its type has to be fetched directly
             if (piece.type !== Piece.NONE.type) {
                 pieceCount[piece.type] = ((piece.type in pieceCount) ? pieceCount[piece.type] + 1 : 1)
@@ -1546,7 +1536,7 @@ class Board implements ChessBoard {
         let pawnCount = { w: 0, b: 0 }
         let kingCount = { w: 0, b: 0 }
         let officerCount = { w: 0, b: 0 }
-        this.board.forEach((piece) => {
+        this.squares.forEach((piece) => {
             if (piece === Piece.WHITE_PAWN) {
                 pawnCount.w++
             } else if (piece === Piece.BLACK_PAWN) {
@@ -1570,13 +1560,13 @@ class Board implements ChessBoard {
             errors.push("Black has too many pawns on the board.")
         }
         if (!kingCount.w || this.kingPos[Color.WHITE] === null ||
-            this.board[this.kingPos[Color.WHITE] as number] !== Piece.WHITE_KING
+            this.squares[this.kingPos[Color.WHITE] as number] !== Piece.WHITE_KING
         ) {
             isValid = false
             errors.push("White is missing or has a misplaced king.")
         }
         if (!kingCount.b || this.kingPos[Color.BLACK] === null ||
-            this.board[this.kingPos[Color.BLACK] as number] !== Piece.BLACK_KING
+            this.squares[this.kingPos[Color.BLACK] as number] !== Piece.BLACK_KING
         ) {
             isValid = false
             errors.push("Black is missing or has a misplaced king.")
@@ -1695,7 +1685,7 @@ class Board implements ChessBoard {
             if (Board.file(i) === 0) {
                 str += '87654321'[Board.rank(i)] + ' |'
             }
-            str += ' ' + this.board[i] + ' '
+            str += ' ' + this.squares[i] + ' '
             if ((i + 1) & 0x88) {
                 str += `|`
                 if (i === 7 && this.turn === Color.BLACK) {

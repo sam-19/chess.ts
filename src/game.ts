@@ -277,8 +277,8 @@ class Game implements ChessGame {
                     // Update parent variations and move indices in the continuation
                     for (let i=0; i<matchingCont.history.length; i++) {
                         for (let j=0; j<matchingCont.history[i].variations.length; j++) {
-                            matchingCont.history[i].variations[j].parentVar = this.currentBoard
-                            matchingCont.history[i].variations[j].parentLastMoveIndex = curMoveIdx + i
+                            matchingCont.history[i].variations[j].parentBoard = this.currentBoard
+                            matchingCont.history[i].variations[j].parentBranchTurnIndex = curMoveIdx + i
                         }
                     }
                     // Append the matching continuation to current turn history
@@ -292,8 +292,8 @@ class Game implements ChessGame {
                     // Update parent variations and move indices in the continuation
                     for (let i=0; i<matchingVar.history.length; i++) {
                         for (let j=0; j<matchingVar.history[i].variations.length; j++) {
-                            matchingVar.history[i].variations[j].parentVar = this.currentBoard
-                            matchingVar.history[i].variations[j].parentLastMoveIndex = curMoveIdx + i
+                            matchingVar.history[i].variations[j].parentBoard = this.currentBoard
+                            matchingVar.history[i].variations[j].parentBranchTurnIndex = curMoveIdx + i
                         }
                     }
                     // Append the matching continuation to current turn history
@@ -367,8 +367,8 @@ class Game implements ChessGame {
             if (futureTurns[i].variations) {
                 for (let j=0; j<futureTurns[i].variations.length; j++) {
                     // Update possible parent variations and branch points for variations for relocated moves
-                    futureTurns[i].variations[j].parentVar = newVariation
-                    futureTurns[i].variations[j].parentLastMoveIndex = i
+                    futureTurns[i].variations[j].parentBoard = newVariation
+                    futureTurns[i].variations[j].parentBranchTurnIndex = i
                 }
             }
         }
@@ -606,7 +606,7 @@ class Game implements ChessGame {
         } else {
             Log.debug(move.error)
             // Return to parent variation and remove new variation from its child variations
-            this.currentBoard = this.currentBoard.parentVar as Board
+            this.currentBoard = this.currentBoard.parentBoard as Board
             this.currentBoard.history[this.currentBoard.selectedTurnIndex].variations.pop()
             this.boardVars.pop()
             return false
@@ -666,15 +666,15 @@ class Game implements ChessGame {
             }
         }
         // Traverse back in all the possible parent variations' move histories
-        // Check that this wasn't the only variation; root variation has null parentVar
-        if (tmpBoard.parentVar !== null) {
+        // Check that this wasn't the only variation; root variation has null parentBoard
+        if (tmpBoard.parentBoard !== null) {
             do {
                 // Next parent variation
-                let parentLastMoveIndex = tmpBoard.parentLastMoveIndex
+                let parentBranchTurnIndex = tmpBoard.parentBranchTurnIndex
                 let continuation = tmpBoard.continuation
-                tmpBoard = tmpBoard.parentVar
+                tmpBoard = tmpBoard.parentBoard
                 // Start from the parent variation's last move
-                let i = parentLastMoveIndex as number
+                let i = parentBranchTurnIndex as number
                 if (!continuation) {
                     i-- // Skip the move the variation started from
                 }
@@ -687,7 +687,7 @@ class Game implements ChessGame {
                         moveHist.push(tmpBoard.history[i])
                     }
                 }
-            } while (tmpBoard.parentVar !== null)
+            } while (tmpBoard.parentBoard !== null)
         }
         // Flip the history
         return moveHist.reverse()
@@ -705,7 +705,7 @@ class Game implements ChessGame {
      */
     prevMove () {
         // Check if there is a previous move to go to
-        if (this.currentBoard.selectedTurnIndex === 0 && this.currentBoard.parentVar !== null) {
+        if (this.currentBoard.selectedTurnIndex === 0 && this.currentBoard.parentBoard !== null) {
             // We want to go back one step, so we'll use the continuation method for this
             if ((this.currentBoard.continuation && this.returnFromContinuation())
                 || (!this.currentBoard.continuation && this.returnFromVariation())
@@ -760,9 +760,9 @@ class Game implements ChessGame {
                 if (this.boardVars[i].id === boardVar) {
                     if (this.boardVars[i].id) {
                         let targetVar = this.boardVars[i]
-                        while (targetVar.parentVar !== null) {
-                            targetVarBranchOffs.push([targetVar.parentVar.id, targetVar.parentLastMoveIndex])
-                            targetVar = targetVar.parentVar
+                        while (targetVar.parentBoard !== null) {
+                            targetVarBranchOffs.push([targetVar.parentBoard.id, targetVar.parentBranchTurnIndex])
+                            targetVar = targetVar.parentBoard
                         }
                     }
                 }
@@ -896,21 +896,21 @@ class Game implements ChessGame {
             // is selected (condition below) and all this would have to be done twice.
             vars.unshift({ move: turn.move, continuation: this.currentBoard.continuation })
             return vars
-        } else if (this.currentBoard.parentVar && !this.currentBoard.getMoveIndexPosition()[0]
-                    && this.currentBoard.parentVar
-                    .history[this.currentBoard.parentLastMoveIndex as number].variations
+        } else if (this.currentBoard.parentBoard && !this.currentBoard.getMoveIndexPosition()[0]
+                    && this.currentBoard.parentBoard
+                    .history[this.currentBoard.parentBranchTurnIndex as number].variations
         ) {
             // This move is a variation, so return the parent turn's variations
-            const vars = this.currentBoard.parentVar
-                .history[this.currentBoard.parentLastMoveIndex as number].variations.map
+            const vars = this.currentBoard.parentBoard
+                .history[this.currentBoard.parentBranchTurnIndex as number].variations.map
             (
                 board => { return { move: board.history[0].move, continuation: this.currentBoard.continuation } }
             )
             // Add parent move in front of the list
             vars.unshift(
-                { move: this.currentBoard.parentVar
-                        .history[this.currentBoard.parentLastMoveIndex as number].move,
-                  continuation: this.currentBoard.parentVar.continuation
+                { move: this.currentBoard.parentBoard
+                        .history[this.currentBoard.parentBranchTurnIndex as number].move,
+                  continuation: this.currentBoard.parentBoard.continuation
                 }
             )
             return vars
@@ -925,13 +925,13 @@ class Game implements ChessGame {
      */
     returnFromContinuation () {
         // Check if there is a variation to return to
-        if (this.currentBoard.parentVar === null) {
+        if (this.currentBoard.parentBoard === null) {
             Log.debug("Cannot return from current continuation: Already at root variation.")
             return false
         }
         // Return to branch move index on parent variation
-        const branchMoveIndex = this.currentBoard.parentLastMoveIndex as number
-        this.currentBoard = this.currentBoard.parentVar
+        const branchMoveIndex = this.currentBoard.parentBranchTurnIndex as number
+        this.currentBoard = this.currentBoard.parentBoard
         Log.debug(`Returning from current continuation to parent variation move #${branchMoveIndex}.`)
         return this.selectMove(branchMoveIndex)
     }
@@ -941,13 +941,13 @@ class Game implements ChessGame {
      */
     returnFromVariation () {
         // Check if there is a variation to return to
-        if (this.currentBoard.parentVar === null) {
+        if (this.currentBoard.parentBoard === null) {
             Log.debug("Cannot return from current variation: Already at root variation.")
             return false
         }
         // Return to branch move index on parent variation
-        const branchMoveIndex = this.currentBoard.parentLastMoveIndex as number - 1
-        this.currentBoard = this.currentBoard.parentVar
+        const branchMoveIndex = this.currentBoard.parentBranchTurnIndex as number - 1
+        this.currentBoard = this.currentBoard.parentBoard
         Log.debug(`Returning from current variation to parent variation move #${branchMoveIndex}.`)
         return this.selectMove(branchMoveIndex)
     }

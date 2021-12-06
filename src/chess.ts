@@ -455,7 +455,7 @@ class Chess implements ChessCore {
         }
         // Close this variation and return to the next one up in hierarchy
         const closeVariation = () => {
-            game.currentBoard = game.currentBoard.parentVar as Board
+            game.currentBoard = game.currentBoard.parentBoard as Board
         }
         // Parse moves from PGN data
         let end = 0

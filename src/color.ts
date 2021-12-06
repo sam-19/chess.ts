@@ -6,9 +6,18 @@ import { PieceColor } from '../types/color'
  * Chess piece color class to enfoce standard notation.
  */
 class Color implements PieceColor {
-    static readonly WHITE = 'w'
-    static readonly BLACK = 'b'
-    static readonly NONE = '~'
+    static readonly WHITE = 'w' as 'w'
+    static readonly BLACK = 'b' as 'b'
+    static readonly NONE = '~' as '~'
+    get WHITE () {
+        return Color.WHITE
+    } 
+    get BLACK () {
+        return Color.BLACK
+    } 
+    get NONE () {
+        return Color.NONE
+    } 
     static swap = function (color: string) {
         return (
             color === Color.WHITE ? Color.BLACK

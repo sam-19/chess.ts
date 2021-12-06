@@ -11,7 +11,7 @@ class Turn implements ChessTurn {
     move: ChessMove
     castlingRights: { [color: string]: Flags }
     kingPos: { [color: string]: number | null }
-    turn: string
+    turn: typeof Color.WHITE | typeof Color.BLACK
     enPassantSqr: number | null
     moveNum: number
     halfMoveCount: number

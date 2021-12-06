@@ -1,4 +1,5 @@
 import { ChessBoard } from "./board"
+import { PieceColor } from "./color"
 import { MoveFlags } from "./flags"
 import { ChessMove } from "./move"
 
@@ -12,7 +13,7 @@ interface ChessTurn {
     move: ChessMove
     castlingRights: { [color: string]: MoveFlags }
     kingPos: { [color: string]: number | null }
-    turn: string
+    turn: PieceColor["WHITE"] | PieceColor["BLACK"]
     enPassantSqr: number | null
     moveNum: number
     halfMoveCount: number
