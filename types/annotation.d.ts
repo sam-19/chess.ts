@@ -1,3 +1,4 @@
+import { MoveNag } from "./nag"
 
 type AnnotationTextPart = {
     /** Printable text part. */
@@ -23,9 +24,14 @@ interface MoveAnnotation {
     /** Contains the clean text parts and possible commands parsed into objects. */
     textParts: AnnotationTextPart[]
     /** Numeric Annotation Glyph assigned to this annotation. */
-    nag: number | null
+    nag: MoveNag | null
     /** Possible text symbol for the numeric annotation glyph. */
     symbol: string | null
+    /**
+     * Get a string representation of this annotation object.
+     * @returns
+     */
+    toString: () => string
 }
 
 export { MoveAnnotation, AnnotationTextPart }

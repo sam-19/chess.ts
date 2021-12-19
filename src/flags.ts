@@ -19,6 +19,7 @@ class Flags implements MoveFlags {
     static readonly IN_CHECK = 512 // The player in turn is in check
     static readonly PINNED = 1024 // The proposed move would expose the king to attack
     static readonly MOVE_BLOCKED = 2048 // This move is blocked by another piece
+    static readonly MOVE_ILLEGAL = 4096 // Move is illegal for some other reason
     static readonly DISPLAY = {
         [ Flags.NORMAL         ]: 'n',
         [ Flags.CAPTURE        ]: 'c',

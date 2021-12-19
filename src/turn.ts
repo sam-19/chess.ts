@@ -1,26 +1,28 @@
+import Annotation from './annotation'
 import Board from './board'
 import Color from './color'
 import Flags from './flags'
-import { ChessTurn, TurnMeta } from '../types/turn'
-import { ChessMove } from '../types/move'
+import Move from './move'
+import { ChessTurn, TurnMeta, TurnProperties } from '../types/turn'
+import { PlayerColor } from '../types/color'
 
 class Turn implements ChessTurn {
     // Instance properties
+    annotations: Annotation[]
     id: string
     fen: string
-    move: ChessMove
+    move: Move
     castlingRights: { [color: string]: Flags }
     kingPos: { [color: string]: number | null }
-    turn: typeof Color.WHITE | typeof Color.BLACK
+    turn: PlayerColor
     enPassantSqr: number | null
-    moveNum: number
+    turnNum: number
     halfMoveCount: number
     plyNum: number
     meta: TurnMeta
-    turnAnnotations: string[]
     variations: Board[]
 
-    constructor (options: ChessTurn) {
+    constructor (options: TurnProperties) {
         this.id = options.id
         this.fen = options.fen,
         this.move = options.move  // Move object
@@ -34,18 +36,18 @@ class Turn implements ChessTurn {
         }
         this.turn = options.turn
         this.enPassantSqr = options.enPassantSqr
-        this.moveNum = options.moveNum
+        this.turnNum = options.turnNum
         this.halfMoveCount = options.halfMoveCount
         this.plyNum = options.plyNum
         this.meta = options.meta // Includes moveTime, comments, and puzzleSolution
-        this.turnAnnotations = []
-        this.variations = []
+        this.annotations = options.annotations || []
+        this.variations = options.variations || []
     }
-    // Give a string representation of this move
+
     toString () {
         return this.move.algebraic || ''
     }
-    // Alias for toString for log output
+
     inspect () {
         return this.toString()
     }

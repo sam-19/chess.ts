@@ -1,8 +1,8 @@
 {
-  "name": "chess-ts",
+  "name": "chess.ts",
   "version": "0.1.0",
   "repository": "https://github.com/sam-19/chess.ts.git",
-  "license": "GPL-3.0",
+  "license": "MIT",
   "scripts": {
     "build": "node node_modules/webpack/bin/webpack.js --progress --mode=production --config webpack.config.js",
     "test": "jest --coverage --verbose"

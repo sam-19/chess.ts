@@ -1,8 +1,9 @@
 
 interface PieceColor {
-    BLACK: 'b'
-    WHITE: 'w'
-    NONE: '~'
+    BLACK: PlayerColor
+    WHITE: PlayerColor
 }
 
-export { PieceColor }
+type PlayerColor = 'b' | 'w'
+
+export { PieceColor, PlayerColor }

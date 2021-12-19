@@ -1,4 +1,3 @@
-import Annotation from './annotation'
 import Color from './color'
 import Fen from './fen'
 import Flags from './flags'
@@ -11,374 +10,858 @@ import Piece from './piece'
 
 import { ChessBoard } from '../types/board'
 import { MethodOptions } from '../types/options'
+import { PlayerColor } from '../types/color'
+import Annotation from './annotation'
+import { MoveError } from '../types/move'
 
+/**
+ * The board object keeps track of game state and history in this particular line
+ * of moves. Variations and continuations branch off new boards that inherit their
+ * parent's state and history, building on top of it.
+ */
 class Board implements ChessBoard {
-    // Instance properties
-    id: number
-    game: Game
-    parentBoard: Board | null
-    parentBranchTurnIndex: number | null
-    turn: typeof Color.WHITE | typeof Color.BLACK
-    enPassantSqr: number | null
-    moveNum: number
-    plyNum: number
-    halfMoveCount: number
+    // Static properties
+    // From original Chess.js
+    static readonly SQUARE_INDICES = {
+        a8:   0, b8:   1, c8:   2, d8:   3, e8:   4, f8:   5, g8:   6, h8:   7,
+        a7:  16, b7:  17, c7:  18, d7:  19, e7:  20, f7:  21, g7:  22, h7:  23,
+        a6:  32, b6:  33, c6:  34, d6:  35, e6:  36, f6:  37, g6:  38, h6:  39,
+        a5:  48, b5:  49, c5:  50, d5:  51, e5:  52, f5:  53, g5:  54, h5:  55,
+        a4:  64, b4:  65, c4:  66, d4:  67, e4:  68, f4:  69, g4:  70, h4:  71,
+        a3:  80, b3:  81, c3:  82, d3:  83, e3:  84, f3:  85, g3:  86, h3:  87,
+        a2:  96, b2:  97, c2:  98, d2:  99, e2: 100, f2: 101, g2: 102, h2: 103,
+        a1: 112, b1: 113, c1: 114, d1: 115, e1: 116, f1: 117, g1: 118, h1: 119
+    }
+    static readonly SQUARE_NAMES = {
+        0:  'a8',   1: 'b8',   2: 'c8',   3: 'd8',   4: 'e8',   5: 'f8',   6: 'g8',   7: 'h8',
+        16:  'a7',  17: 'b7',  18: 'c7',  19: 'd7',  20: 'e7',  21: 'f7',  22: 'g7',  23: 'h7',
+        32:  'a6',  33: 'b6',  34: 'c6',  35: 'd6',  36: 'e6',  37: 'f6',  38: 'g6',  39: 'h6',
+        48:  'a5',  49: 'b5',  50: 'c5',  51: 'd5',  52: 'e5',  53: 'f5',  54: 'g5',  55: 'h5',
+        64:  'a4',  65: 'b4',  66: 'c4',  67: 'd4',  68: 'e4',  69: 'f4',  70: 'g4',  71: 'h4',
+        80:  'a3',  81: 'b3',  82: 'c3',  83: 'd3',  84: 'e3',  85: 'f3',  86: 'g3',  87: 'h3',
+        96:  'a2',  97: 'b2',  98: 'c2',  99: 'd2', 100: 'e2', 101: 'f2', 102: 'g2', 103: 'h2',
+        112:  'a1', 113: 'b1', 114: 'c1', 115: 'd1', 116: 'e1', 117: 'f1', 118: 'g1', 119: 'h1'
+    }
+
     castlingRights: { [color: string]: Flags }
-    // King position can be null in analysis mode (before kings are set on the board)
-    kingPos: { [color: string]: number | null }
-    history: Turn[]
-    selectedTurnIndex: number
-    squares: Piece[]
-    posCount: Map<string, number>
     continuation: boolean
-    /** Cache possible moves, so it doesn't have to be calculated multiple times per turn */
-    moveCache= {
+    enPassantSqr: number | null
+    game: Game
+    halfMoveCount: number
+    history: Turn[]
+    id: number
+    kingPos: { [color: string]: number | null }
+    moveCache = {
         includeFen: false,
         includeSan: false,
         moves: [] as Move[]
     }
+    parentBoard: Board | null
+    parentBranchTurnIndex: number | null
+    plyNum: number
+    posCount: Map<string, number>
+    selectedTurnIndex: number
+    squares: Piece[]
+    turn: PlayerColor
+    turnNum: number
 
-    constructor(game: Game) {
-        this.id = game.boardVars.length
-        this.game = game
-        this.parentBoard = null
-        this.parentBranchTurnIndex = null
-        this.turn = Color.WHITE
-        this.enPassantSqr = null
-        this.moveNum = 1
-        this.plyNum = 0
-        this.halfMoveCount = 0 // For tracking 50/75 move rule
-        // Create a 0x88 board presentation and populate it with NONE pieces
-        this.squares = Array.apply(null, new Array(128)).map(() => (Piece.NONE))
-        // Castling rights
+    /**
+     * Create an empty board history for the given game.
+     * @param game parent game
+     * @param fen optional FEN string desdribing the board starting state
+     */
+    constructor (game: Game, fen?: string) {
+        // Start with full castling rights for both players
         this.castlingRights = {
             [Color.WHITE]: new Flags([Flags.KSIDE_CASTLING, Flags.QSIDE_CASTLING]),
             [Color.BLACK]: new Flags([Flags.KSIDE_CASTLING, Flags.QSIDE_CASTLING])
         }
-        // Position of king (as a 0x88 index)
+        this.continuation = false
+        this.enPassantSqr = null
+        this.game = game
+        this.halfMoveCount = 0
+        this.history = []
+        this.id = game.variations.length
         this.kingPos = {
             [Color.WHITE]: null,
             [Color.BLACK]: null
         }
-        this.history = [] // Turn history
+        this.moveCache = {
+            includeFen: false,
+            includeSan: false,
+            moves: [] as Move[]
+        }
+        this.parentBoard = null
+        this.parentBranchTurnIndex = null
+        this.plyNum = 0
+        this.posCount = new Map()
         this.selectedTurnIndex = -1 // -1 means no move is selected; selecting next move returns the first move
-        this.posCount = new Map() // Used to track unique positions for three fold repetition rule
-        this.continuation = false
+        // Create a 0x88 board presentation and populate it with NONE pieces
+        this.squares = (new Array(128)).fill(Piece.NONE)
+        this.turn = Color.WHITE
+        this.turnNum = 1
+        if (fen) {
+            this.loadFen(fen)
+        }
         // Add this board to parent game's board variations
-        game.boardVars.push(this)
+        game.variations.push(this)
     }
+
     /**
-     * Make a copy of another Board
+     * Branch a new board variation from a parent board, returning it. The new variation
+     * is automatically added to the game's list of board variations.
+     * @param parent Board to base the new variations on
+     * @param options MethodOptions.Board.createFromParent
+     * @return new board variation
+     */
+    static branchFromParent (parent: Board, options: any = {}) {
+        options = Options.Board.branchFromParent().assign(options) as MethodOptions.Board.branchFromParent
+        let newBoard = Board.copy(parent)
+        if (!options.continuation) {
+            newBoard.undoMoves({ move: parent.selectedTurnIndex })
+        }
+        newBoard.continuation = options.continuation
+        // Reset history
+        newBoard.history = []
+        newBoard.parentBoard = parent
+        newBoard.parentBranchTurnIndex = parent.selectedTurnIndex
+        newBoard.selectedTurnIndex = -1
+        return newBoard
+    }
+
+    /**
+     * Make a copy of another Board.
      * @param orig
      * @return copy
      */
-    static copyFrom (orig: Board) {
-        let newBoard = Object.create(Board.prototype)
-        newBoard.id = orig.game.boardVars.length
-        newBoard.game = orig.game
-        newBoard.parentBoard = orig.parentBoard
-        newBoard.parentBranchTurnIndex = orig.parentBranchTurnIndex
-        newBoard.turn = orig.turn
-        newBoard.enPassantSqr = orig.enPassantSqr
-        newBoard.moveNum = orig.moveNum
-        newBoard.plyNum = orig.plyNum
-        newBoard.halfMoveCount = orig.halfMoveCount
-        newBoard.squares = orig.squares.slice(0) // Can't copy mutable array directly
+    static copy (orig: Board) {
+        let newBoard = new Board(orig.game)
+        // Override default properties
         newBoard.castlingRights = {
             [Color.WHITE]: orig.castlingRights[Color.WHITE].copy(),
             [Color.BLACK]: orig.castlingRights[Color.BLACK].copy()
         }
+        newBoard.continuation = orig.continuation
+        newBoard.enPassantSqr = orig.enPassantSqr
+        newBoard.halfMoveCount = orig.halfMoveCount
+        newBoard.history = [...orig.history]
+        newBoard.id = orig.game.variations.length
         newBoard.kingPos = {
             [Color.WHITE]: orig.kingPos[Color.WHITE],
             [Color.BLACK]: orig.kingPos[Color.BLACK]
         }
-        newBoard.history = orig.history.slice(0)
-        newBoard.selectedTurnIndex = orig.selectedTurnIndex
-        newBoard.posCount = new Map(orig.posCount)
         newBoard.moveCache = {
             includeFen: orig.moveCache.includeFen,
             includeSan: orig.moveCache.includeSan,
             moves: orig.moveCache.moves.slice(0)
         }
-        orig.game.boardVars.push(newBoard)
+        newBoard.parentBoard = orig.parentBoard
+        newBoard.parentBranchTurnIndex = orig.parentBranchTurnIndex
+        newBoard.plyNum = orig.plyNum
+        newBoard.posCount = new Map(orig.posCount)
+        newBoard.selectedTurnIndex = orig.selectedTurnIndex
+        newBoard.squares = [...orig.squares]
+        newBoard.turn = orig.turn
+        newBoard.turnNum = orig.turnNum
+        // Add this board to game boards
+        orig.game.variations.push(newBoard)
         return newBoard
     }
-    /**
-     * Create a new variation by branching a parent variation, returning it. The new variation
-     * is automatically added to give game's list of board variations.
-     * @param parent Board to base the new variations on
-     * @param options MethodOptions.Board.createFromParent
-     * @return new board variation
-     */
-    static createFromParent (parent: Board, options: any = {}) {
-        options = Options.Board.createFromParent().assign(options) as MethodOptions.Board.createFromParent
-        let newBoard = Board.copyFrom(parent)
-        if (!options.continuation) {
-            newBoard.undoMoves({ move: parent.selectedTurnIndex })
-        }
-        newBoard.parentBoard = parent
-        newBoard.parentBranchTurnIndex = parent.selectedTurnIndex
-        newBoard.continuation = options.continuation
-        // Start with fresh history
-        newBoard.selectedTurnIndex = -1
-        newBoard.history = []
-        newBoard.turnAnnotations = []
-        return newBoard
-    }
-    /**
-     * Create a new board state from FEN and return it
-     * @param game game the new board belongs to
-     * @param fen FEN string
-     * @return new board
-     */
-    static createFromFen(game: Game, fen: string) {
-        let newBoard = new Board(game)
-        if (newBoard.loadFen(fen)) {
-            return newBoard
-        } else {
-            return false
-        }
-    }
-    /**
-     * Load board state from given FEN, overwriting current state
-     * @param fen FEN string
-     * @return true on success, false on failure
-     */
-    loadFen (fen: string) {
-        // Check that given FEN is valid
-        const gameFen = new Fen(fen)
-        let fenError = gameFen.validate()
-        if (fenError.errorCode) {
-            Log.error(`Cannot create variation from FEN: ${fenError.errorMessage} (${fen}).`)
-            return false
-        }
-        const tokens = fen.split(/\s+/)
-        const pos = tokens[0]
-        let sqr = 0
-        // Assing pieces
-        for (let i = 0; i < pos.length; i++) {
-            const sym = pos.charAt(i)
-            if (sym === '/') {
-                sqr += 8
-            } else if ('0123456789'.indexOf(sym) !== -1) {
-                sqr += parseInt(sym, 10)
-            } else {
-                this.put(Piece.forSymbol(sym), sqr)
-                sqr++
-            }
-        }
-        this.turn = tokens[1] as typeof Color.WHITE | typeof Color.BLACK
-        this.castlingRights[Color.WHITE] = new Flags()
-        this.castlingRights[Color.BLACK] = new Flags()
-        // Check for remaining castling rights
-        if (tokens[2].indexOf('K') > -1) {
-            this.castlingRights[Color.WHITE].add(Flags.KSIDE_CASTLING)
-        }
-        if (tokens[2].indexOf('Q') > -1) {
-            this.castlingRights[Color.WHITE].add(Flags.QSIDE_CASTLING)
-        }
-        if (tokens[2].indexOf('k') > -1) {
-            this.castlingRights[Color.BLACK].add(Flags.KSIDE_CASTLING)
-        }
-        if (tokens[2].indexOf('q') > -1) {
-            this.castlingRights[Color.BLACK].add(Flags.QSIDE_CASTLING)
-        }
-        this.enPassantSqr = (tokens[3] === '-') ? null
-                            : Move.SQUARE_INDICES[tokens[3] as keyof typeof Move.SQUARE_INDICES]
-        this.halfMoveCount = parseInt(tokens[4], 10)
-        this.moveNum = parseInt(tokens[5], 10)
-        this.plyNum = (this.moveNum - 1)*2 + (this.turn === Color.BLACK ? 1 : 0)
-        this.posCount.set(this.toFen({ meta: false }), 1)
-        return true
-    }
-    /**
-     * Get the piece occupying the square
-     * @param square 0x88 square index or square key (a1, a1,... h7, h8)
-     * @return piece at square
-     */
-    pieceAt (square: number | string): Piece {
-        // Seperate check for algebraic and 0x88 index lookups
-        // It feels kind of silly to look up pieces by 0x88, as they are stored in this object anyway,
-        // but at least this method contains an error check
-        if (typeof square === 'number') {
-            if (!(square in Move.SQUARE_NAMES)) {
-                Log.error(`Cannot return piece at ${square}: Value is not a valid 0x88 board square.`)
-                return Piece.NONE
-            }
-            return this.squares[square]
-        } else {
-            if (!(square in Move.SQUARE_INDICES)) {
-                Log.error(`Cannot return piece at ${square}: Value is not a valid algebraic representation of a square.`)
-                return Piece.NONE
-            }
-            return this.squares[Move.SQUARE_INDICES[square as keyof typeof Move.SQUARE_INDICES]]
-        }
-    }
-    /**
-     * Put a piece on the given square
-     * @param piece
-     * @param square 0x88 square index
-     */
-    put (piece: Piece, square: number) {
-        // Check that piece and square are valid
-        if (!(piece.symbol in Piece.PIECES) || !(square in Move.SQUARE_NAMES)) {
-            Log.error(`Cannot put piece to requested square: One of the values is invalid (${piece}, ${square}).`)
-            return false
-        }
-        // Each player may have only one king on the board
-        if (piece.type === Piece.TYPE_KING && this.kingPos[piece.color] !== null) {
-            Log.error("Cannot have more than one king per side.")
-            return false
-        }
-        // Check if there is a piece already in the square and return it
-        const prevPiece = this.pieceAt(square)
-        // Place the piece and save possible king position
-        this.squares[square] = piece
-        if (piece.type === Piece.TYPE_KING) {
-            this.kingPos[piece.color] = square
-        }
-        return prevPiece
-    }
-    /**
-     * Remove the piece occupying given square; returns removed piece
-     * @param square 0x88 square index
-     * @return removed piece, false on error
-     */
-    remove (square: number) {
-        // Check that square is valid
-        if (!Move.isValidIndex(square)) {
-            Log.error(`Cannot remove piece from ${square}: Value is not a valid square index.`)
-            return false
-        }
-        const piece = this.pieceAt(square)
-        if (piece === Piece.NONE) {
-            Log.info(`Could not remove piece from ${Move.SQUARE_NAMES[square as keyof typeof Move.SQUARE_NAMES]}: The square was already vacant.`)
-        } else if (piece.type === Piece.TYPE_KING) {
-            this.kingPos[piece.color] = null
-        }
-        // Assign empty square
-        this.squares[square] = Piece.NONE
-        return piece
-    }
-    /**
-     * Return a list of captured pieces for given color
-     * @param color Color.WHITE or Color.BLACK
-     */
-    getCapturedPieces (color: string) {
-        let pieceList = []
-        for (let i=0; i<this.history.length; i++) {
-            if (this.history[i].move.capturedPiece?.type !== Piece.TYPE_NONE && this.history[i].move.capturedPiece?.color === color) {
-                pieceList.push(this.history[i].move.capturedPiece?.type)
-            }
-        }
-        // Custom sorting of captured pieces, in the order Queen > Rook > Bishop > Knight > Pawn
-        pieceList.sort(function(a, b) {
-            if (a === b) {
-                return 0
-            } else if (a === Piece.TYPE_QUEEN) {
-                return -1
-            } else if (a === Piece.TYPE_ROOK && b !== Piece.TYPE_QUEEN) {
-                return -1
-            } else if (a === Piece.TYPE_BISHOP && b !== Piece.TYPE_QUEEN && b !== Piece.TYPE_ROOK) {
-                return -1
-            } else if (a === Piece.TYPE_KNIGHT && b === Piece.TYPE_PAWN) {
-                return -1
-            } else {
-                return 1
-            }
-        })
-        return pieceList
-    }
+
     /**
      * Get file index of a 0x88 position index
      * @param p position index
      * @return 0-7
      */
-    static file (p: number) {
+    static fileOf (p: number) {
         return p & 15
     }
+
+    /**
+     * Check if the given square index is a valid 0x88 position.
+     * @param index square index
+     * @returns true/false
+     */
+    static isValidSquareIndex (index: number) {
+        return (index in Board.SQUARE_NAMES)
+    }
+
+    /**
+     * Check if the given string is a valid algebraic square name.
+     * @param index square index
+     * @returns true/false
+     */
+    static isValidSquareName (name: string) {
+        return (name in Board.SQUARE_INDICES)
+    }
+
     /***
      * Get rank index of a 0x88 position index
      * @param p position index
      * @return 0-7
      */
-    static rank (p: number) {
+    static rankOf (p: number) {
         return p >> 4
     }
+
+    static squareIndex (square: number | string): number {
+        // Seperate check for algebraic and 0x88 index lookups
+        if (typeof square === 'number') {
+            if (!Board.isValidSquareIndex(square)) {
+                Log.error(`Cannot convert ${square} to board square index: Value is not a valid 0x88 board square.`)
+                return -1
+            }
+            return square
+        } else {
+            if (!Board.isValidSquareName(square)) {
+                Log.error(`Cannot convert ${square} to board square index: Value is not a valid algebraic representation of a square.`)
+                return -1
+            }
+            return Board.SQUARE_INDICES[square as keyof typeof Board.SQUARE_INDICES]
+        }
+    }
+
     /**
-     * Get algebraic representation of a 0x88 position index
-     * @param p position index
+     * Get algebraic representation of a 0x88 square index.
+     * @param square position index
      */
-    static toAlgebraic (p: number) {
-        if (!Move.isValidIndex(p)) {
+     static squareToAlgebraic (square: number) {
+        if (!Board.isValidSquareIndex(square)) {
             return null
         }
-        return Move.SQUARE_NAMES[p as keyof typeof Move.SQUARE_NAMES]
+        return Board.SQUARE_NAMES[square as keyof typeof Board.SQUARE_NAMES]
     }
+
     /**
-     * Get a FEN string representing current board state
-     * @param options MethodOptions.Board.toFen
+     * ======================================================================
+     *                             GETTERS
+     * ======================================================================
      */
-    toFen (opts: MethodOptions.Board.toFen = {}) {
-        const options = Options.Board.toFen().assign(opts) as MethodOptions.Board.toFen
-        let empty = 0
-        let fen = ""
-        // Loop through all the squares
-        for (let i=Move.SQUARE_INDICES.a8; i<=Move.SQUARE_INDICES.h1; i++) {
-            if (this.squares[i] === Piece.NONE) {
-                empty++
-            } else {
-                if (empty) {
-                    // Add empty square count to FEN
-                    fen += empty
-                    empty = 0
-                }
-                fen += this.squares[i]
+
+    get breaks50MoveRule () {
+        return (this.halfMoveCount >= 100)
+    }
+
+    get breaks75MoveRule () {
+        return (this.halfMoveCount >= 150)
+    }
+
+    get hasInsufficientMaterial () {
+        const pieceCount = {} as { [key: string]: number}
+        const bishops = []
+        let totalPieces = 0
+        let sqrType = 0 // For checking which type of square a bishop is on
+        for (let i=Board.SQUARE_INDICES.a8; i<=Board.SQUARE_INDICES.h1; i++) {
+            if (i & 0x88) {
+                i += 7
+                continue // Outside the "physical" board
             }
-            if ((i + 1) & 0x88) {
-                // New rank
-                if (empty) {
-                    fen += empty
+            sqrType = (sqrType + 1)%2
+            const piece = this.squares[i]
+            // Piece.NONE is a special case and its type has to be fetched directly
+            if (piece.type !== Piece.NONE.type) {
+                pieceCount[piece.type] = ((piece.type in pieceCount) ? pieceCount[piece.type] + 1 : 1)
+                if (piece.type === Piece.TYPE_BISHOP) {
+                    bishops.push(sqrType)
                 }
-                // Print slash if this is not the last rank
-                if (i !== Move.SQUARE_INDICES.h1) {
-                    fen += "/"
-                }
-                empty = 0
-                i += 8
+                totalPieces++
             }
         }
-        // Return board position if metainfo is not requested
-        if (!options.meta) {
-            return fen
+        // Without a question, the game has insufficient material for checkmate if:
+        // - both sides have only a king
+        // - one side has only a king and one has king + knight/bishop
+        // - the board has only bishops (of either color) on same square type in addition to kings
+        if (totalPieces === 2) {
+            return true // Each side has only king remaining
+        } else if (totalPieces === 3 && (pieceCount[Piece.TYPE_BISHOP] === 1 || pieceCount[Piece.TYPE_KNIGHT] === 1)) {
+            return true // One side has king and the other king and bishop/knight
+        } else if (totalPieces === pieceCount[Piece.TYPE_BISHOP] + 2) {
+            let bSum = bishops.reduce((a, b) => a + b, 0)
+            return (bSum === 0 || bSum === bishops.length)
         } else {
-            fen += " " + this.turn
+            return false
         }
-        // Check castling rights
-        let cr = ""
-        if (this.castlingRights[Color.WHITE].contains(Flags.KSIDE_CASTLING)) cr += 'K'
-        if (this.castlingRights[Color.WHITE].contains(Flags.QSIDE_CASTLING)) cr += 'Q'
-        if (this.castlingRights[Color.BLACK].contains(Flags.KSIDE_CASTLING)) cr += 'k'
-        if (this.castlingRights[Color.BLACK].contains(Flags.QSIDE_CASTLING)) cr += 'q'
-        // Add castling flags or - if no castling rights remain
-        fen += " " + (cr ? cr : "-")
-        // Add enpassant square or - if none exist
-        fen += " " + (this.enPassantSqr !== null ? Board.toAlgebraic(this.enPassantSqr) : "-")
-        // Add half move and move counters
-        fen += " " + this.halfMoveCount + " " + this.moveNum
-        return fen
     }
 
-    /*
-    =========================
-    MOVE METHODS
-    =========================
-    */
+    get hasRepeatedFivefold () {
+        return Array.from(this.posCount.values()).some(count => count >= 5)
+    }
+
+    get hasRepeatedThreefold () {
+        return Array.from(this.posCount.values()).some(count => count >= 3)
+    }
+
+    get isDraw () {
+        // By official over-the-board rules, half move limit is 100 if a player notices it, or 150 automatically
+        return (
+            this.isInStalemate || this.hasInsufficientMaterial ||
+            this.breaks75MoveRule || this.hasRepeatedFivefold ||
+            (this.game.useStrictRules && this.hasRepeatedThreefold) ||
+            (this.game.useStrictRules && this.breaks50MoveRule)
+        )
+    }
+
+    get isFinished () {
+        if (this.isInCheckmate) {
+            if (this.turn === Color.BLACK) {
+                return {
+                    result: {
+                        [Color.WHITE]: Game.RESULT.WIN_BY.CHECKMATE,
+                        [Color.BLACK]: Game.RESULT.LOSS_BY.CHECKMATE,
+                    },
+                    headers: '1-0',
+                }
+            } else {
+                return {
+                    result: {
+                        [Color.WHITE]: Game.RESULT.LOSS_BY.CHECKMATE,
+                        [Color.BLACK]: Game.RESULT.WIN_BY.CHECKMATE,
+                    },
+                    headers: '0-1',
+                }
+            }
+        } else if (this.isInStalemate) {
+            return {
+                result: {
+                    [Color.WHITE]: Game.RESULT.DRAW_BY.STALEMATE,
+                    [Color.BLACK]: Game.RESULT.DRAW_BY.STALEMATE,
+                },
+                headers: '1/2-1/2',
+            }
+        } else if (this.breaks75MoveRule) {
+            return {
+                result: {
+                    [Color.WHITE]: Game.RESULT.DRAW_BY.SEVENTYFIVE_MOVE_RULE,
+                    [Color.BLACK]: Game.RESULT.DRAW_BY.SEVENTYFIVE_MOVE_RULE,
+                },
+                headers: '1/2-1/2',
+            }
+        } else if (this.game.useStrictRules && this.breaks50MoveRule) {
+            return {
+                result: {
+                    [Color.WHITE]: Game.RESULT.DRAW_BY.FIFTY_MOVE_RULE,
+                    [Color.BLACK]: Game.RESULT.DRAW_BY.FIFTY_MOVE_RULE,
+                },
+                headers: '1/2-1/2',
+            }
+        } else if (this.hasRepeatedFivefold) {
+            return {
+                result: {
+                    [Color.WHITE]: Game.RESULT.DRAW_BY.FIVEFOLD_REPETITION,
+                    [Color.BLACK]: Game.RESULT.DRAW_BY.FIVEFOLD_REPETITION,
+                },
+                headers: '1/2-1/2',
+            }
+        } else if (this.game.useStrictRules && this.hasRepeatedThreefold) {
+            return {
+                result: {
+                    [Color.WHITE]: Game.RESULT.DRAW_BY.THREEFOLD_REPETITION,
+                    [Color.BLACK]: Game.RESULT.DRAW_BY.THREEFOLD_REPETITION,
+                },
+                headers: '1/2-1/2',
+            }
+        }
+        return false
+    }
+
+    get isInCheck () {
+        return this.isAttacked(
+            Color.swap(this.turn), this.kingPos[this.turn]
+        ) as boolean
+    }
+
+    get isInCheckmate () {
+        return (this.isInCheck && this.generateMoves().length === 0)
+    }
+
+    get isInStalemate () {
+        return (!this.isInCheck && this.generateMoves().length === 0)
+    }
+
+    get selectedTurn () {
+        return this.history[this.selectedTurnIndex]
+    }
+
+    get turnIndexPosition () {
+        return [this.selectedTurnIndex, this.history.length]
+    }
 
     /**
-     * Get a simple list of possible moves in current board state
-     * @param opts { notation, onlyDestinations, includeFen, onlyForSquare, filter }
+     * ======================================================================
+     *                             METHODS
+     * ======================================================================
      */
+
+    commitMove (move: Move, updatePosCount = true) {
+        // Determine active and passive player
+        const active = this.turn
+        const passive = (active === Color.WHITE ? Color.BLACK : Color.WHITE)
+        let removedPiece = Piece.NONE
+        // Move the piece to destination square and clear origin square
+        this.squares[move.dest as number] = this.squares[move.orig as number]
+        this.squares[move.orig as number] = Piece.NONE
+        // Remove a pawn captured en passant
+        if (move.flags.contains(Flags.EN_PASSANT)) {
+            if (active === Color.WHITE) {
+                // The captured pawn is one rank below destination square
+                removedPiece = this.removePiece(move.dest as number + 16) as Piece
+            } else {
+                // The captured pawn is one rank above destination square
+                removedPiece = this.removePiece(move.dest as number - 16) as Piece
+            }
+        } else if (move.flags.contains(Flags.PROMOTION)) {
+            // Replace pawn with promotion piece
+            removedPiece = this.placePiece(move.promotionPiece as Piece, move.dest as number) as Piece
+        }
+        // Handle special king moves
+        if (move.movedPiece.type === Piece.TYPE_KING) {
+            this.kingPos[active] = move.dest
+            // Handle rook moves when castling
+            if (move.flags.contains(Flags.KSIDE_CASTLING)) {
+                this.squares[move.dest as number - 1] = this.squares[move.dest as number + 1]
+                this.squares[move.dest as number + 1] = Piece.NONE
+            } else if (move.flags.contains(Flags.QSIDE_CASTLING)) {
+                this.squares[move.dest as number + 1] = this.squares[move.dest as number - 2]
+                this.squares[move.dest as number - 2] = Piece.NONE
+            }
+            // This player can no longer castle
+            this.castlingRights[active].clear()
+        }
+        // Remove castling rights if rook is moved
+        if (this.castlingRights[active].length) {
+            if (active === Color.WHITE) {
+                if (move.orig === Board.SQUARE_INDICES.a1) {
+                    this.castlingRights[active].remove(Flags.QSIDE_CASTLING, true) // Do a silent remove
+                } else if (move.orig === Board.SQUARE_INDICES.h1) {
+                    this.castlingRights[active].remove(Flags.KSIDE_CASTLING, true)
+                }
+            } else {
+                if (move.orig === Board.SQUARE_INDICES.a8) {
+                    this.castlingRights[active].remove(Flags.QSIDE_CASTLING, true)
+                } else if (move.orig === Board.SQUARE_INDICES.h8) {
+                    this.castlingRights[active].remove(Flags.KSIDE_CASTLING, true)
+                }
+            }
+        }
+        // Remove castling rights if rook is captured
+        if (this.castlingRights[passive].length) {
+            if (passive === Color.WHITE) {
+                if (move.dest === Board.SQUARE_INDICES.a1) {
+                    this.castlingRights[active].remove(Flags.QSIDE_CASTLING, true)
+                } else if (move.dest === Board.SQUARE_INDICES.h1) {
+                    this.castlingRights[active].remove(Flags.KSIDE_CASTLING, true)
+                }
+            } else {
+                if (move.dest === Board.SQUARE_INDICES.a8) {
+                    this.castlingRights[active].remove(Flags.QSIDE_CASTLING, true)
+                } else if (move.dest === Board.SQUARE_INDICES.h8) {
+                    this.castlingRights[active].remove(Flags.KSIDE_CASTLING, true)
+                }
+            }
+        }
+        // Record en passant if pawn makes double advance
+        if (move.flags.contains(Flags.DOUBLE_ADV)) {
+            if (active === Color.WHITE) {
+                this.enPassantSqr = move.dest + Move.DOWN // En passant square is one rank below the pawn
+            } else {
+                this.enPassantSqr = move.dest + Move.UP // En passant square is one rank above the pawn
+            }
+        } else {
+            this.enPassantSqr = null
+        }
+        // Reset half move counter and three fold repetition counter if a pawn moves or capture takes place
+        if (move.movedPiece.type === Piece.TYPE_PAWN
+            || move.flags.contains(Flags.CAPTURE)
+            || move.flags.contains(Flags.EN_PASSANT)
+        ) {
+            this.halfMoveCount = 0
+            if (updatePosCount) {
+                this.posCount = new Map()
+            }
+        } else {
+            this.halfMoveCount++
+            if (updatePosCount) {
+                const fen  = this.toFen({ meta: false })
+                if (this.posCount.has(fen)) {
+                    this.posCount.set(fen, this.posCount.get(fen) || 0 + 1)
+                } else {
+                    this.posCount.set(fen, 1)
+                }
+            }
+        }
+        // Prepare the state for next move
+        this.plyNum++
+        this.turnNum = Math.floor(this.plyNum/2) + 1
+        this.turn = Color.swap(this.turn) as PlayerColor
+        this.resetMoveCache()
+        return removedPiece
+    }
+
+    commitUndoMoves (moves: Turn[]) {
+        // Revert board state to match the first move on the list
+        this.castlingRights = {
+            [Color.WHITE]: moves[0].castlingRights[Color.WHITE].copy(),
+            [Color.BLACK]: moves[0].castlingRights[Color.BLACK].copy()
+        }
+        this.kingPos = {
+            [Color.WHITE]: moves[0].kingPos[Color.WHITE],
+            [Color.BLACK]: moves[0].kingPos[Color.BLACK]
+        }
+        this.turn = moves[0].turn
+        this.enPassantSqr = moves[0].enPassantSqr
+        this.turnNum = moves[0].turnNum
+        this.plyNum = moves[0].plyNum
+        this.halfMoveCount = moves[0].halfMoveCount
+        // Reverse the moves to start from the last
+        moves.reverse()
+        // Undo the moves in turn history
+        for (let i=0; i<moves.length; i++) {
+            const active = this.turn
+            const move = moves[i].move
+            // Undo capture and en passant
+            if (move.flags.contains(Flags.CAPTURE)) {
+                this.squares[move.dest as number] = move.capturedPiece as Piece
+            }
+            else if (move.flags.contains(Flags.EN_PASSANT)) {
+                if (active === Color.WHITE) {
+                    this.squares[move.dest + Move.DOWN] = move.capturedPiece as Piece // Must be pawn
+                } else {
+                    this.squares[move.dest + Move.UP] = move.capturedPiece as Piece
+                }
+            } else {
+                this.squares[move.dest as number] = Piece.NONE
+            }
+            // Undo castling
+            if (move.flags.contains(Flags.KSIDE_CASTLING)) {
+                this.squares[move.dest as number + 1] = this.squares[move.dest as number - 1]
+                this.squares[move.dest as number - 1] = Piece.NONE
+            } else if (move.flags.contains(Flags.QSIDE_CASTLING)) {
+                this.squares[move.dest as number - 2] = this.squares[move.dest as number + 1]
+                this.squares[move.dest as number + 1] = Piece.NONE
+            }
+            this.squares[move.orig as number] = move.movedPiece as Piece
+            this.resetMoveCache()
+        }
+    }
+
+    disambiguateMove (move: Move) {
+        // Always add a file identifier to pawn captures
+        if (move.movedPiece?.type === Piece.TYPE_PAWN) {
+            if (move.flags?.contains(Flags.CAPTURE) || move.flags?.contains(Flags.EN_PASSANT)) {
+                return Board.squareToAlgebraic(move.orig)?.charAt(0) || ""
+            } else {
+                return ""
+            }
+        }
+        const moves = this.generateMoves()
+        let ambiguities = false
+        let sameRank = false
+        let sameFile = false
+        for (let i=0; i<moves.length; i++) {
+            // Check if a move by another piece of the same type ends on the same square
+            // No point in doing more checks if we have determined that some other moves originate
+            // from both the same rank and file
+            if (move.movedPiece === moves[i].movedPiece
+                && move.orig !== moves[i].orig && move.dest === moves[i].dest
+                && (!sameRank || !sameFile))
+            {
+                ambiguities = true
+                if (!sameRank && Board.rankOf(move.orig) === Board.rankOf(moves[i].orig)) {
+                    sameRank = true
+                }
+                if (!sameFile && Board.fileOf(move.orig) === Board.fileOf(moves[i].orig)) {
+                    sameFile = true
+                }
+            }
+        }
+        // Construct the prefix
+        if (ambiguities) {
+            if (sameFile && sameRank) {
+                return Board.squareToAlgebraic(move.orig) || ""
+            } else if (sameFile) { // Need only the rank number
+                return Board.squareToAlgebraic(move.orig)?.charAt(1) || ""
+            } else { // Need only the file letter
+                return Board.squareToAlgebraic(move.orig)?.charAt(0) || ""
+            }
+        }
+        return ""
+    }
+
+    generateMoves (opts: MethodOptions.Board.generateMoves = {}) {
+        const options = Options.Board.generateMoves().assign(opts) as MethodOptions.Board.generateMoves
+        // Check if there are already moves cached for this turn
+        // If SAN or FEN is requested and not included in cached moves, we have to calculate them
+        if (this.moveCache.moves.length
+            && (!options.includeSan || this.moveCache.includeSan)
+            && (!options.includeFen || this.moveCache.includeFen)
+        )  {
+            if (!options.onlyLegal) {
+                return this.moveCache.moves
+            }
+            // Else we'll check for valid moves
+            let legalMoves = []
+            for (let i=0; i<this.moveCache.moves.length; i++) {
+                if (this.moveCache.moves[i].legal)
+                    legalMoves.push(this.moveCache.moves[i])
+            }
+            return legalMoves
+        }
+        // Declare variables also used in helper function
+        const newMoves: Move[] = []
+        const active = this.turn
+        const opponent = Color.swap(active)
+        /**
+         * Helper method to add new moves to the list
+         */
+        const addMove = (orig: number, dest: number, board: Board, flags: number[] = []) => {
+            // Get the captured piece, with a special rule for en passant (on rank lower for white, one rank higher for black)
+            // Checking board.squares[] looks a bit dull, but considering how many this these methods are called
+            // there could be a considerable performance penalty in using board.pieceAt() with its error checking
+            const captPiece = (flags.indexOf(Flags.EN_PASSANT) !== -1 ? board.squares[dest + (opponent === Color.BLACK? 16 : -16)] : board.squares[dest])
+            const moveOpts = {
+                capturedPiece: captPiece,
+                dest: dest,
+                flags: flags,
+                movedPiece: board.squares[orig],
+                orig: orig,
+                promotionPiece: undefined as Piece | undefined,
+            } as MethodOptions.MoveOptions
+            // Check if a pawn has reached then last rank for promotion
+            if (board.squares[orig].type === Piece.TYPE_PAWN
+                && (Board.rankOf(dest) === 0 || Board.rankOf(dest) === 7))
+            {
+                const promoPieces = (board.turn === Color.WHITE ? Piece.WHITE_PROMO_PIECES : Piece.BLACK_PROMO_PIECES)
+                // Each possible promotion is its own move
+                promoPieces.forEach((promoPiece) => {
+                    moveOpts.promotionPiece = promoPiece
+                    const newMove = new Move(moveOpts)
+                    if (newMove.error === undefined) {
+                        newMoves.push(newMove)
+                    } else {
+                        Log.error(newMove.error)
+                    }
+                })
+            } else {
+                const newMove = new Move(moveOpts)
+                if (newMove.error === undefined) {
+                    newMoves.push(newMove)
+                } else {
+                    Log.error(newMove.error)
+                }
+            }
+        }
+        // Full square range on the 0x88 board
+        let firstSqr = Board.SQUARE_INDICES.a8
+        let lastSqr = Board.SQUARE_INDICES.h1
+        if (options.onlyForSquare !== undefined) {
+            const onlySqr = Board.squareIndex(options.onlyForSquare)
+            // Set first and last squares to the requested square
+            if (onlySqr !== -1) {
+                firstSqr = lastSqr = Board.SQUARE_INDICES[options.onlyForSquare as keyof typeof Board.SQUARE_INDICES]
+            } else {
+                return []
+            }
+        }
+        // Index of the pawn starting rank for reference
+        const pawnRank = {
+            [Color.WHITE]: 6,
+            [Color.BLACK]: 1
+        }
+        // Loop through all squares. TODO: Potential for performance improvement?
+        for (let i=firstSqr; i<=lastSqr; i++) {
+            // Check that we're still on actual board squares
+            // Bitwise checking for this is, at least in theory, considerably faster than say just checking each
+            // square for Piece.NONE (which occupies out-of-board squares in the array)
+            // https://www.chessprogramming.org/0x88
+            if (i & 0x88) {
+                // Skip to next rank
+                i += 7
+                continue
+            }
+            const piece = this.squares[i]
+            // Don't calculate moves for empty squares or opponent pieces
+            if (piece === Piece.NONE || piece.color !== active) {
+                continue
+            }
+            // Pawn moves
+            if (piece.type === Piece.TYPE_PAWN) {
+                // Single square advancement moves
+                let sqr = i + Move.PAWN_OFFSETS[active as keyof typeof Move.PAWN_OFFSETS][0]
+                if (this.squares[sqr] === Piece.NONE) {
+                    addMove(i, sqr, this, [Flags.NORMAL])
+                    // If the first square was vacant, check for double advancement
+                    sqr = i + Move.PAWN_OFFSETS[active as keyof typeof Move.PAWN_OFFSETS][1]
+                    // The move must originate from the pawn rank and destination square must be vacant
+                    if (pawnRank[active as keyof typeof pawnRank] === Board.rankOf(i)) {
+                        if (this.squares[sqr] === Piece.NONE) {
+                            addMove(i, sqr, this, [Flags.DOUBLE_ADV])
+                        } else {
+                            addMove(i, sqr, this, [Flags.MOVE_BLOCKED])
+                        }
+                    }
+                } else {
+                    // Add moves as blocked
+                    addMove(i, sqr, this, [Flags.MOVE_BLOCKED])
+                    if (pawnRank[active as keyof typeof pawnRank] === Board.rankOf(i)) {
+                        addMove(i, i + Move.PAWN_OFFSETS[active as keyof typeof Move.PAWN_OFFSETS][1], this, [Flags.MOVE_BLOCKED])
+                    }
+                }
+                // Capture moves
+                for (let j=2; j<4; j++) {
+                    sqr = i + Move.PAWN_OFFSETS[active as keyof typeof Move.PAWN_OFFSETS][j]
+                    if (sqr & 0x88) { // Dont' check out of board squares
+                        continue
+                    } else if (this.squares[sqr] !== Piece.NONE && this.squares[sqr].color === opponent) {
+                        addMove(i, sqr, this, [Flags.CAPTURE])
+                    } else if (sqr === this.enPassantSqr) { // En passant capture
+                        addMove(i, sqr, this, [Flags.EN_PASSANT])
+                    }
+                }
+            } else {
+                // Non-pawn pieces (or actual pieces)
+                for (let j=0; j<Move.PIECE_OFFSETS[piece.type as keyof typeof Move.PIECE_OFFSETS].length; j++) {
+                    const offset = Move.PIECE_OFFSETS[piece.type as keyof typeof Move.PIECE_OFFSETS][j]
+                    let sqr = i + offset
+                    let dirBlocked = false
+                    while (!(sqr & 0x88)) {
+                        // Check for squares on the "physical" board
+                        if (dirBlocked) {
+                            // Add rest of the blocked moves
+                            addMove(i, sqr, this, [Flags.MOVE_BLOCKED])
+                            sqr += offset
+                            continue
+                        }
+                        if (this.squares[sqr] === Piece.NONE) {
+                            addMove(i, sqr, this, [Flags.NORMAL])
+                        } else {
+                            if (this.squares[sqr].color !== active) {
+                                addMove(i, sqr, this, [Flags.CAPTURE])
+                            } else {
+                                addMove(i, sqr, this, [Flags.MOVE_BLOCKED])
+                            }
+                            dirBlocked = true
+                        }
+                        // Knight and king can only make one move in each direction
+                        if (piece.type === Piece.TYPE_KING || piece.type === Piece.TYPE_KNIGHT) {
+                            break
+                        }
+                        // Next square in the direction of movement
+                        sqr += offset
+                    }
+                }
+            }
+            // Castling moves are only checked if the piece is a king or we are calculating all moves
+            // Calling indexOf() is slower than doing bit-wise checking, but we don't have to iterate this too many times
+            // Possibly could move to bit-wise checking in the future, as was in aaronfi's ES6 version
+            if (i === this.kingPos[active]) {
+                // Check that castling is still possible
+                const orig = this.kingPos[active] as number
+                if (this.castlingRights[active].contains(Flags.KSIDE_CASTLING)) {
+                    const dest = orig + 2
+                    if (this.squares[orig + 1] !== Piece.NONE
+                        || this.squares[dest] !== Piece.NONE // Squares must be vacant
+                    ) {
+                        addMove(orig, dest, this, [Flags.KSIDE_CASTLING, Flags.MOVE_BLOCKED])
+                    } else if (this.isAttacked(opponent, this.kingPos[active]) // Cannot castle a king in check
+                        || !this.isAttacked(opponent, orig + 1) // Can't castle a king across an attacked square
+                        || !this.isAttacked(opponent, dest)) // Can't move king into an attacked square
+                    {
+                        addMove(orig, dest, this, [Flags.KSIDE_CASTLING, Flags.MOVE_ILLEGAL])
+                    } else {
+                        addMove(orig, dest, this, [Flags.KSIDE_CASTLING])
+                    }
+                }
+                // Same for queen side
+                if (this.castlingRights[active].contains(Flags.QSIDE_CASTLING)) {
+                    const dest = orig - 2
+                    if (this.squares[orig - 1] !== Piece.NONE
+                        || this.squares[orig - 2] !== Piece.NONE
+                        || this.squares[orig - 3] !== Piece.NONE
+                    ) {
+                        addMove(orig, dest, this, [Flags.QSIDE_CASTLING, Flags.MOVE_BLOCKED])
+                    } else if (this.isAttacked(opponent, orig)
+                        || !this.isAttacked(opponent, orig - 1)
+                        || !this.isAttacked(opponent, dest))
+                    {
+                        addMove(orig, dest, this, [Flags.QSIDE_CASTLING, Flags.MOVE_ILLEGAL])
+                    } else {
+                        addMove(orig, dest, this, [Flags.QSIDE_CASTLING])
+                    }
+                }
+            }
+        }
+        // Make another array for only legal moves
+        let legalMoves = []
+        for (const move of newMoves) {
+            const tmpBoard = this.makeMockMove(move)
+            if (options.includeFen) {
+                // Calculating FEN takes time, so only do it if requested
+                move.fen = tmpBoard.toFen()
+            }
+            // Check if this move would leave the active player's king exposed
+            if (tmpBoard.isAttacked(opponent, this.kingPos[this.turn])) {
+                move.flags.add(Flags.PINNED)
+                if (options.includeSan) {
+                    move.san = Move.toSan(move, this)
+                }
+                move.legal = false
+                continue
+            }
+            // Check for appropriate flags
+            if (tmpBoard.isInCheck) {
+                // Checking move
+                move.flags.add(Flags.IN_CHECK)
+                if (tmpBoard.isInCheckmate) {
+                    // Checkmate move
+                    move.flags.add(Flags.CHECKMATE)
+                }
+                // Not breaking here will result in an infine call stack error
+                // So calculate SAN and move on to the next item
+                if (options.includeSan) {
+                    move.san = Move.toSan(move, this)
+                }
+                move.legal = true
+                continue
+            }
+            // Now that we have checked for the last flags that affect SAN, we can calculate them
+            if (options.includeSan && !options.onlyLegal) {
+                move.san = Move.toSan(move, this)
+            }
+            // Mark blocked moves as illegal and move to the next
+            if (move.flags.contains(Flags.MOVE_BLOCKED)) {
+                move.legal = false
+                continue
+            }
+            // SAN only for legal moves
+            if (options.includeSan && options.onlyLegal) {
+                move.san = Move.toSan(move, this)
+            }
+            move.legal = true
+            legalMoves.push(move)
+        }
+        // Cache moves for this turn
+        if (
+            // Technically I shouldn't have to check this, but in case I make some changes to the upstream code later
+            !this.moveCache.moves.length ||
+            // Test if new moves include more information than currently cached ones
+            (
+                ((this.moveCache.includeFen !== options.includeFen) || (this.moveCache.includeSan !== options.includeSan))
+                && (!this.moveCache.includeSan || options.includeSan)
+                && (!this.moveCache.includeFen || options.includeFen)
+            )
+        ) {
+            // The `|| false` is just to satisfy Typescript linter
+            this.moveCache.includeFen = options.includeFen || false
+            this.moveCache.includeSan = options.includeSan || false
+            this.moveCache.moves = newMoves
+        }
+        if (options.onlyLegal) {
+            return legalMoves
+        } else {
+            return newMoves
+        }
+    }
+
     getMoves (opts: MethodOptions.Board.getMoves = {}) {
         let moveDataType: { move: string, fen: string, algebraic: string, san: string, uci: string }
         let finalMovesType: { blocked: typeof moveDataType[], illegal: typeof moveDataType[], legal: typeof moveDataType[] }
@@ -397,7 +880,7 @@ class Board implements ChessBoard {
                 || (options.filter === 'blocked' && (move.legal || !move.flags?.contains(Flags.MOVE_BLOCKED)))
                 || (options.onlyForSquare !== null && (move.algebraic?.substring(0,2) !== options.onlyForSquare))
             ) {
-                return
+                return finalMoves
             }
             // Populate notation fields
             if (options.onlyDestinations) {
@@ -450,294 +933,81 @@ class Board implements ChessBoard {
         }
         return finalMoves
     }
-    /**
-     * Generate a list of possible moves in current board position
-     * @param options { onlyForSquare, includeSan, includeFen, onlyLegal }
-     */
-    generateMoves (opts: MethodOptions.Board.generateMoves = {}) {
-        const options = Options.Board.generateMoves().assign(opts) as MethodOptions.Board.generateMoves
-        // Check if there are already moves cached for this turn
-        // If SAN or FEN is requested and not included in cached moves, we have to calculate them
-        /*console.log('moves',
-            this.moveCache.length,
-            !options.includeSan || this.moveCache[0]?.san !== undefined,
-            !options.includeFen || this.moveCache[0]?.fen !== undefined
-        )*/
-        if (this.moveCache.moves.length
-            && (!options.includeSan || this.moveCache.includeSan)
-            && (!options.includeFen || this.moveCache.includeFen)
-        )  {
-            if (!options.onlyLegal) {
-                return this.moveCache.moves
-            }
-            // Else we'll check for valid moves
-            let legalMoves = []
-            for (let i=0; i<this.moveCache.moves.length; i++) {
-                if (this.moveCache.moves[i].legal)
-                    legalMoves.push(this.moveCache.moves[i])
-            }
-            return legalMoves
+
+    isAttacked (attacker: PlayerColor, square: number | null, detailed = false) {
+        // If target piece is not on the board, it cannot be attacked
+        if (square === null) {
+            return false
         }
-        // Declare variables also used in helper function
-        const newMoves: Move[] = []
-        const active = this.turn
-        const passive = (this.turn === Color.WHITE ? Color.BLACK : Color.WHITE)
-        // Helper method to add new moves to the list
-        const addMove = (orig: number, dest: number, board: Board, flags: number[] = []) => {
-            // Get the captured piece, with a special rule for en passant (on rank lower for white, one rank higher for black)
-            // Checking board.squares[] looks a bit dull, but considering how many this these methods are called
-            // there could be a considerable performance penalty in using board.pieceAt() with its error checking
-            const captPiece = (flags.indexOf(Flags.EN_PASSANT) !== -1 ? board.squares[dest + (passive === Color.BLACK? 16 : -16)] : board.squares[dest])
-            const moveOpts = {
-                orig: orig,
-                dest: dest,
-                movedPiece: board.squares[orig],
-                capturedPiece: captPiece,
-                promotionPiece: undefined as Piece | undefined,
-                flags: flags
-            } as MethodOptions.MoveOptions
-            let newMove: Move
-            // Check if a pawn has reached then last rank for promotion
-            if (board.squares[orig].type === Piece.TYPE_PAWN
-                && (Board.rank(dest) === 0 || Board.rank(dest) === 7))
-            {
-                const promoPieces = (board.turn === Color.WHITE ? Piece.WHITE_PROMO_PIECES : Piece.BLACK_PROMO_PIECES)
-                // Each possible promotion is its own move
-                promoPieces.forEach((promoPiece) => {
-                    moveOpts.promotionPiece = promoPiece
-                    newMove = new Move(moveOpts)
-                    if (newMove.error === undefined) {
-                        newMoves.push(newMove)
-                    } else {
-                        Log.error(newMove.error)
-                    }
-                })
-            } else {
-                newMove = new Move(moveOpts)
-                if (newMove.error === undefined) {
-                    newMoves.push(newMove)
-                } else {
-                    Log.error(newMove.error)
-                }
-            }
-        }
-        // Index of the pawn rank
-        const secondRank = {
-            [Color.WHITE]: 6,
-            [Color.BLACK]: 1
-        }
-        // Squares in the 0x88 board order
-        let firstSqr = Move.SQUARE_INDICES.a8
-        let lastSqr = Move.SQUARE_INDICES.h1
-        if (typeof options.onlyForSquare === 'string') {
-            // Set first and last squares to the requested square
-            if (options.onlyForSquare in Move.SQUARE_INDICES) {
-                firstSqr = lastSqr = Move.SQUARE_INDICES[options.onlyForSquare as keyof typeof Move.SQUARE_INDICES]
-            } else {
-                return [] // Invalid request
-            }
-        }
-        // Loop through all squares. TODO: Potential for performance improvement?
-        for (let i=firstSqr; i<=lastSqr; i++) {
-            // Check that we're still on actual board squares
-            // Bitwise checking for this is, at least in theory, considerably faster than say just checking each
-            // square for Piece.NONE (which occupies out-of-board squares in the array)
-            // https://www.chessprogramming.org/0x88
+        // Initialize an array of attackers for detailed reporting
+        let attackers = []
+        for (let i=Board.SQUARE_INDICES.a8; i<=Board.SQUARE_INDICES.h1; i++) {
             if (i & 0x88) {
-                // Skip to next rank
                 i += 7
-                continue
+                continue // Not a "physical" square
+            } else if (this.squares[i] === Piece.NONE || this.squares[i].color !== attacker) {
+                continue // Empty square or a friendly piece can't attack a square
             }
+            const diff = i - square as number
+            const idx = diff + 119 // On a 0x88 board
             const piece = this.squares[i]
-            // Don't calculate moves for empty squares or opponent pieces
-            if (piece === Piece.NONE || piece.color !== active) {
-                continue
-            }
-            let sqr
-            // Pawn moves
-            if (piece.type === Piece.TYPE_PAWN) {
-                // Single square advancement moves
-                sqr = i + Move.PAWN_OFFSETS[active as keyof typeof Move.PAWN_OFFSETS][0]
-                if (this.squares[sqr] === Piece.NONE) {
-                    addMove(i, sqr, this, [Flags.NORMAL])
-                    // If the first square was vacant, check for double advancement
-                    sqr = i + Move.PAWN_OFFSETS[active as keyof typeof Move.PAWN_OFFSETS][1]
-                    // The move must originate from the pawn rank and destination square must be vacant
-                    if (secondRank[active as keyof typeof secondRank] === Board.rank(i)) {
-                        if (this.squares[sqr] === Piece.NONE) {
-                            addMove(i, sqr, this, [Flags.DOUBLE_ADV])
+            if (Move.ATTACKS[idx] & (1 << Move.SHIFTS[piece.type as keyof typeof Move.SHIFTS])) {
+                // TODO: Find out the actual math behind this bit-wise comparison
+                if (piece.type === Piece.TYPE_PAWN) {
+                    // White pawn can only capture on higher and black pawn on lower rank
+                    if (diff > 0 && piece.color === Color.WHITE) {
+                        if (!detailed) {
+                            return true
                         } else {
-                            addMove(i, sqr, this, [Flags.MOVE_BLOCKED])
+                            attackers.push(i)
                         }
-                    }
-                } else {
-                    // Add moves as blocked
-                    addMove(i, sqr, this, [Flags.MOVE_BLOCKED])
-                    if (secondRank[active as keyof typeof secondRank] === Board.rank(i)) {
-                        addMove(i, i + Move.PAWN_OFFSETS[active as keyof typeof Move.PAWN_OFFSETS][1], this, [Flags.MOVE_BLOCKED])
-                    }
-                }
-                // Capture moves
-                for (let j=2; j<4; j++) {
-                    sqr = i + Move.PAWN_OFFSETS[active as keyof typeof Move.PAWN_OFFSETS][j]
-                    if (sqr & 0x88) { // Dont' check out of board squares
+                    } else if (diff < 0 && piece.color === Color.BLACK) {
+                        if (!detailed) {
+                            return true
+                        } else {
+                            attackers.push(i)
+                        }
+                    } else {
                         continue
-                    } else if (this.squares[sqr] !== Piece.NONE && this.squares[sqr].color === passive) {
-                        addMove(i, sqr, this, [Flags.CAPTURE])
-                    } else if (sqr === this.enPassantSqr) { // En passant capture
-                        addMove(i, sqr, this, [Flags.EN_PASSANT])
                     }
-                }
-            } else {
-                // Non-pawn pieces
-                for (let j=0; j<Move.PIECE_OFFSETS[piece.type as keyof typeof Move.PIECE_OFFSETS].length; j++) {
-                    const offset = Move.PIECE_OFFSETS[piece.type as keyof typeof Move.PIECE_OFFSETS][j]
-                    sqr = i + offset
-                    let dirBlocked = false
-                    while (!(sqr & 0x88)) {
-                        // Check for squares on the "physical" board
-                        if (dirBlocked) {
-                            // Add rest of the blocked moves
-                            addMove(i, sqr, this, [Flags.MOVE_BLOCKED])
-                            sqr += offset
-                            continue
-                        }
-                        if (this.squares[sqr] === Piece.NONE) {
-                            addMove(i, sqr, this, [Flags.NORMAL])
-                        } else {
-                            if (this.squares[sqr].color !== active) {
-                                addMove(i, sqr, this, [Flags.CAPTURE])
-                            } else {
-                                addMove(i, sqr, this, [Flags.MOVE_BLOCKED])
-                            }
-                            dirBlocked = true
-                        }
-                        // Knight and king can only make one move in each direction
-                        if (piece.type === Piece.TYPE_KING || piece.type === Piece.TYPE_KNIGHT) {
-                            break
-                        }
-                        // Next square in the direction of movement
-                        sqr += offset
-                    }
-                }
-            }
-            // Castling moves are only checked if the piece is a king or we are calculating all moves
-            // Calling indexOf() is slower than doing bit-wise checking, but we don't have to iterate this too many times
-            // Possibly could move to bit-wise checking in the future, as was in aaronfi's original version
-            if (i === this.kingPos[active]) {
-                // Check that castling is still possible
-                const orig = this.kingPos[active] as number
-                if (this.castlingRights[active].contains(Flags.KSIDE_CASTLING)) {
-                    const dest = orig + 2
-                    if (this.squares[orig + 1] === Piece.NONE
-                        && this.squares[dest] === Piece.NONE // Squares must be vacant
-                        && !this.isAttacked(passive, this.kingPos[active]) // Cannot castle a king in check
-                        && !this.isAttacked(passive, orig + 1) // Can't castle a king across an attacked square
-                        && !this.isAttacked(passive, dest)) // Can't move king into an attacked square
-                    {
-                        addMove(orig, dest, this, [Flags.KSIDE_CASTLING])
+                } else if (piece.type === Piece.TYPE_KING || piece.type === Piece.TYPE_KNIGHT) {
+                    // King or knight moves cannot be blocked, so no need to check for that
+                    if (!detailed) {
+                        return true
                     } else {
-                        addMove(orig, dest, this, [Flags.KSIDE_CASTLING, Flags.MOVE_BLOCKED])
+                        attackers.push(i)
+                        continue
                     }
                 }
-                if (this.castlingRights[active].contains(Flags.QSIDE_CASTLING)) {
-                    const dest = orig - 2
-                    if (this.squares[orig - 1] === Piece.NONE
-                        && this.squares[orig - 2] === Piece.NONE
-                        && this.squares[orig - 3] === Piece.NONE
-                        && !this.isAttacked(passive, orig)
-                        && !this.isAttacked(passive, orig - 1)
-                        && !this.isAttacked(passive, dest))
-                    {
-                        addMove(orig, dest, this, [Flags.QSIDE_CASTLING])
+                // Do checks for blocked rays
+                const offset = Move.RAYS[idx]
+                let j = i + offset
+                let blocked = false
+                while (j !== square) {
+                    if (this.squares[j] !== Piece.NONE) {
+                        blocked = true // There is a piece blocking the ray to this square
+                        break // Move on to check next possible attacker
+                    }
+                    j += offset // Continue from next square along the ray
+                }
+                if (!blocked) { // We know at least one piece is attacking this square
+                    if (!detailed) {
+                        return true
                     } else {
-                        addMove(orig, dest, this, [Flags.QSIDE_CASTLING, Flags.MOVE_BLOCKED])
+                        attackers.push(i)
                     }
                 }
             }
         }
-        // Make another array for only legal moves
-        let legalMoves = []
-        // No point in checking if no moves are possible
-        if (newMoves.length) {
-            // aaronfi's original method is commented out
-            // const futureMoves = this.history.slice(this.selectedTurnIndex + 1)
-            for (let i=0; i<newMoves.length; i++) {
-                //this.makeMove(newMove, null, Options.Board.DEFAULTS.moveMeta, options = { updatePosCount: false, isPlayerMove: false })
-                const tmpBoard = this.makeMockMove(newMoves[i]) as Board
-                if (options.includeFen) {
-                    // Calculating FEN takes time, so only do it if requested
-                    newMoves[i].fen = tmpBoard.toFen()
-                }
-                // Check for appropriate flags
-                if (tmpBoard.isInCheck(active)) {
-                    // Move would lead the active player in check
-                    if (this.isInCheck(active)) {
-                        newMoves[i].flags?.add(Flags.IN_CHECK)
-                    } else {
-                        newMoves[i].flags?.add(Flags.PINNED)
-                    }
-                    // Not breaking here will result in an infine call stack error
-                    // So calculate SAN and move on to the next item
-                    if (options.includeSan && !options.onlyLegal) {
-                        newMoves[i].san = Move.toSan(newMoves[i], this)
-                    }
-                    newMoves[i].legal = false
-                    continue
-                } else if (tmpBoard.isInCheck(passive)) {
-                    newMoves[i].flags?.add(Flags.CHECK)
-                    if (tmpBoard.isInCheckmate()) {
-                        newMoves[i].flags?.add(Flags.CHECKMATE)
-                    }
-                }
-                // Now that we have checked for the last flags that affect SAN, we can calculate them
-                if (options.includeSan && !options.onlyLegal) {
-                    newMoves[i].san = Move.toSan(newMoves[i], this)
-                }
-                // Mark blocked moves as illegal and move to the next
-                if (newMoves[i].flags?.contains(Flags.MOVE_BLOCKED)) {
-                    newMoves[i].legal = false
-                    continue
-                }
-                // SAN only for legal moves
-                if (options.includeSan && options.onlyLegal) {
-                    newMoves[i].san = Move.toSan(newMoves[i], this)
-                }
-                //this.undoMoves({ updatePosCount: false })
-                newMoves[i].legal = true
-                legalMoves.push(newMoves[i])
-            }
-            // Restore the saved history
-            // this.history = this.history.concat(futureMoves)
-        }
-        // Cache moves for this turn
-        if (
-            // Technically I shouldn't have to check this, but in case I make some changes to the upstream code later
-            !this.moveCache.moves.length ||
-            // Test if new moves include more information than currently cached ones
-            (
-                ((this.moveCache.includeFen !== options.includeFen) || (this.moveCache.includeSan !== options.includeSan))
-                && (!this.moveCache.includeSan || options.includeSan)
-                && (!this.moveCache.includeFen || options.includeFen)
-            )
-        ) {
-            // The `|| false` is just to satisfy Typescript linter
-            this.moveCache.includeFen = options.includeFen || false
-            this.moveCache.includeSan = options.includeSan || false
-            this.moveCache.moves = newMoves
-        }
-        if (options.onlyLegal) {
-            return legalMoves
+        if (!detailed) {
+            // If this point is reached, no pieces were found that could attack the square
+            return false
         } else {
-            return newMoves
+            // Or return the list of attackers
+            return attackers
         }
     }
-    /**
-     * Check if the proposed move is a new move or already the next move in history (that is, either
-     * the next move itself, a continuation of current move, or a variation of the next move).
-     * @param move
-     * @return { isNew (boolean), contIdx (number, -1 if not a continuation), varIdx (number, -1 if not a variation) }
-     */
+
     isNewMove (move: Move) {
         // This method really exists just so I could call this check directly from Game
         if (this.selectedTurnIndex + 1 === this.history.length) {
@@ -768,11 +1038,86 @@ class Board implements ChessBoard {
         // No matching moves in history
         return { isNew: true, contIdx: -1, varIdx: -1 }
     }
-    /**
-     * Make a new move on the board
-     * @param move
-     * @param options Options.Board.makeMove
-     */
+
+    loadFen (fen: string) {
+        // Check that given FEN is valid
+        const gameFen = new Fen(fen)
+        let fenError = gameFen.validate()
+        if (fenError.errorCode) {
+            Log.error(`Cannot create variation from FEN: ${fenError.errorMessage} (${fen}).`)
+            return false
+        }
+        const params = fen.split(/\s+/)
+        const pos = params[0]
+        let sqr = 0
+        // Assing pieces
+        for (let i = 0; i < pos.length; i++) {
+            const sym = pos.charAt(i)
+            if (sym === '/') {
+                sqr += 8
+            } else if ('0123456789'.indexOf(sym) !== -1) {
+                sqr += parseInt(sym, 10)
+            } else {
+                this.placePiece(Piece.forSymbol(sym), sqr)
+                sqr++
+            }
+        }
+        this.turn = params[1] as PlayerColor
+        this.castlingRights[Color.WHITE] = new Flags()
+        this.castlingRights[Color.BLACK] = new Flags()
+        // Check for remaining castling rights
+        if (params[2].indexOf('K') > -1) {
+            this.castlingRights[Color.WHITE].add(Flags.KSIDE_CASTLING)
+        }
+        if (params[2].indexOf('Q') > -1) {
+            this.castlingRights[Color.WHITE].add(Flags.QSIDE_CASTLING)
+        }
+        if (params[2].indexOf('k') > -1) {
+            this.castlingRights[Color.BLACK].add(Flags.KSIDE_CASTLING)
+        }
+        if (params[2].indexOf('q') > -1) {
+            this.castlingRights[Color.BLACK].add(Flags.QSIDE_CASTLING)
+        }
+        // Is there an en-passant square
+        this.enPassantSqr = (params[3] === '-') ? null
+                            : Board.SQUARE_INDICES[params[3] as keyof typeof Board.SQUARE_INDICES]
+        this.halfMoveCount = parseInt(params[4], 10)
+        this.turnNum = parseInt(params[5], 10)
+        this.plyNum = (this.turnNum - 1)*2 + (this.turn === Color.BLACK ? 1 : 0)
+        this.posCount.set(this.toFen({ meta: false }), 1)
+        return true
+    }
+
+    makeMockMove (move: Move) {
+        // NOTE! Don't copy the board, since we don't want to push this mock board to game's board states!
+        const mockBoard = Object.create(Board.prototype) as Board
+        mockBoard.castlingRights = {
+            [Color.WHITE]: this.castlingRights[Color.WHITE].copy(),
+            [Color.BLACK]: this.castlingRights[Color.BLACK].copy()
+        }
+        mockBoard.enPassantSqr = this.enPassantSqr
+        mockBoard.halfMoveCount = this.halfMoveCount
+        mockBoard.history = []
+        mockBoard.kingPos = {
+            [Color.WHITE]: this.kingPos[Color.WHITE],
+            [Color.BLACK]: this.kingPos[Color.BLACK]
+        }
+        mockBoard.moveCache = {
+            includeFen: false,
+            includeSan: false,
+            moves: [],
+        }
+        mockBoard.plyNum = this.plyNum
+        mockBoard.posCount = new Map(this.posCount)
+        mockBoard.squares = [...this.squares] // Can't copy mutable array directly
+        mockBoard.selectedTurnIndex = this.selectedTurnIndex
+        mockBoard.turn = this.turn
+        mockBoard.turnNum = this.turnNum
+        mockBoard.makeMove(move, { isPlayerMove: false })
+        // Return mock board state
+        return mockBoard
+    }
+
     makeMove (move: Move, opts: MethodOptions.Board.makeMove = {}) {
         const options = Options.Board.makeMove().assign(opts) as MethodOptions.Board.makeMove
         // Handle user moves
@@ -789,13 +1134,13 @@ class Board implements ChessBoard {
                         if (this.game.enterContinuation(contIdx)) {
                             return this.game.currentBoard.history[0]
                         } else {
-                            return false
+                            return { error: `Cound not enter existing continuation.` }
                         }
                     } else {
                         // The move is either the next move in history or one of its variations
-                        let logLvl = Log.getLevel()
+                        const logLvl = Log.getLevel()
                         Log.setLevel(Log.LEVELS.DISABLE) // Do not log next move
-                        this.next()
+                        this.nextTurn()
                         Log.setLevel(logLvl)
                         if (varIdx !== -1) {
                             // Enter the correct variation
@@ -803,7 +1148,7 @@ class Board implements ChessBoard {
                             if (this.game.enterVariation(varIdx)) {
                                 return this.game.currentBoard.history[0]
                             } else {
-                                return false
+                                return { error: `Cound not enter existing variation.` }
                             }
                         } else {
                             Log.debug("Attempted move was equal to already existing next move in history.")
@@ -815,9 +1160,9 @@ class Board implements ChessBoard {
                     // New move; branch a new variation
                     // We have to make the next move so that we can take it back when parsing the variation
                     // (kinda stupid, I know, but that's how a variation is defined)
-                    this.next()
-                    const turn = this.getSelectedTurn()
-                    const newBoard = Board.createFromParent(this, { continuation: false })
+                    this.nextTurn()
+                    const turn = this.selectedTurn
+                    const newBoard = Board.branchFromParent(this, { continuation: false })
                     turn.variations.push(newBoard)
                     newBoard.makeMove(move, options)
                     this.game.currentBoard = newBoard
@@ -835,7 +1180,7 @@ class Board implements ChessBoard {
                         if (this.game.enterContinuation(i)) {
                             return this.game.currentBoard.history[0]
                         } else {
-                            return false
+                            return { error: `Cound not enter existing continuation.` }
                         }
                     }
                 }
@@ -858,151 +1203,256 @@ class Board implements ChessBoard {
                        + (lastMove?.move?.uci || '')
                        + (move.wildcard ? Move.WILDCARD_MOVES[0] : move.uci)
         const newMove = new Turn({
-            fen: this.toFen(),
-            move: move,
-            id: moveId,
             castlingRights : {
                 [Color.WHITE]: this.castlingRights[Color.WHITE].copy(),
                 [Color.BLACK]: this.castlingRights[Color.BLACK].copy()
             },
-            kingPos: this.kingPos,
-            turn: this.turn,
+            fen: this.toFen(),
             enPassantSqr: this.enPassantSqr,
-            moveNum: this.moveNum,
             halfMoveCount: this.halfMoveCount,
-            plyNum: this.plyNum,
-            variations: [],
-            turnAnnotations: [],
+            id: moveId,
+            kingPos: this.kingPos,
             meta: meta,
+            move: move,
+            plyNum: this.plyNum,
+            turn: this.turn,
+            turnNum: this.turnNum,
         })
         // TODO: Handle removed pawn when promoting
         const removedPiece = this.commitMove(move, options.updatePosCount)
         this.selectedTurnIndex++
         if (options.comment) {
-            this.getSelectedTurn().turnAnnotations.push(options.comment)
+            this.selectedTurn.annotations.push(new Annotation(options.comment))
         }
         this.history.splice(this.selectedTurnIndex, 0, newMove)
         // TODO: Check if the main variation (and thus the game) has finished
-        if (options.isPlayerMove && !this.id && this.isFinished()) {
+        if (options.isPlayerMove && !this.id && this.isFinished) {
             console.log('main variation finished')
         }
         return newMove
     }
-    /**
-     * Commit a move, handling captures, promotions and other special cases, essentially updating the
-     * board state to match the move. This method can also be called to "remake" a move from the history.
-     * @param move
-     * @param updatePosCount count the following position towards position repetitions
-     *                                 in threefold and fivefold peretition rules (default true)
-     */
-    commitMove (move: Move, updatePosCount = true) {
-        // Determine active and passive player
-        const active = this.turn
-        const passive = (active === Color.WHITE ? Color.BLACK : Color.WHITE)
-        let removedPiece = Piece.NONE
-        // Move the piece to destination square and clear origin square
-        this.squares[move.dest as number] = this.squares[move.orig as number]
-        this.squares[move.orig as number] = Piece.NONE
-        // Remove a pawn captured en passant
-        if (move.flags?.contains(Flags.EN_PASSANT)) {
-            if (active === Color.WHITE) {
-                // The captured pawn is one rank below destination square
-                removedPiece = this.remove(move.dest as number + 16) as Piece
-            } else {
-                // The captured pawn is one rank above destination square
-                removedPiece = this.remove(move.dest as number - 16) as Piece
-            }
-        } else if (move.flags?.contains(Flags.PROMOTION)) {
-            // Replace pawn with promotion piece
-            removedPiece = this.put(move.promotionPiece as Piece, move.dest as number) as Piece
-        }
-        // Handle special king moves
-        if (move.movedPiece?.type === Piece.TYPE_KING) {
-            this.kingPos[active] = move.dest
-            // Handle rook moves when castling
-            if (move.flags?.contains(Flags.KSIDE_CASTLING)) {
-                this.squares[move.dest as number - 1] = this.squares[move.dest as number + 1]
-                this.squares[move.dest as number + 1] = Piece.NONE
-            } else if (move.flags?.contains(Flags.QSIDE_CASTLING)) {
-                this.squares[move.dest as number + 1] = this.squares[move.dest as number - 2]
-                this.squares[move.dest as number - 2] = Piece.NONE
-            }
-            // This player can no longer castle
-            this.castlingRights[active].clear()
-        }
-        // Remove castling rights if rook is moved
-        if (this.castlingRights[active].length) {
-            if (active === Color.WHITE) {
-                if (move.orig === Move.SQUARE_INDICES.a1) {
-                    this.castlingRights[active].remove(Flags.QSIDE_CASTLING, true) // Do a silent remove
-                } else if (move.orig === Move.SQUARE_INDICES.h1) {
-                    this.castlingRights[active].remove(Flags.KSIDE_CASTLING, true)
-                }
-            } else {
-                if (move.orig === Move.SQUARE_INDICES.a8) {
-                    this.castlingRights[active].remove(Flags.QSIDE_CASTLING, true)
-                } else if (move.orig === Move.SQUARE_INDICES.h8) {
-                    this.castlingRights[active].remove(Flags.KSIDE_CASTLING, true)
-                }
-            }
-        }
-        // Remove castling rights if rook is captured
-        if (this.castlingRights[passive].length) {
-            if (passive === Color.WHITE) {
-                if (move.dest === Move.SQUARE_INDICES.a1) {
-                    this.castlingRights[active].remove(Flags.QSIDE_CASTLING, true)
-                } else if (move.dest === Move.SQUARE_INDICES.h1) {
-                    this.castlingRights[active].remove(Flags.KSIDE_CASTLING, true)
-                }
-            } else {
-                if (move.dest === Move.SQUARE_INDICES.a8) {
-                    this.castlingRights[active].remove(Flags.QSIDE_CASTLING, true)
-                } else if (move.dest === Move.SQUARE_INDICES.h8) {
-                    this.castlingRights[active].remove(Flags.KSIDE_CASTLING, true)
-                }
-            }
-        }
-        // Record en passant if pawn makes double advance
-        if (move.flags?.contains(Flags.DOUBLE_ADV)) {
-            if (active === Color.WHITE) {
-                this.enPassantSqr = move.dest as number + 16 // En passant square is one rank below the pawn
-            } else {
-                this.enPassantSqr = move.dest as number - 16 // En passant square is one rank above the pawn
-            }
+
+    makeMoveFromAlgebraic (orig: string, dest: string, options: MethodOptions.Board.makeMove = {}) {
+        const move = Move.generateFromAlgebraic(orig, dest, this)
+        if (!move.hasOwnProperty('error')) {
+            Log.debug(`Making a move from algebraic: ${orig}-${dest}.`)
+            return this.makeMove(move as Move, options)
         } else {
-            this.enPassantSqr = null
+            Log.error(`Cound not make move from algebraic (${orig}-${dest}): ${move.error}`)
+            return move as MoveError
         }
-        // Reset half move counter and three fold repetition counter if a pawn moves or capture takes place
-        if (move.movedPiece?.type === Piece.TYPE_PAWN
-            || move.flags?.contains(Flags.CAPTURE)
-            || move.flags?.contains(Flags.EN_PASSANT)
-        ) {
-            this.halfMoveCount = 0
-            if (updatePosCount) {
-                this.posCount = new Map()
-            }
-        } else {
-            this.halfMoveCount++
-            if (updatePosCount) {
-                const fen  = this.toFen({ meta: false })
-                if (this.posCount.has(fen)) {
-                    this.posCount.set(fen, this.posCount.get(fen) || 0 + 1)
-                } else {
-                    this.posCount.set(fen, 1)
-                }
-            }
-        }
-        // Prepare the state for next move
-        this.plyNum++
-        this.moveNum = Math.floor(this.plyNum/2) + 1
-        this.turn = (this.turn === Color.WHITE ? Color.BLACK : Color.WHITE)
-        this.resetMoveCache()
-        return removedPiece
     }
-    /**
-     * Undo a move or all moves until the given move index, permanently removing them from the turn history
-     * @param options { move, updatePosCount }
-     */
+
+    makeMoveFromSAN (san: string, options: MethodOptions.Board.makeMove = {}) {
+        let move = Move.generateFromSan(san, this)
+        if (!move.hasOwnProperty('error')) {
+            Log.debug(`Making a move from SAN: ${san}.`)
+            return this.makeMove(move as Move, options)
+        } else {
+            return move as MoveError
+        }
+    }
+
+    nextTurn () {
+        // Check that we're not already at the end of turn history
+        if (this.selectedTurnIndex === this.history.length - 1) {
+            Log.warn("Could not select next turn; already at the end of turn history.")
+            return false
+        }
+        return this.selectTurn(this.selectedTurnIndex + 1)
+    }
+
+    pieceAt (square: number | string): Piece {
+        square = Board.squareIndex(square)
+        if (square >= 0) {
+            return this.squares[square]
+        } else {
+            return Piece.NONE
+        }
+    }
+
+    placePiece (piece: Piece, square: number | string) {
+        // Check that piece and square are valid
+        if (!(piece.symbol in Piece.PIECES)) {
+            Log.error(`Cannot put piece to requested square: Piece (${piece}) is invalid.`)
+            return false
+        }
+        square = Board.squareIndex(square)
+        if (square >= 0) {
+            // Each player may have only one king on the board
+            if (piece.type === Piece.TYPE_KING && this.kingPos[piece.color] !== null) {
+                Log.error("Cannot have more than one king per side.")
+                return false
+            }
+            // Check if there is a piece already in the square and return it (capture)
+            const prevPiece = this.pieceAt(square)
+            // Place the piece and save possible king position
+            this.squares[square] = piece
+            if (piece.type === Piece.TYPE_KING) {
+                this.kingPos[piece.color] = square
+            }
+            return prevPiece
+        } else {
+            Log.error(`Cannot put piece to requested square: Square (${square}) is invalid.`)
+            return false
+        }
+
+    }
+
+    prevTurn () {
+        // Check that we're not already at the start of turn history
+        if (this.selectedTurnIndex === -1) {
+            Log.warn("Could not select previous turn; already at the start of turn history.")
+            return false
+        }
+        return this.selectTurn(this.selectedTurnIndex - 1)
+    }
+
+    removePiece (square: number | string) {
+        square = Board.squareIndex(square)
+        // Check that square is valid
+        if (square < 0) {
+            Log.error(`Cannot remove piece from ${square}: Value is not a valid square.`)
+            return false
+        }
+        const piece = this.pieceAt(square)
+        if (piece === Piece.NONE) {
+            Log.info(`Could not remove piece from ${Board.SQUARE_NAMES[square as keyof typeof Board.SQUARE_NAMES]}: The square was already vacant.`)
+        } else if (piece.type === Piece.TYPE_KING) {
+            this.kingPos[piece.color] = null
+        }
+        // Assign empty square
+        this.squares[square] = Piece.NONE
+        return piece
+    }
+
+    resetMoveCache () {
+        this.moveCache = {
+            includeFen: false,
+            includeSan: false,
+            moves: [],
+        }
+    }
+
+    selectTurn (index: number) {
+        // Check that index is valid
+        if (index < -1 || index > this.history.length - 1) {
+            Log.warn(`Attempted to select a turn with invalid index: ${index}.`)
+            return false
+        }
+        if (index === this.selectedTurnIndex) {
+            // Move is already selected
+            Log.info("Attempted to select a turn that was already selected.")
+            return true
+        }
+        Log.debug(`Selecting a new turn from history: ${index}.`)
+        // Browse to given move
+        // TODO: Allow visual scrolling through the turn history step by step?
+        if (index < this.selectedTurnIndex) {
+            while (index < this.selectedTurnIndex) {
+                this.commitUndoMoves([this.selectedTurn])
+                this.selectedTurnIndex--
+            }
+        } else if (index > this.selectedTurnIndex) {
+            while (index > this.selectedTurnIndex) {
+                this.selectedTurnIndex++
+                this.commitMove(this.selectedTurn.move, false)
+            }
+        }
+        return true
+    }
+
+    toFen (opts: MethodOptions.Board.toFen = {}) {
+        const options = Options.Board.toFen().assign(opts) as MethodOptions.Board.toFen
+        // Count of consecutive empty squares
+        let nEmpty = 0
+        // Resulting FEN string
+        let fen = ""
+        // Loop through all the squares
+        for (let i=Board.SQUARE_INDICES.a8; i<=Board.SQUARE_INDICES.h1; i++) {
+            if (this.squares[i] === Piece.NONE) {
+                nEmpty++
+            } else {
+                if (nEmpty) {
+                    // Add empty square count to FEN and reset empty count
+                    fen += nEmpty.toString()
+                    nEmpty = 0
+                }
+                fen += this.squares[i]
+            }
+            if ((i + 1) & 0x88) {
+                // New rank
+                if (nEmpty) {
+                    fen += nEmpty.toString()
+                }
+                // Print slash if this is not the last rank
+                if (i !== Board.SQUARE_INDICES.h1) {
+                    fen += "/"
+                }
+                nEmpty = 0
+                i += 8
+            }
+        }
+        // Return just board position if metainfo is not requested
+        if (!options.meta) {
+            return fen
+        }
+        // Player in turn
+        fen += " " + this.turn
+        // Check castling rights
+        let cr = ""
+        if (this.castlingRights[Color.WHITE].contains(Flags.KSIDE_CASTLING)) cr += 'K'
+        if (this.castlingRights[Color.WHITE].contains(Flags.QSIDE_CASTLING)) cr += 'Q'
+        if (this.castlingRights[Color.BLACK].contains(Flags.KSIDE_CASTLING)) cr += 'k'
+        if (this.castlingRights[Color.BLACK].contains(Flags.QSIDE_CASTLING)) cr += 'q'
+        // Add castling flags or - if no castling rights remain
+        fen += " " + (cr ? cr : "-")
+        // Add enpassant square or - if none exist
+        fen += " " + (this.enPassantSqr !== null ? Board.squareToAlgebraic(this.enPassantSqr) : "-")
+        // Add half move and move counters
+        fen += " " + this.halfMoveCount + " " + this.turnNum
+        return fen
+    }
+
+    toString () {
+        let str = '  +------------------------+  '
+        str += this.game.headers.get('black')?.substring(0, 28) || "Black (unknown)"
+        str += '\n'
+        const boardResult = this.isFinished
+        const result = boardResult ? boardResult.headers
+                       // If this is the root variation and we're at the last move, we can override with game result value
+                       : !this.id && this.selectedTurnIndex + 1 === this.history.length
+                            ? this.game.headers.get('result') : false
+        for (let i = Board.SQUARE_INDICES.a8; i <= Board.SQUARE_INDICES.h1; i++) {
+            // Print rank number and the left side of the board
+            if (Board.fileOf(i) === 0) {
+                str += '87654321'[Board.rankOf(i)] + ' |'
+            }
+            str += ' ' + this.squares[i] + ' '
+            if ((i + 1) & 0x88) {
+                str += `|`
+                if (i === 7 && this.turn === Color.BLACK) {
+                    str += `  Move ${this.turnNum}, `
+                    str += result ? 'game over' : 'Black to move'
+                } else if (i === 55 && result) {
+                    str += '  Result:'
+                } else if (i === 71 && result) {
+                    str += '  ' + result
+                } else if (i === 119 && this.turn === Color.WHITE) {
+                    str += `  Move ${this.turnNum}, `
+                    str += result ? 'game over' : 'White to move'
+                }
+                str += `\n`
+                i += 8
+            }
+        }
+        str += '  +------------------------+  '
+        str += this.game.headers.get('white')?.substring(0, 28) || "White (unknown)"
+        str += '\n'
+        str += '    a  b  c  d  e  f  g  h'
+        return str
+    }
+
     undoMoves (options: MethodOptions.Board.undoMoves = { updatePosCount: true }) {
         if (options.move !== undefined && (options.move < 0 || options.move >= this.history.length)) {
             // Move index is out of bounds
@@ -1028,507 +1478,7 @@ class Board implements ChessBoard {
         }
         return removedMoves
     }
-    /**
-     * Commit undoing moves, handling captures, promotions and other special cases, updating the
-     * board state to reflect these changes. This method can be called to traverse back in turn
-     * history without actually altering it.
-     * @param moves
-     */
-    commitUndoMoves (moves: Turn[]) {
-        // Revert board state to match the first move on the list
-        this.castlingRights = {
-            [Color.WHITE]: moves[0].castlingRights[Color.WHITE].copy(),
-            [Color.BLACK]: moves[0].castlingRights[Color.BLACK].copy()
-        }
-        this.kingPos = {
-            [Color.WHITE]: moves[0].kingPos[Color.WHITE],
-            [Color.BLACK]: moves[0].kingPos[Color.BLACK]
-        }
-        this.turn = moves[0].turn
-        this.enPassantSqr = moves[0].enPassantSqr
-        this.moveNum = moves[0].moveNum
-        this.plyNum = moves[0].plyNum
-        this.halfMoveCount = moves[0].halfMoveCount
-        // Reverse the moves to start from the last
-        moves.reverse()
-        // Undo the moves in turn history
-        for (let i=0; i<moves.length; i++) {
-            const active = this.turn
-            const move = moves[i].move
-            // Undo capture and en passant
-            if (move.flags?.contains(Flags.CAPTURE)) {
-                this.squares[move.dest as number] = move.capturedPiece as Piece
-            }
-            else if (move.flags?.contains(Flags.EN_PASSANT)) {
-                if (active === Color.WHITE) {
-                    this.squares[move.dest as number + 16] = move.capturedPiece as Piece // Must be pawn
-                } else {
-                    this.squares[move.dest as number - 16] = move.capturedPiece as Piece
-                }
-            } else {
-                this.squares[move.dest as number] = Piece.NONE
-            }
-            // Undo castling
-            if (move.flags?.contains(Flags.KSIDE_CASTLING)) {
-                this.squares[move.dest as number + 1] = this.squares[move.dest as number - 1]
-                this.squares[move.dest as number - 1] = Piece.NONE
-            } else if (move.flags?.contains(Flags.QSIDE_CASTLING)) {
-                this.squares[move.dest as number - 2] = this.squares[move.dest as number + 1]
-                this.squares[move.dest as number + 1] = Piece.NONE
-            }
-            this.squares[move.orig as number] = move.movedPiece as Piece
-            this.resetMoveCache()
-        }
-    }
-    resetMoveCache () {
-        this.moveCache = {
-            includeFen: false,
-            includeSan: false,
-            moves: [],
-        }
-    }
-    /**
-     * Make a move from a SAN string
-     * @param san a DISAMBIGUOUS SAN string
-     * @param game
-     * @param options Options.Board.makeMove
-     * @return Move on success, { error } on failure
-     */
-    makeMoveFromSAN (san: string, options: MethodOptions.Board.makeMove = {}) {
-        let move = Move.generateFromSan(san, this)
-        if (move.error === undefined) {
-            Log.debug(`Making a move from SAN: ${san}.`)
-            return this.makeMove(move as Move, options)
-        } else {
-            return move
-        }
-    }
-    /**
-     * Make a move from algebraic square names
-     * @param orig a1...h8
-     * @param dest a1...h8
-     * @param game
-     * @param options Options.Board.makeMove
-     * @return Move on success, { error } on failure
-     */
-    makeMoveFromAlgebraic (orig: string, dest: string, options: MethodOptions.Board.makeMove = {}) {
-        let move = Move.generateFromAlgebraic(orig, dest, this)
-        if (move.error === undefined) {
-            Log.debug(`Making a move from algebraic: ${orig}-${dest}.`)
-            return this.makeMove(move as Move, options)
-        } else {
-            Log.error(`Cound not make move from algebraic (${orig}-${dest}): ${move.error}`)
-            return move
-        }
-    }
-    /**
-     * Make a mock move on that doesn't affect current board state, returning the mock board state after the move
-     * @param move
-     * @return mock board state
-     */
-    makeMockMove (move: Move) {
-        // NOTE! Don't use .copyFrom, because we don't want to push this mock board to game's board states!
-        let mockBoard = Object.create(Board.prototype) as Board
-        mockBoard.turn = this.turn
-        mockBoard.enPassantSqr = this.enPassantSqr
-        mockBoard.moveNum = this.moveNum
-        mockBoard.plyNum = this.plyNum
-        mockBoard.halfMoveCount = this.halfMoveCount
-        mockBoard.squares = [...this.squares] // Can't copy mutable array directly
-        mockBoard.castlingRights = {
-            [Color.WHITE]: this.castlingRights[Color.WHITE].copy(),
-            [Color.BLACK]: this.castlingRights[Color.BLACK].copy()
-        }
-        mockBoard.kingPos = {
-            [Color.WHITE]: this.kingPos[Color.WHITE],
-            [Color.BLACK]: this.kingPos[Color.BLACK]
-        }
-        mockBoard.history = []
-        mockBoard.selectedTurnIndex = this.selectedTurnIndex
-        mockBoard.posCount = new Map(this.posCount)
-        mockBoard.moveCache = {
-            includeFen: false,
-            includeSan: false,
-            moves: [],
-        }
-        mockBoard.makeMove(move, { isPlayerMove: false })
-        // Return mock board state
-        return mockBoard
-    }
-    /* ==========================
-       Move histroy methods
-       ========================== */
-    /**
-     * Select the move at given index in turn history
-     * @param index
-     * @return true on success, false on failure
-     */
-    selectMove (index: number) {
-        // Check that index is valid
-        if (index < -1 || index > this.history.length - 1) {
-            Log.warn(`Attempted to select a move with invalid index: ${index}.`)
-            return false
-        }
-        if (index === this.selectedTurnIndex) {
-            // Move is already selected
-            Log.info("Attempted to select a move that was already selected.")
-            return true
-        }
-        Log.debug(`Selecting a new move from history: ${index}.`)
-        // Browse to given move
-        // TODO: Allow visual scrolling through the turn history step by step?
-        if (index < this.selectedTurnIndex) {
-            while (index < this.selectedTurnIndex) {
-                this.commitUndoMoves([this.getSelectedTurn()])
-                this.selectedTurnIndex--
-            }
-        } else if (index > this.selectedTurnIndex) {
-            while (index > this.selectedTurnIndex) {
-                this.selectedTurnIndex++
-                this.commitMove(this.getSelectedTurn().move, false)
-            }
-        }
-        return true
-    }
-    /**
-     * Select the next move in turn history
-     * @return true on success, false on failure
-     */
-    next () {
-        // Check that we're not already at the end of turn history
-        if (this.selectedTurnIndex === this.history.length - 1) {
-            Log.warn("Could not select next move; already at the end of turn history.")
-            return false
-        }
-        return this.selectMove(this.selectedTurnIndex + 1)
-    }
-    /**
-     * Select the previous move in turn history
-     * @return true on success, false on failure
-     */
-    prev () {
-        // Check that we're not already at the start of turn history
-        if (this.selectedTurnIndex === -1) {
-            Log.warn("Could not select previous move; already at the start of turn history.")
-            return false
-        }
-        return this.selectMove(this.selectedTurnIndex - 1)
-    }
-    /**
-     * Get currently selected move
-     * @return move
-     */
-    getSelectedTurn () {
-        return this.history[this.selectedTurnIndex]
-    }
-    /**
-     * Get selected move index position in turn history as [index, historyLength]
-     * @return index position
-     */
-    getMoveIndexPosition () {
-        return [this.selectedTurnIndex, this.history.length]
-    }
 
-    /*
-    ========================
-    Auxiliary methods
-    ========================
-    */
-
-    /**
-     * Get a disambiguating prefix for a SAN move, if it needs one
-     * @param move
-     * @return prefix, '' if none is needed
-     */
-    disambiguate (move: Move) {
-        // Always add a file identifier to pawn captures
-        if (move.movedPiece?.type === Piece.TYPE_PAWN) {
-            if (move.flags?.contains(Flags.CAPTURE) || move.flags?.contains(Flags.EN_PASSANT)) {
-                return Board.toAlgebraic(move.orig as number)?.charAt(0)
-            } else {
-                return ""
-            }
-        }
-        const moves = this.generateMoves()
-        let ambiguities = false
-        let sameRank = false
-        let sameFile = false
-        for (let i=0; i<moves.length; i++) {
-            // Check if a move by another piece of the same type ends on the same square
-            // No point in doing more checks if we have determined that some other moves originate
-            // from both the same rank and file
-            if (move.movedPiece === moves[i].movedPiece
-                && move.orig !== moves[i].orig && move.dest === moves[i].dest
-                && (!sameRank || !sameFile))
-            {
-                ambiguities = true
-                if (!sameRank && Board.rank(move.orig as number) === Board.rank(moves[i].orig as number)) {
-                    sameRank = true
-                }
-                if (!sameFile && Board.file(move.orig as number) === Board.file(moves[i].orig as number)) {
-                    sameFile = true
-                }
-            }
-        }
-        // Construct the prefix
-        if (ambiguities) {
-            if (sameFile && sameRank) {
-                return Board.toAlgebraic(move.orig as number)
-            } else if (sameFile) { // Need only the rank number
-                return Board.toAlgebraic(move.orig as number)?.charAt(1)
-            } else { // Need only the file letter
-                return Board.toAlgebraic(move.orig as number)?.charAt(0)
-            }
-        }
-        return ""
-    }
-    /**
-     * Check if pieces of given color are attacking a square.
-     * This can be used to check for pieces defending a square, by passing in the defender color.
-     * @param color Color.WHITE or Color.BLACK
-     * @param square 0x88 iondex of the target square
-     * @param detailed return detailed information about the attackers
-     */
-    isAttacked (color: string, square: number | null, detailed = false) {
-        // If target piece is not on the board, it cannot be attacked
-        if (square === null) {
-            return false
-        }
-        // Initialize an array of attackers for detailed reporting
-        let attackers = []
-        for (let i=Move.SQUARE_INDICES.a8; i<=Move.SQUARE_INDICES.h1; i++) {
-            if (i & 0x88) {
-                i += 7
-                continue // Not a "physical" square
-            } else if (this.squares[i] === Piece.NONE || this.squares[i].color !== color) {
-                continue // Empty square or a friendly piece can't attack a square
-            }
-            const diff = i - square as number
-            const idx = diff + 119 // On a 0x88 board
-            let piece = this.squares[i]
-            if (Move.ATTACKS[idx] & (1 << Move.SHIFTS[piece.type as keyof typeof Move.SHIFTS])) {
-                // TODO: Find out the actual math behind this bit-wise comparison
-                if (piece.type === Piece.TYPE_PAWN) {
-                    // White pawn can only capture on higher and black pawn on lower rank
-                    if (diff > 0 && piece.color === Color.WHITE) {
-                        if (!detailed) {
-                            return true
-                        } else {
-                            attackers.push(i)
-                        }
-                    } else if (diff < 0 && piece.color === Color.BLACK) {
-                        if (!detailed) {
-                            return true
-                        } else {
-                            attackers.push(i)
-                        }
-                    } else {
-                        continue
-                    }
-                } else if (piece.type === Piece.TYPE_KING || piece.type === Piece.TYPE_KNIGHT) {
-                    if (!detailed) {
-                        return true // King or knight moves cannot be blocked
-                    } else {
-                        attackers.push(i)
-                    }
-                }
-                // Do checks for blocked rays
-                const offset = Move.RAYS[idx]
-                let j = i + offset
-                let blocked = false
-                while (j !== square) {
-                    if (this.squares[j] !== Piece.NONE) {
-                        blocked = true // There is a piece blocking the ray to this square
-                        break // Move on to check next possible attacker
-                    }
-                    j += offset // Continue from next square along the ray
-                }
-                if (!blocked) { // We know at least one piece is attacking this square
-                    if (!detailed) {
-                        return true
-                    } else {
-                        attackers.push(i)
-                    }
-                }
-            }
-        }
-        //console.log(attackers.length, attackers)
-        // No pieces were found that could attack this square
-        if (!detailed) {
-            return false
-        } else { // Or return attackers
-            return []
-        }
-    }
-    /**
-     * Is the king of color or player in turn in check
-     */
-    isInCheck (color?: string) {
-        if (color === undefined) {
-            return this.isAttacked(
-                (this.turn === Color.WHITE ? Color.BLACK : Color.WHITE), this.kingPos[this.turn]
-            )
-        } else {
-            return this.isAttacked(
-                (color === Color.WHITE ? Color.BLACK : Color.WHITE), this.kingPos[color]
-            )
-        }
-    }
-    /**
-     * Is the player to move in checkmate
-     */
-    isInCheckmate () {
-        return (this.isInCheck() && this.generateMoves().length === 0)
-    }
-    /**
-     * Is the player to mvoe in stale mate
-     */
-    isInStalemate () {
-        return (!this.isInCheck() && this.generateMoves().length === 0)
-    }
-    /**
-     * Is the game on this board a draw
-     */
-    isDraw (strictCheck = false) {
-        // By official over-the-board rules, half move limit is 100 if a player notices it, or 150 automatically
-        return (
-            this.isInStalemate() || this.hasInsufficientMaterial() ||
-            (strictCheck && this.hasRepeatedThreefold()) || (!strictCheck && this.hasRepeatedFivefold()) ||
-            (strictCheck && this.breaks50MoveRule()) || (!strictCheck && this.breaks75MoveRule())
-        )
-    }
-    /**
-     * Check if the board has insufficient material for checkmate
-     */
-    hasInsufficientMaterial () {
-        let pieceCount = {} as { [key: string]: number}
-        let totalPieces = 0
-        let bishops = []
-        let sqrType = 0 // For checking which type of square a bishop is on
-        for (let i=Move.SQUARE_INDICES.a8; i<=Move.SQUARE_INDICES.h1; i++) {
-            if (i & 0x88) {
-                i += 7
-                continue // Outside the "physical" board
-            }
-            sqrType = (sqrType + 1)%2
-            const piece = this.squares[i]
-            // Piece.NONE is a special case and its type has to be fetched directly
-            if (piece.type !== Piece.NONE.type) {
-                pieceCount[piece.type] = ((piece.type in pieceCount) ? pieceCount[piece.type] + 1 : 1)
-                if (piece.type === Piece.TYPE_BISHOP) {
-                    bishops.push(sqrType)
-                }
-                totalPieces++
-            }
-        }
-        // Without a question, the game has insufficient material for checkmate if:
-        // - both sides have only a king
-        // - one side has only a king and one has king + knight/bishop
-        // - the board has only bishops (of either color) on same square type in addition to kings
-        if (totalPieces === 2) {
-            return true // Each side has only king remaining
-        } else if (totalPieces === 3 && (pieceCount[Piece.TYPE_BISHOP] === 1 || pieceCount[Piece.TYPE_KNIGHT] === 1)) {
-            return true // One side has king and the other king and bishop/knight
-        } else if (totalPieces === pieceCount[Piece.TYPE_BISHOP] + 2) {
-            let bSum = bishops.reduce((a, b) => a + b, 0)
-            return (bSum === 0 || bSum === bishops.length)
-        } else {
-            return false
-        }
-    }
-    /**
-     * Check if the same position has repeated three times on this board
-     */
-    hasRepeatedThreefold () {
-        return Array.from(this.posCount.values()).some(count => count >= 3)
-    }
-    /**
-     * Check if the same position has repeated five times on this board (arbiter rule)
-     */
-    hasRepeatedFivefold () {
-        return Array.from(this.posCount.values()).some(count => count >= 5)
-    }
-    /**
-     * Check if this board breaks the 50 move rule
-     */
-    breaks50MoveRule () {
-        return (this.halfMoveCount >= 100)
-    }
-    // Check if this board breaks the 75 move rule (arbiter rule)
-    breaks75MoveRule () {
-        return (this.halfMoveCount >= 150)
-    }
-    /**
-     * Check if game on this board is finished
-     * @param strictCheck use strick 3-fold repetition and 50-move rules
-     */
-    isFinished (strictCheck = false) {
-        if (this.isInCheckmate()) {
-            if (this.turn === Color.BLACK) {
-                return {
-                    result: {
-                        [Color.WHITE]: Game.RESULT.WIN_BY.CHECKMATE,
-                        [Color.BLACK]: Game.RESULT.LOSS_BY.CHECKMATE,
-                    },
-                    headers: '1-0',
-                }
-            } else {
-                return {
-                    result: {
-                        [Color.WHITE]: Game.RESULT.LOSS_BY.CHECKMATE,
-                        [Color.BLACK]: Game.RESULT.WIN_BY.CHECKMATE,
-                    },
-                    headers: '0-1',
-                }
-            }
-        } else if (this.isInStalemate()) {
-            return {
-                result: {
-                    [Color.WHITE]: Game.RESULT.DRAW_BY.STALEMATE,
-                    [Color.BLACK]: Game.RESULT.DRAW_BY.STALEMATE,
-                },
-                headers: '1/2-1/2',
-            }
-        } else if (this.breaks75MoveRule()) {
-            return {
-                result: {
-                    [Color.WHITE]: Game.RESULT.DRAW_BY.SEVENTYFIVE_MOVE_RULE,
-                    [Color.BLACK]: Game.RESULT.DRAW_BY.SEVENTYFIVE_MOVE_RULE,
-                },
-                headers: '1/2-1/2',
-            }
-        } else if (strictCheck && this.breaks50MoveRule()) {
-            return {
-                result: {
-                    [Color.WHITE]: Game.RESULT.DRAW_BY.FIFTY_MOVE_RULE,
-                    [Color.BLACK]: Game.RESULT.DRAW_BY.FIFTY_MOVE_RULE,
-                },
-                headers: '1/2-1/2',
-            }
-        } else if (this.hasRepeatedFivefold()) {
-            return {
-                result: {
-                    [Color.WHITE]: Game.RESULT.DRAW_BY.FIVEFOLD_REPETITION,
-                    [Color.BLACK]: Game.RESULT.DRAW_BY.FIVEFOLD_REPETITION,
-                },
-                headers: '1/2-1/2',
-            }
-        } else if (strictCheck && this.hasRepeatedThreefold()) {
-            return {
-                result: {
-                    [Color.WHITE]: Game.RESULT.DRAW_BY.THREEFOLD_REPETITION,
-                    [Color.BLACK]: Game.RESULT.DRAW_BY.THREEFOLD_REPETITION,
-                },
-                headers: '1/2-1/2',
-            }
-        }
-        return false
-    }
-    /**
-     * Validate this board state, checking for possible errors.
-     * @param ignoreTurn Ignore turn based checks
-     * @param fixMinor Fix minor issues like castling rights
-     */
     validate (ignoreTurn = false, fixMinor = false) {
         let isValid = true
         let errors = []
@@ -1651,63 +1601,15 @@ class Board implements ChessBoard {
             }
         }
         // Check related tests
-        if (this.isInCheck(Color.WHITE) && this.isInCheck(Color.BLACK)) {
+        if (this.isAttacked(Color.WHITE, this.kingPos[Color.BLACK]) && this.isAttacked(Color.BLACK, this.kingPos[Color.WHITE])) {
             isValid = false
             errors.push("Both kings can't be in check at the same time.")
         }
-        if (!ignoreTurn && this.isInCheck(Color.swap(this.turn))) {
+        if (!ignoreTurn && this.isAttacked(Color.swap(this.turn), this.kingPos[this.turn])) {
             isValid = false
             errors.push("Only the player in turn can have their king in check.")
         }
         return { isValid: isValid, errors: errors }
-    }
-
-    /*
-    ========================
-    Export methods
-    ========================
-    */
-
-    /**
-     * Generate an ASCII representation of the game board
-     */
-    toString () {
-        let str = '  +------------------------+  '
-        str += this.game.headers.get('black')?.substring(0, 28) || "Black (unknown)"
-        str += '\n'
-        const boardResult = this.isFinished()
-        const result = boardResult ? boardResult.headers
-                       // If this is the root variation and we're at the last move, we can override with game result value
-                       : !this.id && this.selectedTurnIndex + 1 === this.history.length
-                            ? this.game.headers.get('result') : false
-        for (let i = Move.SQUARE_INDICES.a8; i <= Move.SQUARE_INDICES.h1; i++) {
-            // Print rank number and the left side of the board
-            if (Board.file(i) === 0) {
-                str += '87654321'[Board.rank(i)] + ' |'
-            }
-            str += ' ' + this.squares[i] + ' '
-            if ((i + 1) & 0x88) {
-                str += `|`
-                if (i === 7 && this.turn === Color.BLACK) {
-                    str += `  Move ${this.moveNum}, `
-                    str += result ? 'game over' : 'Black to move'
-                } else if (i === 55 && result) {
-                    str += '  Result:'
-                } else if (i === 71 && result) {
-                    str += '  ' + result
-                } else if (i === 119 && this.turn === Color.WHITE) {
-                    str += `  Move ${this.moveNum}, `
-                    str += result ? 'game over' : 'White to move'
-                }
-                str += `\n`
-                i += 8
-            }
-        }
-        str += '  +------------------------+  '
-        str += this.game.headers.get('white')?.substring(0, 28) || "White (unknown)"
-        str += '\n'
-        str += '    a  b  c  d  e  f  g  h'
-        return str
     }
 }
 export default Board

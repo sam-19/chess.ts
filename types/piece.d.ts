@@ -1,8 +1,21 @@
 interface ChessPiece {
-    color: string
+    key: string
     type: string
-    inspect (): string
-    toString (): string
+    color: string
+    symbol: string
+    unicode: string
+    html: string
+
+    /**
+     * Get character symbol for this chess piece.
+     * @returns piece text symbol
+     */
+    toString: () => string
+
+    /**
+     * Alias of toString() for logging.
+     */
+    inspect: () => string
 }
 
 export { ChessPiece }

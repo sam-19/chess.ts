@@ -17,6 +17,8 @@ import TimeControl from './time_control'
 
 import { ChessCore } from '../types/chess'
 import { MethodOptions } from '../types/options'
+import Turn from './turn'
+import { PlayerColor } from '../types/color'
 
 class Chess implements ChessCore {
     // Static properties
@@ -56,11 +58,36 @@ class Chess implements ChessCore {
         this.lastRemoved = null // Enable undoing a remove
         this.parsedPgnGames = { default: [] }
     }
+
     /**
-     * Set currently active group
+     * ======================================================================
+     *                             GETTERS
+     * ======================================================================
+     */
+
+    /**
+     * Get currently active game
+     * @param silent - Silence possible warning from unset active game
+     */
+    get activeGame () {
+        if (this.isActiveValid()) {
+            return this.games[this.active.group][this.active.index as number]
+        } else {
+            return null
+        }
+    }
+
+    /**
+     * ======================================================================
+     *                             SETTERS
+     * ======================================================================
+     */
+
+    /**
+     * Set currently active group.
      * @param group group identifier
      */
-    setActiveGroup (group: string) {
+    set activeGroup (group: string) {
         if (group === this.active.group) {
             return
         }
@@ -79,28 +106,285 @@ class Chess implements ChessCore {
             this.active.index = 0
         }
     }
+
     /**
-     * Unset active game, but keep the group
+     * ======================================================================
+     *                             METHODS
+     * ======================================================================
      */
-    unsetActive () {
-        this.active.index = null
-    }
+
     /**
-     * Get currently active game
-     * @param silent - Silence possible warning from unset active game
+     * Clear all games from the given group
+     * @param group defaults to currently active group
      */
-    getActive (silent=false) {
-        if (this.activeIsValid(silent)) {
-            return this.games[this.active.group][this.active.index as number]
-        } else {
-            return null
+    clearAllGames (group=this.active.group) {
+        this.games[group] = [] // Creates group if it doesn't exist
+        if (this.active.group === group) {
+            this.lastActive[group] = null
+            this.active = { group: 'default', index: null }
         }
     }
+
     /**
-     * Check if currently active game is valid
+     * Parser for single PGN game entries, already divided into { headers, moves }
+     * @param pgn { headers, moves }
+     * @return Game
+     */
+    createGameFromPgn (pgn: { headers: string[][], moves: string }) {
+        // I found aaronfi's approach to this much more convenient than the original chess.js method
+        const VALID_RESULTS = ['1-0', '1/2-1/2', '0-1', '0-0', '*', '+/-', '-/+', '-/-']
+        let fen = Fen.DEFAULT_STARTING_STATE
+        // Get possible setup FEN from headers
+        for (let i=0; i<pgn.headers.length; i++) {
+            if (pgn.headers[i][0].toUpperCase() === 'FEN') {
+                fen = pgn.headers[i][1]
+            }
+        }
+        // Create a game with PGN data
+        const game = new Game(fen, pgn.headers)
+        // Includes variation support after aaronfi's original work
+        const openVariation = (continuation: boolean) => {
+            // Create a new variation
+            const newBoard = Board.branchFromParent(game.currentBoard, { continuation: continuation })
+            // Attach the new variation to its starting move index
+            game.currentBoard.history[game.currentBoard.history.length-1].variations.push(newBoard)
+            // Set the new variation as current one
+            game.currentBoard = newBoard
+        }
+        // Close this variation and return to the next one up in hierarchy
+        const closeVariation = () => {
+            game.currentBoard = game.currentBoard.parentBoard as Board
+        }
+        // Parse moves from PGN data
+        let end = 0
+        // Flag moves as procedurally generated and that game should not be preserved for them
+        const moveOpts = { isPlayerMove: false, preserveGame: false }
+        let lastMove: Turn | { error: string } | false = false
+        /** Check that the last parsed move is valid. */
+        const isLastMoveValid = () => {
+            return (lastMove && !lastMove.hasOwnProperty('error'))
+        }
+        parse_moves:
+        for (let pos=0; pos<pgn.moves.length; pos++) {
+            let annotation = null
+            switch (pgn.moves.charAt(pos)) {
+                // Catch end of SAN string
+                case '\s':
+                case '\b':
+                case '\f':
+                case '\n':
+                case '\t':
+                    break
+                case ';':
+                    if (!isLastMoveValid()) {
+                        break
+                    }
+                    lastMove = lastMove as Turn
+                    // End of line annotation
+                    end = pgn.moves.indexOf('\n', pos + 1)
+                    if (end === -1) { // No more newlines before move part end
+                        end = pgn.moves.length - 1
+                    }
+                    annotation = new Annotation(pgn.moves.substring(pos + 1, end).trim())
+                    // Append annotation to move
+                    lastMove.annotations.push(annotation)
+                    pos = end
+                    break
+                case '{':
+                    if (!isLastMoveValid()) {
+                        break
+                    }
+                    lastMove = lastMove as Turn
+                    // In-line annotation
+                    end = pos+1
+                    while (pgn.moves.charAt(end) !== '}') {
+                        end++
+                    }
+                    annotation = new Annotation(pgn.moves.substring(pos+1, end).replace(/[\n\r\t]/g, ' '))
+                    // Append annotation to move
+                    lastMove.annotations.push(annotation)
+                    pos = end
+                    break
+                case '(':
+                    if (!isLastMoveValid()) {
+                        break
+                    }
+                    // Another variation
+                    if (pgn.moves.charAt(pos+1) === '*') {
+                        // This is a Palview style continuation variation
+                        openVariation(true)
+                        pos++
+                    } else
+                        openVariation(false)
+                    break
+                case ')':
+                    if (!isLastMoveValid()) {
+                        break
+                    }
+                    closeVariation()
+                    break
+                case '!':
+                case '?':
+                case '$':
+                    if (!isLastMoveValid()) {
+                        break
+                    }
+                    lastMove = lastMove as Turn
+                    // NAG (or Numeric Annotation Glyph)
+                    end = pos + 1
+                    while (pgn.moves.charAt(end).match(/[!\?\d]/) !== null) {
+                        end++
+                    }
+                    let nag
+                    if (pgn.moves.charAt(pos) === '$') {
+                        nag = new Annotation('', parseInt(pgn.moves.substring(pos+1, end)))
+                    } else {
+                        nag = new Annotation('', parseInt(pgn.moves.substring(pos, end)))
+                    }
+                    // Append NAG to move
+                    lastMove.annotations.push(nag)
+                    pos = end - 1 // for loop will add 1 to the pos after break
+                    break
+                default:
+                    // Just your ordinary SAN move
+                    for (let i=0; i<VALID_RESULTS.length; i++) {
+                        // Check if this is the end of the game
+                        if (pgn.moves.indexOf(VALID_RESULTS[i], pos) === pos) {
+                            if (!game.currentBoard.id)
+                                end = pgn.moves.length // This is the actual game, so wrap it up
+                            else
+                                end = pos + VALID_RESULTS[i].length // This was just a variation, keep going
+                            pos = end
+                            break
+                        }
+                    }
+                    // End of move data?
+                    if (pos === pgn.moves.length)
+                        break
+                    // Pick up the running turn number
+                    let mNum = game.currentBoard.turnNum.toString()
+                    if (pgn.moves.indexOf(mNum, pos) === pos) {
+                        // Skip the move number
+                        pos += mNum.length
+                        // Skip the dot (including ... for black to move) and white space chars that precede the actua SAN
+                        while ('. \n\r\t'.indexOf(pgn.moves.charAt(pos)) !== -1) {
+                            pos++
+                        }
+                    }
+                    // Check if this a wildcard move (all wildvard moves are 2 characters long)
+                    if (Move.WILDCARD_MOVES.indexOf(pgn.moves.substring(pos, pos+2)) !== -1) {
+                        // TODO: And actual mock move for null moves
+                        let anyMove = Move.generateWildcardMove(game.currentBoard)
+                        if (anyMove.error === undefined) {
+                            lastMove = game.makeMove(anyMove as Move, moveOpts)
+                        }
+                        // Skip null move symbol
+                        end = pos + 2
+                    } else {
+                        // Check the position of the next non-move character
+                        end = pos + pgn.moves.substring(pos).search(/[\s${;!?()]/)
+                        if (end < pos) {
+                            // This was the last move
+                            // TODO: Handle incomplete file (missing result information)
+                            end = pgn.moves.length
+                        }
+                        lastMove = game.makeMoveFromSan(pgn.moves.substring(pos, end), moveOpts)
+                    }
+                    if (lastMove.hasOwnProperty('error')) {
+                        // Making the move failed
+                        console.error("PGN move parsing error "
+                                      + pgn.moves.substring(pos, end)
+                                      + ": " + (lastMove as { error: string }).error)
+                        break parse_moves
+                    }
+                    // Set the cursor for next entry, skiping all leading white space characters
+                    pos = end + (pgn.moves.substring(end).match(/^(\s*)/) || ['',''])[1].length - 1
+                    break
+            }
+        }
+        if (game.currentBoard.id !== 0) {
+            // One or more variations did not close properly
+            // This can be due to sloppy notation, so we'll close them recursively
+            while (game.currentBoard.id !== 0) {
+                closeVariation()
+            }
+        }
+        // Parse game result
+        const result = pgn.moves.substring(pgn.moves.length - 3)
+        if (result === '1-0') {
+            if (game.currentBoard.isInCheckmate) {
+                game.result = {
+                    [Chess.Color.WHITE]: Game.RESULT.WIN_BY.CHECKMATE,
+                    [Chess.Color.BLACK]: Game.RESULT.LOSS_BY.CHECKMATE,
+                }
+            } else {
+                game.result = {
+                    [Chess.Color.WHITE]: Game.RESULT.WIN,
+                    [Chess.Color.BLACK]: Game.RESULT.LOSS,
+                }
+            }
+        } else if (result === '0-1') {
+            if (game.currentBoard.isInCheckmate) {
+                game.result = {
+                    [Chess.Color.WHITE]: Game.RESULT.LOSS_BY.CHECKMATE,
+                    [Chess.Color.BLACK]: Game.RESULT.WIN_BY.CHECKMATE,
+                }
+            } else {
+                game.result = {
+                    [Chess.Color.WHITE]: Game.RESULT.LOSS,
+                    [Chess.Color.BLACK]: Game.RESULT.WIN,
+                }
+            }
+        } else if (pgn.moves.substring(pgn.moves.length - 7) == '1/2-1/2') {
+            if (game.currentBoard.isInStalemate) {
+                game.result = {
+                    [Chess.Color.WHITE]: Game.RESULT.DRAW_BY.STALEMATE,
+                    [Chess.Color.BLACK]: Game.RESULT.DRAW_BY.STALEMATE,
+                }
+            } else if (game.currentBoard.breaks75MoveRule) {
+                game.result = {
+                    [Chess.Color.WHITE]: Game.RESULT.DRAW_BY.SEVENTYFIVE_MOVE_RULE,
+                    [Chess.Color.BLACK]: Game.RESULT.DRAW_BY.SEVENTYFIVE_MOVE_RULE,
+                }
+            } else if (game.currentBoard.breaks50MoveRule) {
+                game.result = {
+                    [Chess.Color.WHITE]: Game.RESULT.DRAW_BY.FIFTY_MOVE_RULE,
+                    [Chess.Color.BLACK]: Game.RESULT.DRAW_BY.FIFTY_MOVE_RULE,
+                }
+            } else if (game.currentBoard.hasRepeatedFivefold) {
+                game.result = {
+                    [Chess.Color.WHITE]: Game.RESULT.DRAW_BY.FIVEFOLD_REPETITION,
+                    [Chess.Color.BLACK]: Game.RESULT.DRAW_BY.FIVEFOLD_REPETITION,
+                }
+            } else if (game.currentBoard.hasRepeatedThreefold) {
+                game.result = {
+                    [Chess.Color.WHITE]: Game.RESULT.DRAW_BY.THREEFOLD_REPETITION,
+                    [Chess.Color.BLACK]: Game.RESULT.DRAW_BY.THREEFOLD_REPETITION,
+                }
+            } else {
+                game.result = {
+                    [Chess.Color.WHITE]: Game.RESULT.DRAW,
+                    [Chess.Color.BLACK]: Game.RESULT.DRAW,
+                }
+            }
+        }
+        return game
+    }
+
+    /**
+     * This is a workaround for cases when the property activeGame
+     * gets cached and might return the wrong game.
+     * @returns Game or null
+     */
+    getActiveGame () {
+        return this.activeGame
+    }
+
+    /**
+     * Check if currently active game is valid.
      * @param silent Silence the warning if game is not valid
      */
-    activeIsValid (silent=false) {
+    isActiveValid (silent=false) {
         if (this.active.index !== null && this.games[this.active.group] !== undefined &&
             this.games[this.active.group][this.active.index] !== undefined
         ) {
@@ -110,6 +394,34 @@ class Chess implements ChessCore {
         }
         return false
     }
+
+    /**
+     * Load a game that has already been parsed from PGN
+     * @param index index of the parsed game in group list
+     * @param group defaults to currently active group
+     * @param returnGame return the game instead of adding it to game list
+     */
+    loadParsedGame (index: number, group=this.active.group, returnGame=false) {
+        // Make sure such a game is cached
+        if (!this.parsedPgnGames.hasOwnProperty(group) || this.parsedPgnGames[group][index] === undefined) {
+            return null
+        }
+        let game = this.createGameFromPgn(this.parsedPgnGames[group][index])
+        if (this.active.group === group && !returnGame) {
+            // Check that game group exists
+            if (!this.games.hasOwnProperty(group)) {
+                this.games[group] = []
+            }
+            // Add game to group list
+            this.games[group].push(game)
+            this.active.index = this.games[group].length - 1
+            return null
+        } else {
+            // Just return the game
+            return game
+        }
+    }
+
     /**
      * Load a small number of games from a PGN collection or return header information
      * @param pgn PGN game collection
@@ -171,6 +483,7 @@ class Chess implements ChessCore {
         }
         return []
     }
+
     /**
      * Load game(s) from a PGN collection
      * @param pgn - PGN string
@@ -252,6 +565,7 @@ class Chess implements ChessCore {
             parseGames()
         }
     }
+
     /**
      * Create a new game from given FEN
      * @param fen
@@ -269,7 +583,7 @@ class Chess implements ChessCore {
             this.games[group].push(new Game(fen))
             return { group: group, index: this.games[group].length - 1 }
         } else {
-            if (this.active.index === null || (this.getActive()?.shouldPreserve && !replace)) {
+            if (this.active.index === null || (this.activeGame?.shouldPreserve && !replace)) {
                 // Add a new game and activate it
                 this.games[group].push(new Game(fen))
                 this.active.index = this.games[group].length - 1
@@ -281,6 +595,7 @@ class Chess implements ChessCore {
             return {...this.active}
         }
     }
+
     /**
      * Parse a PGN file containing one or more game records
      * @param pgn
@@ -427,276 +742,7 @@ class Chess implements ChessCore {
         }
         return parsed
     }
-    /**
-     * Parser for single PGN game entries, already divided into { headers, moves }
-     * @param pgn { headers, moves }
-     * @return Game
-     */
-    createGameFromPgn (pgn: { headers: string[][], moves: string }) {
-        // I found aaronfi's approach to this much more convenient than the original chess.js method
-        const VALID_RESULTS = ['1-0', '1/2-1/2', '0-1', '0-0', '*', '+/-', '-/+', '-/-']
-        let fen = Fen.DEFAULT_STARTING_STATE
-        // Get possible setup FEN from headers
-        for (let i=0; i<pgn.headers.length; i++) {
-            if (pgn.headers[i][0].toUpperCase() === 'FEN') {
-                fen = pgn.headers[i][1]
-            }
-        }
-        // Create a game with PGN data
-        const game = new Game(fen, pgn.headers)
-        // Includes variation support after aaronfi's original work
-        const openVariation = (continuation: boolean) => {
-            // Create a new variation
-            const newBoard = Board.createFromParent(game.currentBoard, { continuation: continuation })
-            // Attach the new variation to its starting move index
-            game.currentBoard.history[game.currentBoard.history.length-1].variations.push(newBoard)
-            // Set the new variation as current one
-            game.currentBoard = newBoard
-        }
-        // Close this variation and return to the next one up in hierarchy
-        const closeVariation = () => {
-            game.currentBoard = game.currentBoard.parentBoard as Board
-        }
-        // Parse moves from PGN data
-        let end = 0
-        // Flag moves as procedurally generated and that game should not be preserved for them
-        const moveOpts = { isPlayerMove: false, preserveGame: false }
-        parse_moves:
-        for (let pos=0; pos<pgn.moves.length; pos++) {
-            let annotation = null
-            switch (pgn.moves.charAt(pos)) {
-                // Catch end of SAN string
-                case '\s':
-                case '\b':
-                case '\f':
-                case '\n':
-                case '\t':
-                    break
-                case ';':
-                    // End of line annotation
-                    end = pgn.moves.indexOf('\n', pos+1)
-                    if (end === -1) { // No more newlines before move part end
-                        end = pgn.moves.length-1
-                    }
-                    annotation = new Annotation(pgn.moves.substring(pos+1, end).trim())
-                    // Append annotation to move
-                    if (game.currentBoard.turnAnnotations[game.currentBoard.selectedTurnIndex + 1] !== undefined)
-                        game.currentBoard.turnAnnotations[game.currentBoard.selectedTurnIndex + 1].push(annotation)
-                    else
-                        game.currentBoard.turnAnnotations[game.currentBoard.selectedTurnIndex + 1] = [annotation]
-                    pos = end
-                    break
-                case '{':
-                    // In-line annotation
-                    end = pos+1
-                    while (pgn.moves.charAt(end) !== '}') {
-                        end++
-                    }
-                    annotation = new Annotation(pgn.moves.substring(pos+1, end).replace(/[\n\r\t]/g, ' '))
-                    // Append annotation to move
-                    if (game.currentBoard.turnAnnotations[game.currentBoard.selectedTurnIndex + 1] !== undefined)
-                        game.currentBoard.turnAnnotations[game.currentBoard.selectedTurnIndex + 1].push(annotation)
-                    else
-                        game.currentBoard.turnAnnotations[game.currentBoard.selectedTurnIndex + 1] = [annotation]
-                    pos = end
-                    break
-                case '(':
-                    // Another variation
-                    if (pgn.moves.charAt(pos+1) === '*') {
-                        // This is a Palview style continuation variation
-                        openVariation(true)
-                        pos++
-                    } else
-                        openVariation(false)
-                    break
-                case ')':
-                    closeVariation()
-                    break
-                case '!':
-                case '?':
-                case '$':
-                    // NAG (or Numeric Annotation Glyph)
-                    end = pos + 1
-                    while (pgn.moves.charAt(end).match(/[!\?\d]/) !== null) {
-                        end++
-                    }
-                    let nag
-                    if (pgn.moves.charAt(pos) === '$') {
-                        nag = new Annotation('', parseInt(pgn.moves.substring(pos+1, end)))
-                    } else {
-                        nag = new Annotation('', parseInt(pgn.moves.substring(pos, end)))
-                    }
-                    // Append NAG to move
-                    if (game.currentBoard.turnAnnotations[game.currentBoard.selectedTurnIndex + 1] !== undefined) {
-                        game.currentBoard.turnAnnotations[game.currentBoard.selectedTurnIndex + 1].push(nag)
-                    } else {
-                        game.currentBoard.turnAnnotations[game.currentBoard.selectedTurnIndex + 1] = [nag]
-                    }
-                    pos = end - 1 // for loop will add 1 to the pos after break
-                    break
-                default:
-                    // Just your ordinary SAN move
-                    let sanMove
-                    for (let i=0; i<VALID_RESULTS.length; i++) {
-                        // Check if this is the end of the game
-                        if (pgn.moves.indexOf(VALID_RESULTS[i], pos) === pos) {
-                            if (!game.currentBoard.id)
-                                end = pgn.moves.length // This is the actual game, so wrap it up
-                            else
-                                end = pos + VALID_RESULTS[i].length // This was just a variation, keep going
-                            pos = end
-                            break
-                        }
-                    }
-                    // End of move data?
-                    if (pos === pgn.moves.length)
-                        break
-                    // Pick up the running move number
-                    let mNum = game.currentBoard.moveNum.toString()
-                    if (pgn.moves.indexOf(mNum, pos) === pos) {
-                        // Skip the move number
-                        pos += mNum.length
-                        // Skip the dot (including ... for black to move) and white space chars that precede the actua SAN
-                        while ('. \n\r\t'.indexOf(pgn.moves.charAt(pos)) !== -1) {
-                            pos++
-                        }
-                    }
-                    // Check if this a wildcard move (all wildvard moves are 2 characters long)
-                    if (Move.WILDCARD_MOVES.indexOf(pgn.moves.substring(pos, pos+2)) !== -1) {
-                        // TODO: And actual mock move for null moves
-                        let anyMove = Move.generateWildcardMove(game.currentBoard)
-                        if (anyMove.error === undefined) {
-                            sanMove = game.makeMove(anyMove as Move, moveOpts)
-                        }
-                        // Skip null move symbol
-                        end = pos + 2
-                    } else {
-                        // Check the position of the next non-move character
-                        end = pos + pgn.moves.substring(pos).search(/[\s${;!?()]/)
-                        if (end < pos) {
-                            // This was the last move
-                            // TODO: Handle incomplete file (missing result information)
-                            end = pgn.moves.length
-                        }
-                        sanMove = game.makeMoveFromSan(pgn.moves.substring(pos, end), moveOpts)
-                    }
-                    if (sanMove?.hasOwnProperty('error')) {
-                        // Making the move failed
-                        console.error("PGN move parsing error "
-                                      + pgn.moves.substring(pos, end)
-                                      + ": " + (sanMove as { error: string }).error)
-                        break parse_moves
-                    }
-                    // Set the cursor for next entry, skiping all leading white space characters
-                    pos = end + (pgn.moves.substring(end).match(/^(\s*)/) || ['',''])[1].length - 1
-                    break
-            }
-        }
-        if (game.currentBoard.id !== 0) {
-            // One or more variations did not close properly
-            // This can be due to sloppy notation, so we'll close them recursively
-            while (game.currentBoard.id !== 0) {
-                closeVariation()
-            }
-        }
-        // Parse game result
-        const result = pgn.moves.substring(pgn.moves.length - 3)
-        if (result === '1-0') {
-            if (game.currentBoard.isInCheckmate()) {
-                game.result = {
-                    [Chess.Color.WHITE]: Game.RESULT.WIN_BY.CHECKMATE,
-                    [Chess.Color.BLACK]: Game.RESULT.LOSS_BY.CHECKMATE,
-                }
-            } else {
-                game.result = {
-                    [Chess.Color.WHITE]: Game.RESULT.WIN,
-                    [Chess.Color.BLACK]: Game.RESULT.LOSS,
-                }
-            }
-        } else if (result === '0-1') {
-            if (game.currentBoard.isInCheckmate()) {
-                game.result = {
-                    [Chess.Color.WHITE]: Game.RESULT.LOSS_BY.CHECKMATE,
-                    [Chess.Color.BLACK]: Game.RESULT.WIN_BY.CHECKMATE,
-                }
-            } else {
-                game.result = {
-                    [Chess.Color.WHITE]: Game.RESULT.LOSS,
-                    [Chess.Color.BLACK]: Game.RESULT.WIN,
-                }
-            }
-        } else if (pgn.moves.substring(pgn.moves.length - 7) == '1/2-1/2') {
-            if (game.currentBoard.isInStalemate()) {
-                game.result = {
-                    [Chess.Color.WHITE]: Game.RESULT.DRAW_BY.STALEMATE,
-                    [Chess.Color.BLACK]: Game.RESULT.DRAW_BY.STALEMATE,
-                }
-            } else if (game.currentBoard.breaks75MoveRule()) {
-                game.result = {
-                    [Chess.Color.WHITE]: Game.RESULT.DRAW_BY.SEVENTYFIVE_MOVE_RULE,
-                    [Chess.Color.BLACK]: Game.RESULT.DRAW_BY.SEVENTYFIVE_MOVE_RULE,
-                }
-            } else if (game.currentBoard.breaks50MoveRule()) {
-                game.result = {
-                    [Chess.Color.WHITE]: Game.RESULT.DRAW_BY.FIFTY_MOVE_RULE,
-                    [Chess.Color.BLACK]: Game.RESULT.DRAW_BY.FIFTY_MOVE_RULE,
-                }
-            } else if (game.currentBoard.hasRepeatedFivefold()) {
-                game.result = {
-                    [Chess.Color.WHITE]: Game.RESULT.DRAW_BY.FIVEFOLD_REPETITION,
-                    [Chess.Color.BLACK]: Game.RESULT.DRAW_BY.FIVEFOLD_REPETITION,
-                }
-            } else if (game.currentBoard.hasRepeatedThreefold()) {
-                game.result = {
-                    [Chess.Color.WHITE]: Game.RESULT.DRAW_BY.THREEFOLD_REPETITION,
-                    [Chess.Color.BLACK]: Game.RESULT.DRAW_BY.THREEFOLD_REPETITION,
-                }
-            } else {
-                game.result = {
-                    [Chess.Color.WHITE]: Game.RESULT.DRAW,
-                    [Chess.Color.BLACK]: Game.RESULT.DRAW,
-                }
-            }
-        }
-        return game
-    }
-    /**
-     * Load a game that has already been parsed from PGN
-     * @param index index of the parsed game in group list
-     * @param group defaults to currently active group
-     * @param returnGame return the game instead of adding it to game list
-     */
-    loadParsedGame (index: number, group=this.active.group, returnGame=false) {
-        // Make sure such a game is cached
-        if (!this.parsedPgnGames.hasOwnProperty(group) || this.parsedPgnGames[group][index] === undefined) {
-            return null
-        }
-        let game = this.createGameFromPgn(this.parsedPgnGames[group][index])
-        if (this.active.group === group && !returnGame) {
-            // Check that game group exists
-            if (!this.games.hasOwnProperty(group)) {
-                this.games[group] = []
-            }
-            // Add game to group list
-            this.games[group].push(game)
-            this.active.index = this.games[group].length - 1
-            return null
-        } else {
-            // Just return the game
-            return game
-        }
-    }
-    /**
-     * Clear all games from the given group
-     * @param group defaults to currently active group
-     */
-    clearAll (group=this.active.group) {
-        this.games[group] = [] // Creates group if it doesn't exist
-        if (this.active.group === group) {
-            this.lastActive[group] = null
-            this.active = { group: 'default', index: null }
-        }
-    }
+
     /**
      * Remove the game at index from given group.
      * Arguments have individual defaults, so either override both or neither!
@@ -720,12 +766,13 @@ class Chess implements ChessCore {
                     this.active.index--
                 } else if (!this.games[group].length) {
                     // If there are no more games in this group, unset
-                    this.unsetActive()
+                    this.unsetActiveGame()
                 } // Else, index staying the same, the next game on the list becomes active
                 this.lastActive[group] = this.active.index
             }
         }
     }
+
     /**
      * Reset the game in group at index to default (starting) state.
      * Arguments have individual defaults, so either override both or neither!
@@ -740,128 +787,168 @@ class Chess implements ChessCore {
             this.games[group][index] = new Game(Fen.DEFAULT_STARTING_STATE)
         }
     }
-    /* ==================================
-       Pass-throughs
-       ================================== */
-    // Return the player in turn
-    whoIsToMove () {
-        return this.getActive()?.whoIsToMove()
+
+    /**
+     * Unset active game, but keep the group.
+     */
+    unsetActiveGame () {
+        this.active.index = null
     }
-    // Metadata
+
+    /**
+     * ======================================================================
+     *                          PASS-THROUGHS
+     * ======================================================================
+     */
+
+    /** Does the active game break the 50 move rule. */
+    get breaks50MoveRule () {
+        return this.activeGame?.breaks50MoveRule
+    }
+    /** Does the active game break the 75 move rule. */
+    get breaks75MoveRule () {
+        return this.activeGame?.breaks75MoveRule
+    }
+    /** Does the active game have insufficient material for a checkmate. */
+    get hasInsufficientMaterial () {
+        return this.activeGame?.hasInsufficientMaterial
+    }
+    /** Has the active game repeated any position five times. */
+    get hasRepeatedFivefold () {
+        return this.activeGame?.hasRepeatedFivefold
+    }
+    /** Has the active game repeated any position three times. */
+    get hasRepeatedThreefold () {
+        return this.activeGame?.hasRepeatedThreefold
+    }
+    /** Active game's headers. */
+    get headers () {
+        return this.activeGame?.headers
+    }
+    /** Is the active game in check. */
+    get isInCheck () {
+        return this.activeGame?.isInCheck
+    }
+    /** Is the active game in checkmate. */
+    get isInCheckmate () {
+        return this.activeGame?.isInCheckmate
+    }
+    /** Is the active game draw. */
+    get isDraw () {
+        return this.activeGame?.isDraw
+    }
+    /** Is the active game finished. */
+    get isFinished () {
+        return this.activeGame?.isFinished
+    }
+    /** Is the active game in stalemate. */
+    get isInStalemate () {
+        return this.activeGame?.isInStalemate
+    }
+    /** Active turn index. */
+    get turnIndexPosition () {
+        return this.activeGame?.turnIndexPosition
+    }
+    /** Add new headers to the active game. */
     addHeaders (headers: string[][]) {
-        this.getActive()?.addHeaders(headers)
+        this.activeGame?.addHeaders(headers)
     }
-    getHeaders () {
-        return this.getActive()?.getHeaders()
+    /** Create a new continuation to the active game from SAN. */
+    createContinuationFromSAN (san:string) {
+        return this.activeGame?.createContinuationFromSan(san)
     }
-    isInCheck () {
-        return this.getActive()?.isInCheck()
+    /** Create a new variation to the active game from SAN. */
+    createVariationFromSan (san: string) {
+        return this.activeGame?.createVariationFromSan(san)
     }
-    isInCheckmate () {
-        return this.getActive()?.isInCheckmate()
-    }
-    isDraw () {
-        return this.getActive()?.isDraw()
-    }
-    isFinished () {
-        return this.getActive()?.isFinished()
-    }
-    hasInsufficientMaterial () {
-        return this.getActive()?.hasInsufficientMaterial()
-    }
-    isInStalemate () {
-        return this.getActive()?.isInStalemate()
-    }
-    hasRepeatedThreefold () {
-        return this.getActive()?.hasRepeatedThreefold()
-    }
-    hasRepeatedFivefold () {
-        return this.getActive()?.hasRepeatedFivefold()
-    }
-    breaks50MoveRule() {
-        return this.getActive()?.breaks50MoveRule()
-    }
-    breaks75MoveRule() {
-        return this.getActive()?.breaks75MoveRule()
-    }
-    // Board state methods
-    loadFen (fen: string) {
-        return this.getActive()?.loadFen(fen)
-    }
-    makeMoveFromAlgebraic (orig: string, dest: string) {
-        return this.getActive()?.makeMoveFromAlgebraic(orig, dest)
-    }
-    makeMoveFromSan (san: string) {
-        return this.getActive()?.makeMoveFromSan(san)
-    }
-    pieceAt (sqr: number | string) {
-        return this.getActive()?.pieceAt(sqr)
-    }
-    put (piece: Piece, square: number) {
-        return this.getActive()?.put(piece, square)
-    }
-    removePiece (square: number) {
-        return this.getActive()?.remove(square)
-    }
-    // History methods
-    goToStart () {
-        this.getActive()?.goToStart()
-    }
-    getCapturedPieces (color: string) {
-        return this.getActive()?.getCapturedPieces(color)
-    }
-    getMoves (filter: MethodOptions.Board.getMoves = {}) {
-        return this.getActive()?.getMoves(filter)
-    }
-    getMoveHistory (onlyMoves=false) {
-        return this.getActive()?.getMoveHistory(onlyMoves ? 'san' : null)
-    }
-    nextMove () {
-        return this.getActive()?.nextMove()
-    }
-    prevMove () {
-        return this.getActive()?.prevMove()
-    }
-    getMoveIndexPosition () {
-        return this.getActive()?.getMoveIndexPosition()
-    }
-    selectMove (i: number) {
-        this.getActive()?.selectMove(i)
-    }
-    // Continuation methods
-    continuationFromSAN (san:string) {
-        return this.getActive()?.createContinuationFromSan(san)
-    }
-    enterContinuation (id: number) {
-        return this.getActive()?.enterContinuation(id)
-    }
-    returnFromContinuation () {
-        return this.getActive()?.returnFromContinuation()
-    }
-    // Variation methods
+    /** Enter the given variation in the active game. */
     enterVariation (id: number) {
-        return this.getActive()?.enterVariation(id)
+        return this.activeGame?.enterVariation(id)
     }
+    /** Get the captured pieces in the active game for given color. */
+    getCapturedPiecesFor (color: PlayerColor) {
+        return this.activeGame?.getCapturedPieces(color)
+    }
+    /** Get available moves in the active game for the player in turn. */
+    getMoves (filter: MethodOptions.Board.getMoves = {}) {
+        return this.activeGame?.getMoves(filter)
+    }
+    /** Get move history for the active game. */
+    getMoveHistory (onlyMoves=false) {
+        return this.activeGame?.getMoveHistory(onlyMoves ? 'san' : undefined)
+    }
+    /** Go to start in the active game. */
+    goToStart () {
+        this.activeGame?.goToStart()
+    }
+    /** Load the given FEN in the active game, overwriting the existing game state. */
+    loadFen (fen: string) {
+        return this.activeGame?.loadFen(fen)
+    }
+    /** Make a move from given origin and destination squares in the active game. */
+    makeMoveFromAlgebraic (orig: string, dest: string) {
+        return this.activeGame?.makeMoveFromAlgebraic(orig, dest)
+    }
+    /** Make a move from given SAN in the active game. */
+    makeMoveFromSan (san: string) {
+        return this.activeGame?.makeMoveFromSan(san)
+    }
+    /** Select the next move in the active game. */
+    nextMove () {
+        return this.activeGame?.nextTurn()
+    }
+    /** Get the piece at the given square in the active game. */
+    pieceAt (sqr: number | string) {
+        return this.activeGame?.pieceAt(sqr)
+    }
+    /** Place a piece on the given square in the active game. */
+    placePiece (piece: Piece, square: number) {
+        return this.activeGame?.placePiece(piece, square)
+    }
+    /** Select the previous move in the active game. */
+    prevMove () {
+        return this.activeGame?.prevTurn()
+    }
+    /** Remove the piece from the given square in the active game. */
+    removePiece (square: number) {
+        return this.activeGame?.removePiece(square)
+    }
+    /** Select turn at the given history index in the active game. */
+    selectTurn (i: number) {
+        this.activeGame?.selectTurn(i)
+    }
+    /** Enter the continuation at the given index in the active game. */
+    enterContinuation (id: number) {
+        return this.activeGame?.enterContinuation(id)
+    }
+    /** Return from the current continuation in the active game. */
+    returnFromContinuation () {
+        return this.activeGame?.returnFromContinuation()
+    }
+    /** Return from the current variation in the active game. */
     returnFromVariation () {
-        return this.getActive()?.returnFromVariation()
+        return this.activeGame?.returnFromVariation()
     }
-    variationFromSen (san: string) {
-        return this.getActive()?.createVariationFromSan(san)
+    /** FEN representation of currently active game's state. */
+    toFEN (options = {}) {
+        return this.activeGame?.toFen(options)
     }
-    // Export methods
-    getFEN (options = {}) {
-        return this.getActive()?.toFen(options)
-    }
-    getPGN (options = {}) {
+    /** PGN representation of currently active game. */
+    toPGN (options = {}) {
         // TODO
-        return this.getActive()?.toPgn(options)
+        return this.activeGame?.toPgn(options)
     }
+    /** ASCII representation of currently active game's state. */
     toString () {
-        return this.getActive()?.toString()
+        return this.activeGame?.toString()
     }
-    // Auxiliary methods
+    /** Validate the given FEN. */
     validateFen (fen: string) {
         return new Fen(fen).validate
+    }
+    /** Which player is to move in the active game. */
+    whoIsToMove () {
+        return this.activeGame?.whoIsToMove()
     }
 }
 

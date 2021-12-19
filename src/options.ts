@@ -8,12 +8,12 @@ class Options implements ChessOptions {
     ///// BOARD //////
     static readonly Board = {
         /**
-         * Default options for creating a new board variation from a parent board state
+         * Default options for branching a new board from a parent board state
          * @param continuation is this a continuation (default false) or a basic variation
          */
-        createFromParent: () => new Options({
+        branchFromParent: () => new Options({
             continuation: false
-        } as MethodOptions.Board.createFromParent),
+        } as MethodOptions.Board.branchFromParent),
         /**
          * Default options for move generator
          * @param includeFen include a FEN representation of the board state resulting from the move (default false)
@@ -21,7 +21,12 @@ class Options implements ChessOptions {
          * @param onlyForSquare only generate moves for the piece on given square (default null)
          * @param onlyLegal only return legal moves (default true)
          */
-        generateMoves: () => new Options({ includeFen: false, includeSan: false, onlyForSquare: null, onlyLegal: true }),
+        generateMoves: () => new Options({
+            includeFen: false,
+            includeSan: false,
+            onlyForSquare: undefined,
+            onlyLegal: true
+        }),
         /**
          * Default options for move getter
          * @param notation which notations to include (all|algebraic|san|uci, default all)
@@ -30,7 +35,13 @@ class Options implements ChessOptions {
          * @param onlyDestinations only return the destination squares (ignored if onlyForSquare is false, default false
          * @param onlyForSquare only generate moves for the piece on given square (default null)
          */
-        getMoves: () => new Options({ notation: 'all', filter: null, includeFen: false, onlyDestinations: false, onlyForSquare: null }),
+        getMoves: () => new Options({
+            notation: 'all',
+            filter: undefined,
+            includeFen: false,
+            onlyDestinations: false,
+            onlyForSquare: undefined
+        }),
         /**
          * Default options for move maker
          * @param comment comment to add as an annotation to the move
@@ -43,7 +54,7 @@ class Options implements ChessOptions {
          * @param updatePosCount should the board state resulting from this move count towards unique board configurations (see repetition rules, default true)
          */
         makeMove: () => new Options({
-            comment: null,
+            comment: undefined,
             isPlayerMove: true,
             moveTime: 0,
             moveTimeDelta: 0,
@@ -56,7 +67,9 @@ class Options implements ChessOptions {
          * Default options for FEN generator
          * @param meta include meta information in the FEN string (default true); otherwise return only the board position
          */
-        toFen: () => new Options({ meta: true }),
+        toFen: () => new Options({
+            meta: true
+        }),
     }
     static readonly Chess = {
         /**
@@ -69,7 +82,7 @@ class Options implements ChessOptions {
         loadPgn: () => new Options({
             maxItems: 10,
             activateFirst: true,
-            returnHeaders: null,
+            returnHeaders: undefined,
             resetGames: true,
         } as MethodOptions.Chess.loadPgn),
         /**
@@ -82,11 +95,14 @@ class Options implements ChessOptions {
         loadPgnInBatches: () => new Options({
             batchSize: 10,
             maxAmount: 100,
-            reportProgress: null,
+            reportProgress: undefined,
             startFrom: 0,
         } as MethodOptions.Chess.loadPgnInBatches)
     }
     static readonly Game = {
+        getCapturedPieces: () => new Options({
+            onlyType: false,
+        } as MethodOptions.Game.getCapturedPieces),
         /**
          * Default options for move maker
          * @param branchVariation new variations will be branched off the main line (false means new variations will become the main line)
@@ -101,7 +117,7 @@ class Options implements ChessOptions {
          */
         makeMove: () => new Options({
             branchVariation: true,
-            comment: null,
+            comment: undefined,
             isPlayerMove: true,
             moveTime: 0,
             moveTimeDelta: 0,

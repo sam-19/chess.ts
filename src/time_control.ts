@@ -1,7 +1,8 @@
 import Color from './color'
 import Options from './options'
 
-import { ChessTimeControl } from '../types/time_control'
+import { ChessTimeControl, TCFieldModel, TCTimers } from '../types/time_control'
+import { PlayerColor } from '../types/color'
 
 class TimeControl implements ChessTimeControl {
     // Static properties
@@ -14,7 +15,7 @@ class TimeControl implements ChessTimeControl {
      * @param increment Time increment to add to a player's clock when he finishes a move (optional, default 0).
      * @param hourglass Is this an hourglass type control (optional, default false).
      */
-    static readonly FieldModel = {
+    static readonly FieldModel: TCFieldModel = {
         start: 0,
         end: null as number | null,
         limit: 0,
@@ -26,6 +27,7 @@ class TimeControl implements ChessTimeControl {
      * The margin of error (in milliseconds) tolerated when checking if the timer has a full second remaining
      */
     static readonly MarginOfError = 5
+
     // Instance properties
     autoTimeout: boolean = Options.TimeControl.autoTimeout
     fields: (typeof TimeControl.FieldModel)[] = []
@@ -33,14 +35,15 @@ class TimeControl implements ChessTimeControl {
     lastMove: number = 0
     pauses: [number, number | null][] = []
     end: number = 0
-    activePlayer: string = Color.WHITE
+    activePlayer: PlayerColor = Color.WHITE
     plyNum: number = 0
-    time: TimeControlTimers = new TimeControlTimers
+    time: Timers = new Timers()
     reportTimer: number | undefined = undefined
     turnFirst: boolean = true
-    reportFunction: ((timers: TimeControlTimers) => void) | null = null
+    reportFunction: ((timers: Timers) => void) | null = null
+
     // TODO: Capped Fischer timing and Bronstein timing?
-    constructor (descriptor?: string, reportFunction?: (timers: TimeControlTimers) => void) {
+    constructor (descriptor?: string, reportFunction?: (timers: Timers) => void) {
         /** Fields are objects with the following structure\
           * { start: int, end: int, limit: int, hourglass: boolean, increment: int, delay: int }\
           * where start and end are turn numbers, all the rest are time in seconds
@@ -52,11 +55,7 @@ class TimeControl implements ChessTimeControl {
             this.reportFunction = reportFunction
         }
     }
-    /**
-     * Add a new field to time controls
-     * @param params
-     * @return true if successful, array of errors if failure
-     */
+
     addField (params: typeof TimeControl.FieldModel) {
         let errors = []
         let field = {...TimeControl.FieldModel} // Copy base mode
@@ -105,28 +104,18 @@ class TimeControl implements ChessTimeControl {
             return errors
         }
     }
-    /**
-     * Continue a paused timer
-     * @param timestamp set pause end time to timestamp value (optional, default Date.now())
-     */
+
     continueTimer (timestamp=Date.now()) {
         if (this.pauses.length) {
             this.pauses[this.pauses.length - 1][1] = timestamp
         }
         this.updateReportTimer()
     }
-    /**
-     * Get a copy of elapsed and remaining timers (in milliseconds)
-     * @return { elapsed: { w, b }, remaining: { w, b } }
-     */
+
     copyTimers () {
-        return new TimeControlTimers(this.time)
+        return new Timers(this.time)
     }
-    /**
-     * Get time delay in seconds for the given ply
-     * @param plyNum
-     * @return delay
-     */
+
     getDelay (plyNum=this.plyNum) {
         for (let i=0; i<this.fields.length; i++) {
             // Float approximation errors are a b***h, better compare integers
@@ -138,11 +127,7 @@ class TimeControl implements ChessTimeControl {
         }
         return TimeControl.FieldModel.delay
     }
-    /**
-     * Get time increment in seconds for the given ply
-     * @param plyNum
-     * @return increment
-     */
+
     getIncrement (plyNum=this.plyNum) {
         for (let i=0; i<this.fields.length; i++) {
             if ((this.fields[i].start - 1)*2 <= plyNum &&
@@ -153,11 +138,7 @@ class TimeControl implements ChessTimeControl {
         }
         return TimeControl.FieldModel.increment
     }
-    /**
-     * Get time limit addition in seconds for the given ply
-     * @param plyNum
-     * @return limit
-     */
+
     getLimitAddition (plyNum=this.plyNum) {
         for (let i=0; i<this.fields.length; i++) {
             // First limit is added in startTimer(), don't add again
@@ -167,16 +148,11 @@ class TimeControl implements ChessTimeControl {
         }
         return TimeControl.FieldModel.limit
     }
-    /**
-     * Get the time control report function
-     */
+
     getReportFunction () {
         return this.reportFunction
     }
-    /**
-     * Get the time delta (time passed) from last move (in milliseconds), taking into account timer delay and pauses
-     * @param timestamp optional
-     */
+
     getTimeDelta (timestamp=Date.now()) {
         let timeDelta = timestamp - this.lastMove - this.getDelay()*1000
         // Take possible pause into account
@@ -194,11 +170,7 @@ class TimeControl implements ChessTimeControl {
         }
         return timeDelta
     }
-    /**
-     * Is the time control at given ply a hourglass type control
-     * @param plyNum (optional, default current ply number)
-     * @return
-     */
+
     isHourglass (plyNum=this.plyNum) {
         for (let i=0; i<this.fields.length; i++) {
             if ((this.fields[i].start - 1)*2 <= plyNum &&
@@ -209,12 +181,7 @@ class TimeControl implements ChessTimeControl {
         }
         return TimeControl.FieldModel.hourglass
     }
-    /**
-     * Call when a move has been made. Will update player clock times running clock.
-     * @param plyNum ply number of the FINISHED move (mandatory)
-     * @param takeback is this a takeback move (default false)
-     * @return times elapsed and remaining for both player (in milliseconds): { elapsed: { w, b }, remaining: { w, b } }
-     */
+
     moveMade (plyNum: number, takeback=false) {
         if (plyNum !== this.plyNum) {
             return { error: "Time control ply number is out of sync with game state!" }
@@ -266,11 +233,7 @@ class TimeControl implements ChessTimeControl {
         this.updateReportTimer()
         return this.time
     }
-    /**
-     * Parse a given PGN TimeControl field descriptor
-     * @param descriptor
-     * @return { errors, warnings } from the parse
-     */
+
     parsePGNTimeControl (descriptor: string) {
         // Field object base model
         // Remove old time controls
@@ -361,10 +324,7 @@ class TimeControl implements ChessTimeControl {
         }
         return { errors: errors, warnings: warnings }
     }
-    /**
-     * Pause the timer
-     * @param timestamp set pause start time to timestamp value (optional, default Date.now())
-     */
+
     pauseTimer (timestamp=Date.now()) {
         if (this.reportTimer !== null) {
             window.clearInterval(this.reportTimer)
@@ -373,33 +333,22 @@ class TimeControl implements ChessTimeControl {
         }
         this.pauses.push([timestamp, null])
     }
-    /**
-     * Set the auto-timeout property.
-     * @param value
-     */
+
     setAutoTimeout (value: boolean) {
         this.autoTimeout = value
     }
-    /**
-     * Set ply number to given value
-     * @param num
-     */
+
     setPlyNum (num: number) {
         this.plyNum = num
     }
-    /**
-     * Set a function that will be used to report the remaining time on regulard intervals
-     * @param reportFunction
-     */
-    setReportFunction (reportFunction: (timers: TimeControlTimers) => void) {
+
+    setReportFunction (reportFunction: ((timers: Timers) => void) | null) {
         this.reportFunction = reportFunction
-        reportFunction(this.copyTimers())
+        if (reportFunction) {
+            reportFunction(this.copyTimers())
+        }
     }
-    /**
-     * Start the timer
-     * @param timestamp set start time to timestamp value (optional, default Date.now())
-     * @param reportTime attempt to start a time reporting interval for White (optional, default true)
-     */
+
     startTimer (timestamp=Date.now(), reportTime=true) {
         if (!this.fields.length) {
             return { error: "There are no fields set, cannot start time control!" }
@@ -421,10 +370,7 @@ class TimeControl implements ChessTimeControl {
         }
         return {}
     }
-    /**
-     * Stop the timer
-     * @param timestamp optional
-     */
+
     stopTimer (timestamp=Date.now()) {
         if (this.reportTimer !== null) {
             window.clearInterval(this.reportTimer)
@@ -433,9 +379,7 @@ class TimeControl implements ChessTimeControl {
         }
         this.end = timestamp
     }
-    /**
-     * Update the timer to give regular reports on clock time remaining
-     */
+
     updateReportTimer () {
         if (this.reportTimer !== null) {
             // Make sure we don't start multiple timers
@@ -549,9 +493,7 @@ class TimeControl implements ChessTimeControl {
             }
         }
     }
-    /**
-     * Get a PGN TimeControl field compliant string representation of this TimeControl object
-     */
+
     toString () {
         const fields = [] as string[]
         for (const field of this.fields) {
@@ -580,10 +522,7 @@ class TimeControl implements ChessTimeControl {
         }
         return fields.join(':')
     }
-    /**
-     * Get a string representation of these time controls for console logging.
-     * @returns time controls in string form
-     */
+
     inspect () {
         return this.toString()
     }
@@ -591,20 +530,16 @@ class TimeControl implements ChessTimeControl {
 /**
  * Timers for elapsed and remaining time for White and Black.
  */
-class TimeControlTimers {
-    elapsed: {
-        [color: string]: number
-    } = {
+class Timers implements TCTimers {
+    elapsed = {
         [Color.WHITE]: 0,
         [Color.BLACK]: 0,
     }
-    remaining: {
-        [color: string]: number
-    } = {
+    remaining = {
         [Color.WHITE]: 0,
         [Color.BLACK]: 0,
     }
-    constructor (params?: TimeControlTimers) {
+    constructor (params?: Timers) {
         if (params) {
             this.elapsed[Color.WHITE] = params.elapsed[Color.WHITE]
             this.elapsed[Color.BLACK] = params.elapsed[Color.BLACK]

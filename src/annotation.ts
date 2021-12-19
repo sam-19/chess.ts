@@ -3,17 +3,18 @@
  */
 
 import { MoveAnnotation, AnnotationTextPart } from '../types/annotation'
+import Nag from './nag'
 
 class Annotation implements MoveAnnotation {
-    fullText: string
     cleanText: string = ''
-    textParts: AnnotationTextPart[] = []
-    nag: number | null = null
+    fullText: string
+    nag: Nag | null = null
     symbol: string | null = null
+    textParts: AnnotationTextPart[] = []
 
     constructor (text: string, nag?: number) {
         if (nag) {
-            this.nag = nag
+            this.nag = new Nag(nag)
             this.fullText = ''
             return
         }
@@ -96,9 +97,10 @@ class Annotation implements MoveAnnotation {
             this.cleanText = cleanAnn
         }
     }
+
     toString () {
         if (this.nag) {
-            return `$${this.nag}`
+            return `$${this.nag.code}`
         } else {
             return this.fullText
         }

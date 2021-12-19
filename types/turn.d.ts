@@ -1,5 +1,6 @@
+import { MoveAnnotation } from "./annotation"
 import { ChessBoard } from "./board"
-import { PieceColor } from "./color"
+import { PlayerColor } from "./color"
 import { MoveFlags } from "./flags"
 import { ChessMove } from "./move"
 
@@ -8,19 +9,21 @@ import { ChessMove } from "./move"
  * in addition to the actual move made.
  */
 interface ChessTurn {
+    annotations: MoveAnnotation[]
     id: string
     fen: string
     move: ChessMove
     castlingRights: { [color: string]: MoveFlags }
     kingPos: { [color: string]: number | null }
-    turn: PieceColor["WHITE"] | PieceColor["BLACK"]
+    turn: PlayerColor
     enPassantSqr: number | null
-    moveNum: number
+    turnNum: number
     halfMoveCount: number
     plyNum: number
     meta: TurnMeta
-    turnAnnotations: string[]
     variations: ChessBoard[]
+    toString: () => string
+    inspect: () => string
 }
 type TurnMeta = {
     moveTime: number
@@ -28,4 +31,19 @@ type TurnMeta = {
     comments: string
     puzzleSolution: boolean
 }
-export { ChessTurn, TurnMeta }
+type TurnProperties = {
+    annotations?: MoveAnnotation[]
+    id: string
+    fen: string
+    move: ChessMove
+    castlingRights: { [color: string]: MoveFlags }
+    kingPos: { [color: string]: number | null }
+    turn: PlayerColor
+    enPassantSqr: number | null
+    turnNum: number
+    halfMoveCount: number
+    plyNum: number
+    meta: TurnMeta
+    variations?: ChessBoard[]
+}
+export { ChessTurn, TurnMeta, TurnProperties }

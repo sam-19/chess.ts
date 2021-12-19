@@ -4,12 +4,12 @@ import { ChessPiece } from "./piece"
 interface ChessMove {
     algebraic: string | null
     capturedPiece: ChessPiece | null
-    dest: number | null
+    dest: number
     fen: string | null
-    flags: MoveFlags | null
+    flags: MoveFlags
     legal: boolean | null
-    movedPiece: ChessPiece | null
-    orig: number | null
+    movedPiece: ChessPiece
+    orig: number
     promotionPiece: ChessPiece | null
     san: string | null
     uci: string | null
@@ -17,6 +17,8 @@ interface ChessMove {
     // Possible error string
     error?: string
 }
+
+type MoveError = { error: string }
 
 interface MoveOptions {
     orig: number
@@ -27,4 +29,4 @@ interface MoveOptions {
     flags: number[]
 }
 
-export { ChessMove, MoveOptions }
+export { ChessMove, MoveError, MoveOptions }

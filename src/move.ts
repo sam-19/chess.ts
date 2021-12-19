@@ -13,37 +13,6 @@ import { MethodOptions } from '../types/options'
 class Move implements ChessMove {
     // Static properties
     // From original Chess.js
-    static readonly SQUARE_INDICES = {
-        a8:   0, b8:   1, c8:   2, d8:   3, e8:   4, f8:   5, g8:   6, h8:   7,
-        a7:  16, b7:  17, c7:  18, d7:  19, e7:  20, f7:  21, g7:  22, h7:  23,
-        a6:  32, b6:  33, c6:  34, d6:  35, e6:  36, f6:  37, g6:  38, h6:  39,
-        a5:  48, b5:  49, c5:  50, d5:  51, e5:  52, f5:  53, g5:  54, h5:  55,
-        a4:  64, b4:  65, c4:  66, d4:  67, e4:  68, f4:  69, g4:  70, h4:  71,
-        a3:  80, b3:  81, c3:  82, d3:  83, e3:  84, f3:  85, g3:  86, h3:  87,
-        a2:  96, b2:  97, c2:  98, d2:  99, e2: 100, f2: 101, g2: 102, h2: 103,
-        a1: 112, b1: 113, c1: 114, d1: 115, e1: 116, f1: 117, g1: 118, h1: 119
-    }
-    static readonly SQUARE_NAMES = {
-        0:  'a8',   1: 'b8',   2: 'c8',   3: 'd8',   4: 'e8',   5: 'f8',   6: 'g8',   7: 'h8',
-    16:  'a7',  17: 'b7',  18: 'c7',  19: 'd7',  20: 'e7',  21: 'f7',  22: 'g7',  23: 'h7',
-    32:  'a6',  33: 'b6',  34: 'c6',  35: 'd6',  36: 'e6',  37: 'f6',  38: 'g6',  39: 'h6',
-    48:  'a5',  49: 'b5',  50: 'c5',  51: 'd5',  52: 'e5',  53: 'f5',  54: 'g5',  55: 'h5',
-    64:  'a4',  65: 'b4',  66: 'c4',  67: 'd4',  68: 'e4',  69: 'f4',  70: 'g4',  71: 'h4',
-    80:  'a3',  81: 'b3',  82: 'c3',  83: 'd3',  84: 'e3',  85: 'f3',  86: 'g3',  87: 'h3',
-    96:  'a2',  97: 'b2',  98: 'c2',  99: 'd2', 100: 'e2', 101: 'f2', 102: 'g2', 103: 'h2',
-    112:  'a1', 113: 'b1', 114: 'c1', 115: 'd1', 116: 'e1', 117: 'f1', 118: 'g1', 119: 'h1'
-    }
-    static readonly PAWN_OFFSETS = {
-        [Color.WHITE]: [-16, -32, -17, -15],
-        [Color.BLACK]: [ 16,  32,  17,  15]
-    }
-    static readonly PIECE_OFFSETS = {
-        [Piece.TYPE_KNIGHT]: [-18, -33, -31, -14,  18, 33, 31, 14],
-        [Piece.TYPE_BISHOP]: [-17, -15,  17,  15],
-        [Piece.TYPE_ROOK]:   [-16,   1,  16,  -1],
-        [Piece.TYPE_QUEEN]:  [-17, -16, -15,   1,  17, 16, 15, -1],
-        [Piece.TYPE_KING]:   [-17, -16, -15,   1,  17, 16, 15, -1]
-    }
     static readonly ATTACKS = [
         20, 0, 0, 0, 0, 0, 0,24, 0, 0, 0, 0, 0, 0,20, 0,
         0, 20, 0, 0, 0, 0, 0,24, 0, 0, 0, 0, 0,20, 0, 0,
@@ -61,6 +30,17 @@ class Move implements ChessMove {
         0, 20, 0, 0, 0, 0, 0,24, 0, 0, 0, 0, 0,20, 0, 0,
         20 ,0, 0, 0, 0, 0, 0,24, 0, 0, 0, 0, 0, 0,20, 0
     ]
+    static readonly PAWN_OFFSETS = {
+        [Color.WHITE]: [-16, -32, -17, -15],
+        [Color.BLACK]: [ 16,  32,  17,  15]
+    }
+    static readonly PIECE_OFFSETS = {
+        [Piece.TYPE_KNIGHT]: [-18, -33, -31, -14,  18, 33, 31, 14],
+        [Piece.TYPE_BISHOP]: [-17, -15,  17,  15],
+        [Piece.TYPE_ROOK]:   [-16,   1,  16,  -1],
+        [Piece.TYPE_QUEEN]:  [-17, -16, -15,   1,  17, 16, 15, -1],
+        [Piece.TYPE_KING]:   [-17, -16, -15,   1,  17, 16, 15, -1]
+    }
     static readonly RAYS = [
         17, 0,  0,  0,  0,  0,  0, 16,  0,  0,  0,  0,  0,  0, 15, 0,
         0, 17,  0,  0,  0,  0,  0, 16,  0,  0,  0,  0,  0, 15,  0, 0,
@@ -86,6 +66,10 @@ class Move implements ChessMove {
         [Piece.TYPE_QUEEN]:  4,
         [Piece.TYPE_KING]:   5
     }
+    static readonly DOWN = 16
+    static readonly LEFT = -1
+    static readonly RIGHT = 1
+    static readonly UP = -16
 
     // Wildcard (or null) move symbols
     static readonly WILDCARD_MOVES = ['--', '<>']
@@ -94,12 +78,12 @@ class Move implements ChessMove {
     // Instance properties
     algebraic: string | null = null
     capturedPiece: ChessPiece | null = null
-    dest: number | null = null
+    dest: number
     fen: string | null = null
-    flags: MoveFlags | null = null
+    flags: MoveFlags
     legal: boolean | null = null
-    movedPiece: ChessPiece | null = null
-    orig: number | null = null
+    movedPiece: ChessPiece
+    orig: number
     promotionPiece: ChessPiece | null = null
     san: string | null = null
     uci: string | null = null
@@ -109,25 +93,26 @@ class Move implements ChessMove {
 
     constructor (options: MethodOptions.MoveOptions) {
         let {                   // These must be passed
-            orig,               // INT
-            dest,               // INT
+            orig,               // Int
+            dest,               // Int
             movedPiece,         // Piece
             capturedPiece,      // Piece / null
             promotionPiece,     // Piece / null
-            flags               // [INT]
+            flags               // Int[]
         } = options
-        // Check that origin and destination squares are valid
-        if (!Move.isValidIndex(orig) || !Move.isValidIndex(dest)) {
-            Log.error("Invalid origin and/or destination square give to move generator: " + orig + ", " + dest + ".")
-            return
-        }
-        // Assing checked variables
-        this.orig = orig
-        this.dest = dest
-        this.movedPiece = movedPiece
-        this.capturedPiece = capturedPiece
         this.flags = new Flags(flags)
-        if (!flags) {
+        this.movedPiece = movedPiece
+        // Check that origin and destination squares are valid
+        if (!Board.isValidSquareIndex(orig) || !Board.isValidSquareIndex(dest)) {
+            Log.error("Invalid origin and/or destination square give to move generator: " + orig + ", " + dest + ".")
+            this.orig = -1
+            this.dest = -1
+        } else {
+            this.orig = orig
+            this.dest = dest
+        }
+        this.capturedPiece = capturedPiece
+        if (!flags.length) {
             this.flags.add(Flags.NORMAL)
         }
         if (promotionPiece) {
@@ -138,15 +123,16 @@ class Move implements ChessMove {
             capturedPiece = (movedPiece.color === Color.WHITE ? Piece.BLACK_PAWN : Piece.WHITE_PAWN)
         }
         // TODO: Hande interactive promotion
-        if (promotionPiece === null)
+        if (!promotionPiece) {
             promotionPiece = (movedPiece.color === Color.WHITE ? Piece.WHITE_QUEEN : Piece.BLACK_QUEEN)
+        }
         this.promotionPiece = promotionPiece
         // Generate algebraic and UCI notation for move
-        this.algebraic = Move.SQUARE_NAMES[this.orig as keyof typeof Move.SQUARE_NAMES]
+        this.algebraic = Board.SQUARE_NAMES[this.orig as keyof typeof Board.SQUARE_NAMES]
                          + "-"
-                         + Move.SQUARE_NAMES[this.dest as keyof typeof Move.SQUARE_NAMES]
-        this.uci = Move.SQUARE_NAMES[this.orig as keyof typeof Move.SQUARE_NAMES]
-                   + Move.SQUARE_NAMES[this.dest as keyof typeof Move.SQUARE_NAMES]
+                         + Board.SQUARE_NAMES[this.dest as keyof typeof Board.SQUARE_NAMES]
+        this.uci = Board.SQUARE_NAMES[this.orig as keyof typeof Board.SQUARE_NAMES]
+                   + Board.SQUARE_NAMES[this.dest as keyof typeof Board.SQUARE_NAMES]
     }
     // Copy from another Move object
     static copyFrom (move: ChessMove) {
@@ -208,15 +194,15 @@ class Move implements ChessMove {
                 }
                 if (sloppySAN[3] === undefined) {
                     for (let i=1; i<9; i++) {
-                        oSqr.push(Move.SQUARE_INDICES[(sloppySAN[2]+i as keyof typeof Move.SQUARE_INDICES)])
+                        oSqr.push(Board.SQUARE_INDICES[(sloppySAN[2]+i as keyof typeof Board.SQUARE_INDICES)])
                     }
                 } else {
-                    oSqr.push(Move.SQUARE_INDICES[(sloppySAN[2]+sloppySAN[3] as keyof typeof Move.SQUARE_INDICES)])
+                    oSqr.push(Board.SQUARE_INDICES[(sloppySAN[2]+sloppySAN[3] as keyof typeof Board.SQUARE_INDICES)])
                 }
                 for (let i=0; i<legalMoves.length; i++) {
                     if (sloppySAN && (sloppySAN[1] === undefined || sloppySAN[1].toLowerCase() === legalMoves[i].movedPiece?.type)
                         && (oSqr.indexOf(legalMoves[i].orig as number) !== -1)
-                        && Move.SQUARE_INDICES[sloppySAN[4] as keyof typeof Move.SQUARE_INDICES] === legalMoves[i].dest
+                        && Board.SQUARE_INDICES[sloppySAN[4] as keyof typeof Board.SQUARE_INDICES] === legalMoves[i].dest
                         && (sloppySAN[5] === undefined || sloppySAN[5].toLowerCase() === legalMoves[i].promotionPiece?.type))
                     {
                         return legalMoves[i]
@@ -245,8 +231,8 @@ class Move implements ChessMove {
                 promotionPiece = Piece.forSymbol(promo)
             }
         }
-        const origInd = Move.SQUARE_INDICES[orig as keyof typeof Move.SQUARE_INDICES]
-        const destInd = Move.SQUARE_INDICES[dest as keyof typeof Move.SQUARE_INDICES]
+        const origInd = Board.SQUARE_INDICES[orig as keyof typeof Board.SQUARE_INDICES]
+        const destInd = Board.SQUARE_INDICES[dest as keyof typeof Board.SQUARE_INDICES]
         // Check legal moves and include SAN (PGN generation from turn history requires SAN)
         const moves = board.generateMoves({ includeSan: true, onlyLegal: false })
         for (let i=0; i<moves.length; i++) {
@@ -279,19 +265,6 @@ class Move implements ChessMove {
             return move
         }
     }
-    // Check if the given value is a valid 0x88 board index
-    static isValidIndex (ind: number) {
-        return (
-            (0 <= ind && ind <= 7) ||
-            (16 <= ind && ind <= 23) ||
-            (32 <= ind && ind <= 39) ||
-            (48 <= ind && ind <= 55) ||
-            (64 <= ind && ind <= 71) ||
-            (80 <= ind && ind <= 87) ||
-            (96 <= ind && ind <= 103) ||
-            (112 <= ind && ind <= 119)
-        )
-    }
     // Generate SAN for given move
     static toSan (move: Move, board: Board) {
         if (move.wildcard) {
@@ -308,7 +281,7 @@ class Move implements ChessMove {
             if (move.movedPiece?.type !== Piece.TYPE_PAWN) {
                 san += move.movedPiece?.type.toUpperCase()
             }
-            san += board.disambiguate(move)
+            san += board.disambiguateMove(move)
             if (move.flags?.contains(Flags.CAPTURE) ||  move.flags?.contains(Flags.EN_PASSANT)) {
                 san += "x"  // Capture move
             }
@@ -327,7 +300,7 @@ class Move implements ChessMove {
     }
     // Return algebraic code for a 0x88 board index
     static toAlgebraic (i: number) {
-        return Move.SQUARE_NAMES[i as keyof typeof Move.SQUARE_NAMES]
+        return Board.SQUARE_NAMES[i as keyof typeof Board.SQUARE_NAMES]
     }
 }
 export default Move

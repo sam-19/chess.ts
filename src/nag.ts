@@ -1,4 +1,5 @@
 import { MoveNag } from '../types/nag'
+import Log from './log'
 
 class Nag implements MoveNag {
     // Static properties
@@ -161,6 +162,24 @@ class Nag implements MoveNag {
             }
         }
         return null
+    }
+
+    code: number
+    nag: typeof Nag.LIST[0] | null = null
+
+    constructor (code: number) {
+        this.code = code
+        for (const nag of Nag.LIST) {
+            if (nag.code === code) {
+                this.nag = nag
+                return this
+            }
+        }
+        Log.error(`Could not find mathich NAG for code ${code}.`)
+    }
+
+    get value () {
+        return this.nag
     }
 }
 

@@ -7,11 +7,11 @@ interface ChessOptions {
 
 declare namespace MethodOptions {
     namespace Board {
-        type createFromParent = {
+        type branchFromParent = {
             continuation?: boolean
         }
         type generateMoves = {
-            onlyForSquare?: string
+            onlyForSquare?: string | number
             includeSan?: boolean
             includeFen?: boolean
             onlyLegal?: boolean
@@ -20,7 +20,7 @@ declare namespace MethodOptions {
             notation?: 'all' | 'algebraic' | 'san' | 'uci'
             onlyDestinations?: boolean
             includeFen?: boolean
-            onlyForSquare?: string
+            onlyForSquare?: string | number
             filter?: 'legal' | 'illegal' | 'blocked'
         }
         type makeMove = {
@@ -36,7 +36,7 @@ declare namespace MethodOptions {
         type toFen = { meta?: boolean }
         type undoMoves = {
             move?: number
-            updatePosCount: boolean
+            updatePosCount?: boolean
         }
     }
     namespace Chess {
@@ -54,6 +54,9 @@ declare namespace MethodOptions {
         }
     }
     namespace Game {
+        type getCapturedPieces = {
+            onlyType?: boolean
+        }
         type makeMove = {
             branchVariation?: boolean
             comment?: string | null
