@@ -1,6 +1,6 @@
 import Board from './board'
 import Color from './color'
-import Log from './log'
+import Log from 'simple-typescript-log'
 import Fen from './fen'
 import Headers from './headers'
 import Move from './move'

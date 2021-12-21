@@ -1,7 +1,7 @@
 import Board from './board'
 import Color from './color'
 import Flags from './flags'
-import Log from './log'
+import Log from 'simple-typescript-log'
 import Options from './options'
 import Piece from './piece'
 

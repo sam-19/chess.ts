@@ -1,5 +1,5 @@
 import { MoveNag, NagEntry } from '../types/nag'
-import Log from './log'
+import Log from 'simple-typescript-log'
 
 class Nag implements MoveNag {
     // Static properties
