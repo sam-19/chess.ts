@@ -6,7 +6,7 @@ module.exports = (env, argv) => {
     return {
         context: __dirname,
         entry: {
-            chess: './index.js',
+            chess: { import: path.join(__dirname, 'src', 'chess.ts') },
         },
         output: {
             path: path.join(__dirname, './', 'dist'),
