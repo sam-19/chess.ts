@@ -22,6 +22,8 @@ interface ChessBoard {
     history: ChessTurn[]
     /** Unique board id in the parent game context */
     id: number
+    /** Is this a mock board. */
+    isMock: boolean
     /**
      * Current king position for each player (as a 0x88 board index).
      * King position can be null in analysis mode (before kings are set on the board).
@@ -31,7 +33,7 @@ interface ChessBoard {
      */
     kingPos: { [color: string]: number | null }
     /** A board template to use for calculating resulting board states after alternative moves. */
-    mockBoard: ChessBoard
+    mockBoard: ChessBoard | null
     /** Cached moves for this turn (so they don't have to be calculated multiple times) */
     moveCache: {
         includeFen: boolean,

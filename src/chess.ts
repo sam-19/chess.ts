@@ -67,8 +67,7 @@ class Chess implements ChessCore {
      */
 
     /**
-     * Get currently active game
-     * @param silent - Silence possible warning from unset active game
+     * Currently active game (read-only).
      */
     get activeGame () {
         if (this.isActiveValid()) {
@@ -407,7 +406,9 @@ class Chess implements ChessCore {
         if (!this.parsedPgnGames.hasOwnProperty(group) || this.parsedPgnGames[group][index] === undefined) {
             return null
         }
+        console.log('CREATE GAME')
         let game = this.createGameFromPgn(this.parsedPgnGames[group][index])
+        console.log('GAME', game)
         if (this.active.group === group && !returnGame) {
             // Check that game group exists
             if (!this.games.hasOwnProperty(group)) {

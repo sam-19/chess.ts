@@ -90,8 +90,14 @@ class Game implements ChessGame {
         this.endTime = null
         // Set headers
         this.headers = new Headers(pgnHeaders)
+        this.pauseTimes = []
+        this.shouldPreserve = false
+        this.startTime = null
+        this.timeControl = new TimeControl()
+        this.useStrictRules = false
+        this.variations = []
         // Create the first board variation, i.e. the actual game
-        if (fen !== null && fen !== "") {
+        if (fen) {
             const board = new Board(this, fen)
             if (board) {
                 this.currentBoard = board
@@ -107,12 +113,6 @@ class Game implements ChessGame {
         } else { // Initialize and empty board variation
             this.currentBoard = new Board(this)
         }
-        this.pauseTimes = []
-        this.shouldPreserve = false
-        this.startTime = null
-        this.timeControl = new TimeControl()
-        this.useStrictRules = false
-        this.variations = []
     }
 
     /**
@@ -233,8 +233,7 @@ class Game implements ChessGame {
             return false
         }
         // Create the new variation
-        const newBoard = Board.branchFromParent(this.currentBoard, continuation)
-        this.variations.push(newBoard)
+        const newBoard = Board.branchFromParent(this.currentBoard, { continuation: continuation })
         this.currentBoard.history[this.currentBoard.selectedTurnIndex].variations.push(newBoard)
         this.currentBoard = newBoard
         const move = Move.generateFromSan(san, this.currentBoard)
@@ -422,40 +421,25 @@ class Game implements ChessGame {
         if (this.timeControl !== null) {
             this.timeControl.moveMade(this.currentBoard.plyNum, options.takeback)
         }
-        // TODO: Right now this check is done twice, because Board.makeMove() checks for it too
-        const { isNew, contIdx, varIdx } = this.currentBoard.isNewMove(move)
-        if (isNew) {
-            const newVar = this.moveHistoryToNewVariation()
-            if (!options.branchVariation && newVar) {
-                const newMove = this.currentBoard.makeMove(move, options)
-                if (!newMove.hasOwnProperty('error')) {
-                    (newMove as Turn).variations.push(newVar)
-                }
-                return newMove
-            }
-        } else if (!options.branchVariation) {
-            const curMoveIdx = this.currentBoard.turnIndexPosition[0]
-            if (contIdx !== -1) {
-                const matchingCont = this.currentBoard.selectedTurn.variations.splice(contIdx, 1)[0]
-                // We will save the old history as a continuation for consistency
-                // (so it remains a branch of the same move as the matching continuation)
-                if (this.moveHistoryToNewContinuation()) {
-                    // Update parent variations and move indices in the continuation
-                    for (let i=0; i<matchingCont.history.length; i++) {
-                        for (let j=0; j<matchingCont.history[i].variations.length; j++) {
-                            matchingCont.history[i].variations[j].parentBoard = this.currentBoard
-                            matchingCont.history[i].variations[j].parentBranchTurnIndex = curMoveIdx + i
-                        }
+        if (!options.branchVariation) {
+            // TODO: Right now this check is done twice, because Board.makeMove() checks for it too
+            const { isNew, contIdx, varIdx } = this.currentBoard.isNewMove(move)
+            if (isNew) {
+                const newVar = this.moveHistoryToNewVariation()
+                if (newVar) {
+                    const newMove = this.currentBoard.makeMove(move, options)
+                    if (!newMove.hasOwnProperty('error')) {
+                        (newMove as Turn).variations.push(newVar)
                     }
-                    // Append the matching continuation to current turn history
-                    this.currentBoard.history.push(...matchingCont.history)
-                } else {
-                    Log.error("Failed to move current history into a new continuation!")
+                    return newMove
                 }
-            } else if (varIdx !== -1) {
-                const matchingVar = this.currentBoard.history[curMoveIdx + 1].variations.splice(varIdx, 1)[0]
+            } else {
+                const curMoveIdx = this.currentBoard.turnIndexPosition[0]
+                const matchingVar = contIdx !== -1 ? this.currentBoard.selectedTurn.variations.splice(contIdx, 1)[0]
+                                    : varIdx !== -1 ? this.currentBoard.history[curMoveIdx + 1].variations.splice(varIdx, 1)[0]
+                                    : { history: [] }
                 // We will save the old history as a continuation for consistency
-                // (so it remains a branch of the same move as the matching variation)
+                // (so it remains a branch of the same move as the matching variation/continuation)
                 if (this.moveHistoryToNewContinuation()) {
                     // Update parent variations and move indices in the continuation
                     for (let i=0; i<matchingVar.history.length; i++) {
@@ -526,6 +510,7 @@ class Game implements ChessGame {
             }
         }
         this.currentBoard.selectedTurn.variations.push(newVariation)
+        newVariation.history = futureTurns
         return true
     }
 
@@ -553,6 +538,7 @@ class Game implements ChessGame {
         if (newTurn) {
             newTurn.variations.push(newVariation)
         }
+        newVariation.history = futureTurns
         return newVariation
     }
 

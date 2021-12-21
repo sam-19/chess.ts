@@ -20,12 +20,14 @@ class Options implements ChessOptions {
          * @param inludeSan include a SAN reporesentations for the generated moves (default false)
          * @param onlyForSquare only generate moves for the piece on given square (default null)
          * @param onlyLegal only return legal moves (default true)
+         * @param skipCkeckmate do not check for checkmate (can cause an infinite loop)
          */
         generateMoves: () => new Options({
             includeFen: false,
             includeSan: false,
             onlyForSquare: undefined,
-            onlyLegal: true
+            onlyLegal: true,
+            skipCheckmate: false,
         }),
         /**
          * Default options for move getter
@@ -40,7 +42,7 @@ class Options implements ChessOptions {
             filter: undefined,
             includeFen: false,
             onlyDestinations: false,
-            onlyForSquare: undefined
+            onlyForSquare: undefined,
         }),
         /**
          * Default options for move maker

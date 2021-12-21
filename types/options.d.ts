@@ -14,6 +14,7 @@ declare namespace MethodOptions {
             includeSan?: boolean
             includeFen?: boolean
             onlyLegal?: boolean
+            skipCheckmate?: boolean
         }
         type getMoves = {
             notation?: 'all' | 'algebraic' | 'san' | 'uci'

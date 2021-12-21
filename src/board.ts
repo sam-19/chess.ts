@@ -54,8 +54,9 @@ class Board implements ChessBoard {
     halfMoveCount: number
     history: Turn[]
     id: number
+    isMock: boolean
     kingPos: { [color: string]: number | null }
-    mockBoard: Board
+    mockBoard: Board | null
     moveCache = {
         includeFen: false,
         includeSan: false,
@@ -74,8 +75,9 @@ class Board implements ChessBoard {
      * Create an empty board history for the given game.
      * @param game parent game
      * @param fen optional FEN string desdribing the board starting state
+     * @param mock is this a mock board (default false)
      */
-    constructor (game: Game, fen?: string) {
+    constructor (game: Game, fen?: string, mock = false) {
         // Start with full castling rights for both players
         this.castlingRights = {
             [Color.WHITE]: new Flags([Flags.KSIDE_CASTLING, Flags.QSIDE_CASTLING]),
@@ -87,10 +89,12 @@ class Board implements ChessBoard {
         this.halfMoveCount = 0
         this.history = []
         this.id = game.variations.length
+        this.isMock = mock
         this.kingPos = {
             [Color.WHITE]: null,
             [Color.BLACK]: null
         }
+        this.mockBoard = null
         this.moveCache = {
             includeFen: false,
             includeSan: false,
@@ -108,11 +112,10 @@ class Board implements ChessBoard {
         if (fen) {
             this.loadFen(fen)
         }
-        // Add this board to parent game's board variations
-        game.variations.push(this)
-        // Construct a mock board for board state calculations after a generated move.
-        // NOTE! Don't copy the board, since we don't want to push this mock board to game's board states!
-        this.mockBoard = Object.create(Board.prototype) as Board
+        if (!mock) {
+            // Add this board to parent game's board variations
+            game.variations.push(this)
+        }
     }
 
     /**
@@ -124,7 +127,7 @@ class Board implements ChessBoard {
      */
     static branchFromParent (parent: Board, options: any = {}) {
         options = Options.Board.branchFromParent().assign(options) as MethodOptions.Board.branchFromParent
-        let newBoard = Board.copy(parent)
+        const newBoard = Board.copy(parent)
         if (!options.continuation) {
             newBoard.undoMoves({ move: parent.selectedTurnIndex })
         }
@@ -143,7 +146,7 @@ class Board implements ChessBoard {
      * @return copy
      */
     static copy (orig: Board) {
-        let newBoard = new Board(orig.game)
+        const newBoard = new Board(orig.game)
         // Override default properties
         newBoard.castlingRights = {
             [Color.WHITE]: orig.castlingRights[Color.WHITE].copy(),
@@ -153,7 +156,6 @@ class Board implements ChessBoard {
         newBoard.enPassantSqr = orig.enPassantSqr
         newBoard.halfMoveCount = orig.halfMoveCount
         newBoard.history = [...orig.history]
-        newBoard.id = orig.game.variations.length
         newBoard.kingPos = {
             [Color.WHITE]: orig.kingPos[Color.WHITE],
             [Color.BLACK]: orig.kingPos[Color.BLACK]
@@ -171,8 +173,6 @@ class Board implements ChessBoard {
         newBoard.squares = [...orig.squares]
         newBoard.turn = orig.turn
         newBoard.turnNum = orig.turnNum
-        // Add this board to game boards
-        orig.game.variations.push(newBoard)
         return newBoard
     }
 
@@ -379,11 +379,11 @@ class Board implements ChessBoard {
     }
 
     get isInCheckmate () {
-        return (this.isInCheck && this.generateMoves().length === 0)
+        return (this.isInCheck && this.generateMoves({ skipCheckmate: true }).length === 0)
     }
 
     get isInStalemate () {
-        return (!this.isInCheck && this.generateMoves().length === 0)
+        return (!this.isInCheck && this.generateMoves({ skipCheckmate: true }).length === 0)
     }
 
     get selectedTurn () {
@@ -403,7 +403,7 @@ class Board implements ChessBoard {
     commitMove (move: Move, updatePosCount = true) {
         // Determine active and passive player
         const active = this.turn
-        const passive = (active === Color.WHITE ? Color.BLACK : Color.WHITE)
+        const passive = Color.swap(this.turn)
         let removedPiece = Piece.NONE
         // Move the piece to destination square and clear origin square
         this.squares[move.dest as number] = this.squares[move.orig as number]
@@ -802,7 +802,7 @@ class Board implements ChessBoard {
                 move.fen = tmpBoard.toFen()
             }
             // Check if this move would leave the active player's king exposed
-            if (tmpBoard.isAttacked(opponent, this.kingPos[this.turn])) {
+            if (tmpBoard.isAttacked(opponent, tmpBoard.kingPos[this.turn])) {
                 move.flags.add(Flags.PINNED)
                 if (options.includeSan) {
                     move.san = Move.toSan(move, this)
@@ -813,18 +813,11 @@ class Board implements ChessBoard {
             // Check for appropriate flags
             if (tmpBoard.isInCheck) {
                 // Checking move
-                move.flags.add(Flags.IN_CHECK)
-                if (tmpBoard.isInCheckmate) {
+                move.flags.add(Flags.CHECK)
+                if (!options.skipCheckmate && tmpBoard.isInCheckmate) {
                     // Checkmate move
                     move.flags.add(Flags.CHECKMATE)
                 }
-                // Not breaking here will result in an infine call stack error
-                // So calculate SAN and move on to the next item
-                if (options.includeSan) {
-                    move.san = Move.toSan(move, this)
-                }
-                move.legal = true
-                continue
             }
             // Now that we have checked for the last flags that affect SAN, we can calculate them
             if (options.includeSan && !options.onlyLegal) {
@@ -874,16 +867,16 @@ class Board implements ChessBoard {
             includeFen: options.includeFen,
             onlyLegal: options.filter === 'legal'
         })
-        let finalMoves = { blocked: [], illegal: [], legal: [] } as typeof finalMovesType
+        const finalMoves = { blocked: [], illegal: [], legal: [] } as typeof finalMovesType
         for (const move of moves) {
             const moveData = {} as typeof moveDataType
             //Skip moves that are not requested
             if ((options.filter === 'legal' && !move.legal)
                 || (options.filter === 'illegal' && (move.legal)) // Blocked moves are also illegal
                 || (options.filter === 'blocked' && (move.legal || !move.flags?.contains(Flags.MOVE_BLOCKED)))
-                || (options.onlyForSquare !== null && (move.algebraic?.substring(0,2) !== options.onlyForSquare))
+                || (options.onlyForSquare && (move.algebraic?.substring(0,2) !== options.onlyForSquare))
             ) {
-                return finalMoves
+                continue
             }
             // Populate notation fields
             if (options.onlyDestinations) {
@@ -1092,7 +1085,10 @@ class Board implements ChessBoard {
     }
 
     makeMockMove (move: Move, reset = true) {
-        if (reset) {
+        if (!this.mockBoard) {
+            this.mockBoard = new Board(this.game, this.toFen(), true)
+        }
+        if (reset && this.mockBoard) {
             this.mockBoard.castlingRights = {
                 [Color.WHITE]: this.castlingRights[Color.WHITE].copy(),
                 [Color.BLACK]: this.castlingRights[Color.BLACK].copy()
@@ -1159,7 +1155,7 @@ class Board implements ChessBoard {
                         }
                     }
                 } else {
-                    Log.debug("Branching new variation")
+                    Log.debug("Branching a new variation")
                     // New move; branch a new variation
                     // We have to make the next move so that we can take it back when parsing the variation
                     // (kinda stupid, I know, but that's how a variation is defined)
