@@ -73,6 +73,19 @@ interface ChessBoard {
     breaks75MoveRule: boolean
 
     /**
+     * Check if game on this board has an end result.
+     * Uses the parent game's strict rule check to determine whether to check for
+     * 50-move or 75-move rules and three-fold or five-fold repetition rules.
+     */
+    endResult: false | {
+        result: {
+            w: string
+            b: string
+        }
+        headers: string
+    }
+
+    /**
      * Check if the board has insufficient material for checkmate.
      */
     hasInsufficientMaterial: boolean
@@ -94,16 +107,10 @@ interface ChessBoard {
 
     /**
      * Check if game on this board is finished.
-     * Uses the parent game's strickt rule check to determine whether to check for
+     * Uses the parent game's strict rule check to determine whether to check for
      * 50-move or 75-move rules and three-fold or five-fold repetition rules.
      */
-    isFinished: false | {
-        result: {
-            w: string
-            b: string
-        }
-        headers: string
-    }
+    isFinished: boolean
 
     /**
      * Is the player to move in check.

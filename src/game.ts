@@ -461,10 +461,14 @@ class Game implements ChessGame {
         }
         const turn = this.currentBoard.makeMove(move, options)
         // Handle possible game end in root variation
-        const isFinished = this.currentBoard.isFinished
-        if (!this.currentBoard.id && isFinished) {
-            this.result = isFinished.result
-            this.headers.set('result', isFinished.headers)
+        const endResult = this.currentBoard.endResult
+        if (!this.currentBoard.id && endResult) {
+            this.result = endResult.result
+            this.headers.set('result', endResult.headers)
+            if (this.timeControl) {
+                // Stop the timer
+                this.timeControl.stopTimer()
+            }
         }
         return turn
     }
@@ -950,6 +954,9 @@ class Game implements ChessGame {
     }
     get breaks75MoveRule() {
         return this.currentBoard.breaks75MoveRule
+    }
+    get endResult () {
+        return this.currentBoard.endResult
     }
     get hasInsufficientMaterial() {
         return this.currentBoard.hasInsufficientMaterial

@@ -125,6 +125,16 @@ interface ChessCore {
      */
     currentMoveVariations: { move: ChessMove, continuation: boolean }[]
     /**
+     * Dues the game have an end result.
+     */
+    endResult: false | {
+        result: {
+            w: string
+            b: string
+        }
+        headers: string
+    }
+    /**
      * Has the game ended.
      */
     hasEnded: boolean
@@ -154,13 +164,7 @@ interface ChessCore {
     /**
      * Is the game finished (by checkmate or stalemate).
      */
-    isFinished: false | {
-        result: {
-            w: string
-            b: string
-        }
-        headers: string
-    }
+    isFinished: boolean
     /**
      * Is the game in check.
      */

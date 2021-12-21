@@ -254,62 +254,7 @@ class Board implements ChessBoard {
         return (this.halfMoveCount >= 150)
     }
 
-    get hasInsufficientMaterial () {
-        const pieceCount = {} as { [key: string]: number}
-        const bishops = []
-        let totalPieces = 0
-        let sqrType = 0 // For checking which type of square a bishop is on
-        for (let i=Board.SQUARE_INDICES.a8; i<=Board.SQUARE_INDICES.h1; i++) {
-            if (i & 0x88) {
-                i += 7
-                continue // Outside the "physical" board
-            }
-            sqrType = (sqrType + 1)%2
-            const piece = this.squares[i]
-            // Piece.NONE is a special case and its type has to be fetched directly
-            if (piece.type !== Piece.NONE.type) {
-                pieceCount[piece.type] = ((piece.type in pieceCount) ? pieceCount[piece.type] + 1 : 1)
-                if (piece.type === Piece.TYPE_BISHOP) {
-                    bishops.push(sqrType)
-                }
-                totalPieces++
-            }
-        }
-        // Without a question, the game has insufficient material for checkmate if:
-        // - both sides have only a king
-        // - one side has only a king and one has king + knight/bishop
-        // - the board has only bishops (of either color) on same square type in addition to kings
-        if (totalPieces === 2) {
-            return true // Each side has only king remaining
-        } else if (totalPieces === 3 && (pieceCount[Piece.TYPE_BISHOP] === 1 || pieceCount[Piece.TYPE_KNIGHT] === 1)) {
-            return true // One side has king and the other king and bishop/knight
-        } else if (totalPieces === pieceCount[Piece.TYPE_BISHOP] + 2) {
-            let bSum = bishops.reduce((a, b) => a + b, 0)
-            return (bSum === 0 || bSum === bishops.length)
-        } else {
-            return false
-        }
-    }
-
-    get hasRepeatedFivefold () {
-        return Array.from(this.posCount.values()).some(count => count >= 5)
-    }
-
-    get hasRepeatedThreefold () {
-        return Array.from(this.posCount.values()).some(count => count >= 3)
-    }
-
-    get isDraw () {
-        // By official over-the-board rules, half move limit is 100 if a player notices it, or 150 automatically
-        return (
-            this.isInStalemate || this.hasInsufficientMaterial ||
-            this.breaks75MoveRule || this.hasRepeatedFivefold ||
-            (this.game.useStrictRules && this.hasRepeatedThreefold) ||
-            (this.game.useStrictRules && this.breaks50MoveRule)
-        )
-    }
-
-    get isFinished () {
+    get endResult () {
         if (this.isInCheckmate) {
             if (this.turn === Color.BLACK) {
                 return {
@@ -368,6 +313,68 @@ class Board implements ChessBoard {
                 },
                 headers: '1/2-1/2',
             }
+        }
+        return false
+    }
+
+    get hasInsufficientMaterial () {
+        const pieceCount = {} as { [key: string]: number}
+        const bishops = []
+        let totalPieces = 0
+        let sqrType = 0 // For checking which type of square a bishop is on
+        for (let i=Board.SQUARE_INDICES.a8; i<=Board.SQUARE_INDICES.h1; i++) {
+            if (i & 0x88) {
+                i += 7
+                continue // Outside the "physical" board
+            }
+            sqrType = (sqrType + 1)%2
+            const piece = this.squares[i]
+            // Piece.NONE is a special case and its type has to be fetched directly
+            if (piece.type !== Piece.NONE.type) {
+                pieceCount[piece.type] = ((piece.type in pieceCount) ? pieceCount[piece.type] + 1 : 1)
+                if (piece.type === Piece.TYPE_BISHOP) {
+                    bishops.push(sqrType)
+                }
+                totalPieces++
+            }
+        }
+        // Without a question, the game has insufficient material for checkmate if:
+        // - both sides have only a king
+        // - one side has only a king and one has king + knight/bishop
+        // - the board has only bishops (of either color) on same square type in addition to kings
+        if (totalPieces === 2) {
+            return true // Each side has only king remaining
+        } else if (totalPieces === 3 && (pieceCount[Piece.TYPE_BISHOP] === 1 || pieceCount[Piece.TYPE_KNIGHT] === 1)) {
+            return true // One side has king and the other king and bishop/knight
+        } else if (totalPieces === pieceCount[Piece.TYPE_BISHOP] + 2) {
+            let bSum = bishops.reduce((a, b) => a + b, 0)
+            return (bSum === 0 || bSum === bishops.length)
+        } else {
+            return false
+        }
+    }
+
+    get hasRepeatedFivefold () {
+        return Array.from(this.posCount.values()).some(count => count >= 5)
+    }
+
+    get hasRepeatedThreefold () {
+        return Array.from(this.posCount.values()).some(count => count >= 3)
+    }
+
+    get isDraw () {
+        // By official over-the-board rules, half move limit is 100 if a player notices it, or 150 automatically
+        return (
+            this.isInStalemate || this.hasInsufficientMaterial ||
+            this.breaks75MoveRule || this.hasRepeatedFivefold ||
+            (this.game.useStrictRules && this.hasRepeatedThreefold) ||
+            (this.game.useStrictRules && this.breaks50MoveRule)
+        )
+    }
+
+    get isFinished () {
+        if (this.isInCheckmate || this.isDraw) {
+            return true
         }
         return false
     }
@@ -1417,7 +1424,7 @@ class Board implements ChessBoard {
         let str = '  +------------------------+  '
         str += this.game.headers.get('black')?.substring(0, 28) || "Black (unknown)"
         str += '\n'
-        const boardResult = this.isFinished
+        const boardResult = this.endResult
         const result = boardResult ? boardResult.headers
                        // If this is the root variation and we're at the last move, we can override with game result value
                        : !this.id && this.selectedTurnIndex + 1 === this.history.length

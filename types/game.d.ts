@@ -261,6 +261,16 @@ interface ChessGame {
      */
     breaks75MoveRule: boolean
     /**
+     * Does the game have an end result.
+     */
+    endResult: false | {
+        result: {
+            w: string
+            b: string
+        }
+        headers: string
+    }
+    /**
      * Does this game have insufficient material for checkmate.
      */
     hasInsufficientMaterial: boolean
@@ -275,13 +285,7 @@ interface ChessGame {
     /**
      * Is the game finished (by checkmate or stalemate).
      */
-    isFinished: false | {
-        result: {
-            w: string
-            b: string
-        }
-        headers: string
-    }
+    isFinished: boolean
     /**
      * Is the game in check.
      */

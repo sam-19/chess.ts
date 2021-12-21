@@ -814,6 +814,9 @@ class Chess implements ChessCore {
     get currentMoveVariations () {
         return this.activeGame?.currentMoveVariations || []
     }
+    get endResult () {
+        return this.activeGame?.endResult || false
+    }
     get hasInsufficientMaterial () {
         return this.activeGame?.hasInsufficientMaterial || false
     }
