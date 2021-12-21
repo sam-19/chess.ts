@@ -1,4 +1,4 @@
-import { MoveNag } from '../types/nag'
+import { MoveNag, NagEntry } from '../types/nag'
 import Log from './log'
 
 class Nag implements MoveNag {
@@ -144,7 +144,7 @@ class Nag implements MoveNag {
         { code: 137, symbol: [], description: 'black has moderate time control pressure'},
         { code: 138, symbol: ['&xoplus;', '⨁'], description: 'white has severe time control pressure'},
         { code: 139, symbol: ['&xoplus;', '⨁'], description: 'black has severe time control pressure'},
-    ]
+    ] as NagEntry[]
     static forCode = function (code: number | string) {
         for (const nag of Nag.LIST) {
             if (nag.code === code
@@ -165,7 +165,7 @@ class Nag implements MoveNag {
     }
 
     code: number
-    nag: typeof Nag.LIST[0] | null = null
+    nag: NagEntry | null = null
 
     constructor (code: number) {
         this.code = code

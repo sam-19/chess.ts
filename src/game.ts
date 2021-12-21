@@ -12,6 +12,7 @@ import Turn from './turn'
 import { ChessGame } from '../types/game'
 import { MethodOptions } from '../types/options'
 import { PlayerColor } from '../types/color'
+import { ChessTurn } from '../types/turn'
 
 class Game implements ChessGame {
     /**
@@ -356,7 +357,7 @@ class Game implements ChessGame {
     }
 
     getMoveHistory (filter?: string) {
-        let moveHist = []
+        let moveHist = [] as (ChessTurn | string)[]
         let tmpBoard = this.currentBoard
         // Traverse back in current variation's turn history
         for (let i=tmpBoard.selectedTurnIndex; i>=0; i--) {
@@ -692,7 +693,7 @@ class Game implements ChessGame {
         }
     }
 
-    setTimeControlFromPGN (tc: string) {
+    setTimeControlFromPgn (tc: string) {
         if (!this.hasStarted) {
             if (this.timeControl === null) {
                 this.timeControl = new TimeControl()

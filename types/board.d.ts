@@ -30,6 +30,8 @@ interface ChessBoard {
      * track of it separately instead of looking it up every time it's needed.
      */
     kingPos: { [color: string]: number | null }
+    /** A board template to use for calculating resulting board states after alternative moves. */
+    mockBoard: ChessBoard
     /** Cached moves for this turn (so they don't have to be calculated multiple times) */
     moveCache: {
         includeFen: boolean,
@@ -207,14 +209,15 @@ interface ChessBoard {
 
     /**
      * Make a mock move on that doesn't affect current board state, returning the mock board state after the move
-     * @param move
+     * @param move the move to make
+     * @param reset reset the mock board state to match current board state before making the move (default true)
      * @return mock board state
      */
-    makeMockMove: (move: ChessMove) => ChessBoard
+    makeMockMove: (move: ChessMove, reset?: boolean) => ChessBoard
 
     /**
      * Make a new move on the board
-     * @param move
+     * @param move the move to make
      * @param options Options.Board.makeMove
      */
     makeMove: (move: ChessMove, opts: MethodOptions.Board.makeMove) => ChessTurn | MoveError
@@ -223,7 +226,6 @@ interface ChessBoard {
      * Make a move from algebraic square names
      * @param orig square name (a1...h8)
      * @param dest square name (a1...h8)
-     * @param game
      * @param options Options.Board.makeMove
      * @return Move on success, { error } on failure
      */
@@ -232,7 +234,6 @@ interface ChessBoard {
     /**
      * Make a move from a SAN string
      * @param san a DISAMBIGUOUS SAN string
-     * @param game
      * @param options Options.Board.makeMove
      * @return Move on success, { error } on failure
      */

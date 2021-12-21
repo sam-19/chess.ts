@@ -1,64 +1,101 @@
-import Options from './options'
-import { ChessLog } from '../types/log'
 
-class Log implements ChessLog {
+/** List of valid logging levels. */
+type ValidLevel = 0 | 1 | 2 | 3 | 4
+
+/**
+ * A static logger for application events.
+ * 
+ * All events are recorded, but only events of sufficient importance
+ * are printed directly to console.
+ * 
+ * Includes levels for debug (0), info (1), warning (2), and error (3) messages.
+ * 
+ * @example
+ * import AppLog from './log'
+ * AppLog.setLevel(2) // Only log warnings (= 2) and errors (= 3) to console
+ * AppLog.info('Application loading') // Does not print to console (info = 1)
+ * AppLog.warn('Disabling log printing to console') // Prints to console (warning = 2)
+ * AppLog.setLevel(4) // Don't print anything
+ */
+
+class AppLog {
+
     // Static properties
+    
+    /**
+     * Verbosity of the logger (what messages end up in the console)
+     * ```
+     * 0 = log everything
+     * 1 = log info messages and above
+     * 2 = log warning and errors
+     * 3 = log only errors
+     * 4 = disable logging
+     * ```
+     */
     static readonly LEVELS = {
         DEBUG: 0,
         INFO: 1,
         WARN: 2,
         ERROR: 3,
         DISABLE: 4,
-    }
+    } as { [name: string ]: ValidLevel }
+
     // Instance properties
+
     static events: LogEvent[] = []
-    static level: number = Options.Log.logLevel
+    static level: ValidLevel = 0
     static prevTimestamp: number | null = null
+
     /**
      * Add a new message to the log at the given level.
-     * @param level Log.LEVEL
+     * @param level AppLog.LEVEL
      * @param message
      */
-    static add (level: number, message: string) {
-        if (Object.values(Log.LEVELS).indexOf(level) === -1) {
+    static add (level: ValidLevel, message: string) {
+        if (Object.values(AppLog.LEVELS).indexOf(level) === -1) {
             // Not a valid logging level
             console.warn(`Did not add an event with an invalid level to log: (${level}) ${message}`)
         } else {
             let logEvent = new LogEvent(level, message)
-            if (level >= Log.level) {
+            if (level >= AppLog.level) {
                 this.print(logEvent)
             }
-            Log.events.push(logEvent)
-            Log.prevTimestamp = logEvent.time.toTime()
+            AppLog.events.push(logEvent)
+            AppLog.prevTimestamp = logEvent.time.toTime()
         }
     }
+
     /**
      * Add a message at debug level to the log
      * @param message
      */
     static debug (message: string) {
-        Log.add(Log.LEVELS.DEBUG, message)
+        AppLog.add(AppLog.LEVELS.DEBUG, message)
     }
+
     /**
      * Add a message at error level to the log
      * @param message
      */
     static error (message: string) {
-        Log.add(Log.LEVELS.ERROR, message)
+        AppLog.add(AppLog.LEVELS.ERROR, message)
     }
+    
     /**
      * Get current logging level
      */
     static getLevel () {
-        return Log.level
+        return AppLog.level
     }
+
     /**
      * Add a message at info level to the log
      * @param message
      */
     static info (message: string) {
-        Log.add(Log.LEVELS.INFO, message)
+        AppLog.add(AppLog.LEVELS.INFO, message)
     }
+
     /**
      * Print a log event's message to console
      * @param logEvent
@@ -69,34 +106,40 @@ class Log implements ChessLog {
             message.push(`[${logEvent.scope}]`)
         }
         message = message.concat([logEvent.time.toString(), logEvent.message])
-        if (logEvent.level === Log.LEVELS.DEBUG) {
+        if (logEvent.level === AppLog.LEVELS.DEBUG) {
             message.unshift('DEBUG')
             console.debug(message.join(' '))
-        } else if (logEvent.level === Log.LEVELS.INFO) {
+        } else if (logEvent.level === AppLog.LEVELS.INFO) {
             // Keep the first part of the message always the same length
             message.unshift('INFO ')
             console.info(message.join(' '))
-        } else if (logEvent.level === Log.LEVELS.WARN) {
+        } else if (logEvent.level === AppLog.LEVELS.WARN) {
             message.unshift('WARN ')
             console.warn(message.join(' '))
-        } else if (logEvent.level === Log.LEVELS.ERROR) {
+        } else if (logEvent.level === AppLog.LEVELS.ERROR) {
             message.unshift('ERROR')
             console.error(message.join(' '))
         }
     }
-    static setLevel (level: number) {
-        if (Object.values(Log.LEVELS).indexOf(level) !== -1) {
-            Log.level = level
+
+    /**
+     * Set the level of logging events to display in console.
+     * @param level new logging level
+     */
+    static setLevel (level: ValidLevel) {
+        if (Object.values(AppLog.LEVELS).indexOf(level) !== -1) {
+            AppLog.level = level
         } else {
-            Log.warn(`Did not set invalid logging level ${level}`)
+            AppLog.warn(`Did not set invalid logging level ${level}`)
         }
     }
+
     /**
      * Add a message at warning level to the log
      * @param message
      */
     static warn (message: string) {
-        Log.add(Log.LEVELS.WARN, message)
+        AppLog.add(AppLog.LEVELS.WARN, message)
     }
 }
 
@@ -121,7 +164,7 @@ class LogEvent {
     }
 }
 /**
- * Log event timestamp.
+ * AppLog event timestamp.
  */
 class LogTimestamp {
     date: Date
@@ -129,7 +172,7 @@ class LogTimestamp {
 
     constructor () {
         this.date = new Date()
-        this.delta = Log.prevTimestamp ? this.date.getTime() - Log.prevTimestamp : null
+        this.delta = AppLog.prevTimestamp ? this.date.getTime() - AppLog.prevTimestamp : null
     }
     /**
      * Get a standard length datetime string from this timestamp
@@ -163,4 +206,4 @@ class LogTimestamp {
     }
 }
 
-export default Log
+export default AppLog

@@ -42,6 +42,10 @@ class Board implements ChessBoard {
         96:  'a2',  97: 'b2',  98: 'c2',  99: 'd2', 100: 'e2', 101: 'f2', 102: 'g2', 103: 'h2',
         112:  'a1', 113: 'b1', 114: 'c1', 115: 'd1', 116: 'e1', 117: 'f1', 118: 'g1', 119: 'h1'
     }
+    static readonly PAWN_RANK = {
+        [Color.WHITE]: 6,
+        [Color.BLACK]: 1
+    }
 
     castlingRights: { [color: string]: Flags }
     continuation: boolean
@@ -51,6 +55,7 @@ class Board implements ChessBoard {
     history: Turn[]
     id: number
     kingPos: { [color: string]: number | null }
+    mockBoard: Board
     moveCache = {
         includeFen: false,
         includeSan: false,
@@ -105,6 +110,9 @@ class Board implements ChessBoard {
         }
         // Add this board to parent game's board variations
         game.variations.push(this)
+        // Construct a mock board for board state calculations after a generated move.
+        // NOTE! Don't copy the board, since we don't want to push this mock board to game's board states!
+        this.mockBoard = Object.create(Board.prototype) as Board
     }
 
     /**
@@ -662,11 +670,6 @@ class Board implements ChessBoard {
                 return []
             }
         }
-        // Index of the pawn starting rank for reference
-        const pawnRank = {
-            [Color.WHITE]: 6,
-            [Color.BLACK]: 1
-        }
         // Loop through all squares. TODO: Potential for performance improvement?
         for (let i=firstSqr; i<=lastSqr; i++) {
             // Check that we're still on actual board squares
@@ -692,7 +695,7 @@ class Board implements ChessBoard {
                     // If the first square was vacant, check for double advancement
                     sqr = i + Move.PAWN_OFFSETS[active as keyof typeof Move.PAWN_OFFSETS][1]
                     // The move must originate from the pawn rank and destination square must be vacant
-                    if (pawnRank[active as keyof typeof pawnRank] === Board.rankOf(i)) {
+                    if (Board.PAWN_RANK[active] === Board.rankOf(i)) {
                         if (this.squares[sqr] === Piece.NONE) {
                             addMove(i, sqr, this, [Flags.DOUBLE_ADV])
                         } else {
@@ -702,7 +705,7 @@ class Board implements ChessBoard {
                 } else {
                     // Add moves as blocked
                     addMove(i, sqr, this, [Flags.MOVE_BLOCKED])
-                    if (pawnRank[active as keyof typeof pawnRank] === Board.rankOf(i)) {
+                    if (Board.PAWN_RANK[active] === Board.rankOf(i)) {
                         addMove(i, i + Move.PAWN_OFFSETS[active as keyof typeof Move.PAWN_OFFSETS][1], this, [Flags.MOVE_BLOCKED])
                     }
                 }
@@ -1088,34 +1091,34 @@ class Board implements ChessBoard {
         return true
     }
 
-    makeMockMove (move: Move) {
-        // NOTE! Don't copy the board, since we don't want to push this mock board to game's board states!
-        const mockBoard = Object.create(Board.prototype) as Board
-        mockBoard.castlingRights = {
-            [Color.WHITE]: this.castlingRights[Color.WHITE].copy(),
-            [Color.BLACK]: this.castlingRights[Color.BLACK].copy()
+    makeMockMove (move: Move, reset = true) {
+        if (reset) {
+            this.mockBoard.castlingRights = {
+                [Color.WHITE]: this.castlingRights[Color.WHITE].copy(),
+                [Color.BLACK]: this.castlingRights[Color.BLACK].copy()
+            }
+            this.mockBoard.enPassantSqr = this.enPassantSqr
+            this.mockBoard.halfMoveCount = this.halfMoveCount
+            this.mockBoard.history = []
+            this.mockBoard.kingPos = {
+                [Color.WHITE]: this.kingPos[Color.WHITE],
+                [Color.BLACK]: this.kingPos[Color.BLACK]
+            }
+            this.mockBoard.moveCache = {
+                includeFen: false,
+                includeSan: false,
+                moves: [],
+            }
+            this.mockBoard.plyNum = this.plyNum
+            this.mockBoard.posCount = new Map(this.posCount)
+            this.mockBoard.squares = [...this.squares] // Can't copy mutable array directly
+            this.mockBoard.selectedTurnIndex = this.selectedTurnIndex
+            this.mockBoard.turn = this.turn
+            this.mockBoard.turnNum = this.turnNum
         }
-        mockBoard.enPassantSqr = this.enPassantSqr
-        mockBoard.halfMoveCount = this.halfMoveCount
-        mockBoard.history = []
-        mockBoard.kingPos = {
-            [Color.WHITE]: this.kingPos[Color.WHITE],
-            [Color.BLACK]: this.kingPos[Color.BLACK]
-        }
-        mockBoard.moveCache = {
-            includeFen: false,
-            includeSan: false,
-            moves: [],
-        }
-        mockBoard.plyNum = this.plyNum
-        mockBoard.posCount = new Map(this.posCount)
-        mockBoard.squares = [...this.squares] // Can't copy mutable array directly
-        mockBoard.selectedTurnIndex = this.selectedTurnIndex
-        mockBoard.turn = this.turn
-        mockBoard.turnNum = this.turnNum
-        mockBoard.makeMove(move, { isPlayerMove: false })
+        this.mockBoard.makeMove(move, { isPlayerMove: false })
         // Return mock board state
-        return mockBoard
+        return this.mockBoard
     }
 
     makeMove (move: Move, opts: MethodOptions.Board.makeMove = {}) {
@@ -1134,7 +1137,7 @@ class Board implements ChessBoard {
                         if (this.game.enterContinuation(contIdx)) {
                             return this.game.currentBoard.history[0]
                         } else {
-                            return { error: `Cound not enter existing continuation.` }
+                            return { error: `Cound not enter existing continuation.` } as MoveError
                         }
                     } else {
                         // The move is either the next move in history or one of its variations
@@ -1148,7 +1151,7 @@ class Board implements ChessBoard {
                             if (this.game.enterVariation(varIdx)) {
                                 return this.game.currentBoard.history[0]
                             } else {
-                                return { error: `Cound not enter existing variation.` }
+                                return { error: `Cound not enter existing variation.` } as MoveError
                             }
                         } else {
                             Log.debug("Attempted move was equal to already existing next move in history.")

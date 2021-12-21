@@ -19,6 +19,7 @@ import { ChessCore } from '../types/chess'
 import { MethodOptions } from '../types/options'
 import Turn from './turn'
 import { PlayerColor } from '../types/color'
+import { MoveError } from '../types/move'
 
 class Chess implements ChessCore {
     // Static properties
@@ -159,7 +160,7 @@ class Chess implements ChessCore {
         let end = 0
         // Flag moves as procedurally generated and that game should not be preserved for them
         const moveOpts = { isPlayerMove: false, preserveGame: false }
-        let lastMove: Turn | { error: string } | false = false
+        let lastMove: Turn | MoveError | false = false
         /** Check that the last parsed move is valid. */
         const isLastMoveValid = () => {
             return (lastMove && !lastMove.hasOwnProperty('error'))
@@ -801,154 +802,163 @@ class Chess implements ChessCore {
      * ======================================================================
      */
 
-    /** Does the active game break the 50 move rule. */
+    private static noActiveGameError = { error: 'No active game '}
+
     get breaks50MoveRule () {
-        return this.activeGame?.breaks50MoveRule
+        return this.activeGame?.breaks50MoveRule || false
     }
-    /** Does the active game break the 75 move rule. */
     get breaks75MoveRule () {
-        return this.activeGame?.breaks75MoveRule
+        return this.activeGame?.breaks75MoveRule || false
     }
-    /** Does the active game have insufficient material for a checkmate. */
+    get currentMoveVariations () {
+        return this.activeGame?.currentMoveVariations || []
+    }
     get hasInsufficientMaterial () {
-        return this.activeGame?.hasInsufficientMaterial
+        return this.activeGame?.hasInsufficientMaterial || false
     }
-    /** Has the active game repeated any position five times. */
+    get hasEnded () {
+        return this.activeGame?.hasEnded || false
+    }
     get hasRepeatedFivefold () {
-        return this.activeGame?.hasRepeatedFivefold
+        return this.activeGame?.hasRepeatedFivefold || false
     }
-    /** Has the active game repeated any position three times. */
     get hasRepeatedThreefold () {
-        return this.activeGame?.hasRepeatedThreefold
+        return this.activeGame?.hasRepeatedThreefold || false
     }
-    /** Active game's headers. */
+    get hasStarted () {
+        return this.activeGame?.hasStarted || false
+    }
     get headers () {
         return this.activeGame?.headers
     }
-    /** Is the active game in check. */
     get isInCheck () {
-        return this.activeGame?.isInCheck
+        return this.activeGame?.isInCheck || false
     }
-    /** Is the active game in checkmate. */
     get isInCheckmate () {
-        return this.activeGame?.isInCheckmate
+        return this.activeGame?.isInCheckmate || false
     }
-    /** Is the active game draw. */
     get isDraw () {
-        return this.activeGame?.isDraw
+        return this.activeGame?.isDraw || false
     }
-    /** Is the active game finished. */
     get isFinished () {
-        return this.activeGame?.isFinished
+        return this.activeGame?.isFinished || false
     }
-    /** Is the active game in stalemate. */
     get isInStalemate () {
-        return this.activeGame?.isInStalemate
+        return this.activeGame?.isInStalemate || false
     }
-    /** Active turn index. */
+    get isPaused () {
+        return this.activeGame?.isPaused || false
+    }
     get turnIndexPosition () {
-        return this.activeGame?.turnIndexPosition
+        return this.activeGame?.turnIndexPosition || []
     }
-    /** Add new headers to the active game. */
     addHeaders (headers: string[][]) {
         this.activeGame?.addHeaders(headers)
     }
-    /** Create a new continuation to the active game from SAN. */
-    createContinuationFromSAN (san:string) {
-        return this.activeGame?.createContinuationFromSan(san)
+    addTimeControl (tc: typeof TimeControl.FieldModel) {
+        this.activeGame?.addTimeControl(tc)
     }
-    /** Create a new variation to the active game from SAN. */
+    continue () {
+        this.activeGame?.continue()
+    }
+    createContinuationFromSan (san:string) {
+        return this.activeGame?.createContinuationFromSan(san) || false
+    }
     createVariationFromSan (san: string) {
-        return this.activeGame?.createVariationFromSan(san)
+        return this.activeGame?.createVariationFromSan(san) || false
     }
-    /** Enter the given variation in the active game. */
-    enterVariation (id: number) {
-        return this.activeGame?.enterVariation(id)
+    end () {
+        this.activeGame?.end()
     }
-    /** Get the captured pieces in the active game for given color. */
-    getCapturedPiecesFor (color: PlayerColor) {
-        return this.activeGame?.getCapturedPieces(color)
+    enterVariation (i?: number) {
+        return this.activeGame?.enterVariation(i) || false
     }
-    /** Get available moves in the active game for the player in turn. */
+    getCapturedPieces (color: PlayerColor, opts?: MethodOptions.Game.getCapturedPieces) {
+        return this.activeGame?.getCapturedPieces(color, opts) || []
+    }
     getMoves (filter: MethodOptions.Board.getMoves = {}) {
-        return this.activeGame?.getMoves(filter)
+        return this.activeGame?.getMoves(filter) || { blocked: [], illegal: [], legal: [] }
     }
-    /** Get move history for the active game. */
-    getMoveHistory (onlyMoves=false) {
-        return this.activeGame?.getMoveHistory(onlyMoves ? 'san' : undefined)
+    getMoveHistory (filter?: string) {
+        return this.activeGame?.getMoveHistory(filter) || []
     }
-    /** Go to start in the active game. */
     goToStart () {
         this.activeGame?.goToStart()
     }
-    /** Load the given FEN in the active game, overwriting the existing game state. */
     loadFen (fen: string) {
         return this.activeGame?.loadFen(fen)
     }
-    /** Make a move from given origin and destination squares in the active game. */
+    makeMove (move: Move, opts?: MethodOptions.Board.makeMove) {
+        return this.activeGame?.makeMove(move, opts) || Chess.noActiveGameError
+    }
     makeMoveFromAlgebraic (orig: string, dest: string) {
-        return this.activeGame?.makeMoveFromAlgebraic(orig, dest)
+        return this.activeGame?.makeMoveFromAlgebraic(orig, dest) || Chess.noActiveGameError
     }
-    /** Make a move from given SAN in the active game. */
     makeMoveFromSan (san: string) {
-        return this.activeGame?.makeMoveFromSan(san)
+        return this.activeGame?.makeMoveFromSan(san) || Chess.noActiveGameError
     }
-    /** Select the next move in the active game. */
-    nextMove () {
-        return this.activeGame?.nextTurn()
+    moveHistoryToNewContinuation () {
+        return this.activeGame?.moveHistoryToNewContinuation() || false
     }
-    /** Get the piece at the given square in the active game. */
+    moveHistoryToNewVariation () {
+        return this.activeGame?.moveHistoryToNewVariation() || false
+    }
+    nextTurn () {
+        return this.activeGame?.nextTurn() || false
+    }
+    pause () {
+        this.activeGame?.pause()
+    }
     pieceAt (sqr: number | string) {
-        return this.activeGame?.pieceAt(sqr)
+        return this.activeGame?.pieceAt(sqr) || Piece.NONE
     }
-    /** Place a piece on the given square in the active game. */
-    placePiece (piece: Piece, square: number) {
-        return this.activeGame?.placePiece(piece, square)
+    placePiece (piece: Piece, square: string | number) {
+        return this.activeGame?.placePiece(piece, square) || false
     }
-    /** Select the previous move in the active game. */
-    prevMove () {
-        return this.activeGame?.prevTurn()
+    prevTurn () {
+        return this.activeGame?.prevTurn() || false
     }
-    /** Remove the piece from the given square in the active game. */
-    removePiece (square: number) {
-        return this.activeGame?.removePiece(square)
+    removePiece (square: string | number) {
+        return this.activeGame?.removePiece(square) || Piece.NONE
     }
-    /** Select turn at the given history index in the active game. */
-    selectTurn (i: number) {
-        this.activeGame?.selectTurn(i)
+    selectTurn (index: number, boardIdx?: number) {
+        return this.activeGame?.selectTurn(index, boardIdx) || false
     }
-    /** Enter the continuation at the given index in the active game. */
-    enterContinuation (id: number) {
-        return this.activeGame?.enterContinuation(id)
+    setTimeControlFromPgn (tc: string) {
+        this.activeGame?.setTimeControlFromPgn(tc)
     }
-    /** Return from the current continuation in the active game. */
+    setTimeControlReportFunction (f: any) {
+        this.activeGame?.setTimeControlReportFunction(f)
+    }
+    enterContinuation (i?: number) {
+        return this.activeGame?.enterContinuation(i) || false
+    }
     returnFromContinuation () {
-        return this.activeGame?.returnFromContinuation()
+        return this.activeGame?.returnFromContinuation() || false
     }
-    /** Return from the current variation in the active game. */
     returnFromVariation () {
-        return this.activeGame?.returnFromVariation()
+        return this.activeGame?.returnFromVariation() || false
     }
-    /** FEN representation of currently active game's state. */
-    toFEN (options = {}) {
-        return this.activeGame?.toFen(options)
+    start () {
+        return this.activeGame?.start() || false
     }
-    /** PGN representation of currently active game. */
-    toPGN (options = {}) {
-        // TODO
-        return this.activeGame?.toPgn(options)
+    toFen (options = {}) {
+        return this.activeGame?.toFen(options) || ''
     }
-    /** ASCII representation of currently active game's state. */
+    toPgn (options = {}) {
+        return this.activeGame?.toPgn(options) || ''
+    }
     toString () {
-        return this.activeGame?.toString()
+        return this.activeGame?.toString() || ''
     }
-    /** Validate the given FEN. */
-    validateFen (fen: string) {
-        return new Fen(fen).validate
+    updateSetup () {
+        this.activeGame?.updateSetup()
     }
-    /** Which player is to move in the active game. */
+    validateFen (fen: string, onlyPosition?: boolean, rules?: string) {
+        return new Fen(fen).validate(onlyPosition, rules)
+    }
     whoIsToMove () {
-        return this.activeGame?.whoIsToMove()
+        return this.activeGame?.whoIsToMove() || Color.WHITE
     }
 }
 

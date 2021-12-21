@@ -215,7 +215,7 @@ interface ChessGame {
      * Set the game's time control from a PGN TimeControl field value.
      * @param tc PGN TimeControl field value
      */
-    setTimeControlFromPGN: (tc: string) => void
+    setTimeControlFromPgn: (tc: string) => void
 
     /**
      * Set the function used to report time control progress.

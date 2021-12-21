@@ -143,18 +143,6 @@ class Options implements ChessOptions {
             wrapMoves: true
         } as MethodOptions.Game.toPgn),
     }
-    ///// LOG /////
-    static readonly Log = {
-        /**
-         * Verbosity of the logger (what messages end up in the console)\
-         * 0 = log everything\
-         * 1 = log info messages and above\
-         * 2 = log warning and errors\
-         * 3 = log only errors\
-         * 4 = disable logging\
-         */
-        logLevel: 0,
-    }
     ///// MOVE /////
     static readonly Move = {
         /**

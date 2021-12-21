@@ -18,7 +18,7 @@ interface ChessMove {
     error?: string
 }
 
-type MoveError = { error: string }
+type MoveError = { error?: string }
 
 interface MoveOptions {
     orig: number

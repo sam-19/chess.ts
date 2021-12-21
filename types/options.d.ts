@@ -1,4 +1,3 @@
-import Options from "../src/options"
 import Piece from "../src/piece"
 
 interface ChessOptions {
