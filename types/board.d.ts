@@ -77,7 +77,7 @@ interface ChessBoard {
      * Uses the parent game's strict rule check to determine whether to check for
      * 50-move or 75-move rules and three-fold or five-fold repetition rules.
      */
-    endResult: false | {
+    endResult: null | {
         result: {
             w: string
             b: string

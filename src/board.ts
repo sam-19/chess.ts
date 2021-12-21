@@ -314,7 +314,7 @@ class Board implements ChessBoard {
                 headers: '1/2-1/2',
             }
         }
-        return false
+        return null
     }
 
     get hasInsufficientMaterial () {

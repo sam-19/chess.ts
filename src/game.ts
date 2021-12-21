@@ -266,7 +266,28 @@ class Game implements ChessGame {
             if (this.timeControl !== null) {
                 this.timeControl.stopTimer(timestamp.getTime())
             }
+            // Remove all possible white spaces from the result string
+            result = result.replaceAll(/\s+/g, '')
             this.headers.set('result', result)
+            // Try to determine result from the string
+            if (!this.result[Color.WHITE] && !this.result[Color.BLACK]) {
+                if (result === '1-0') {
+                    this.result = {
+                        [Color.WHITE]: Game.RESULT.WIN,
+                        [Color.BLACK]: Game.RESULT.LOSS
+                    }
+                } else if (result === '0-1') {
+                    this.result = {
+                        [Color.WHITE]: Game.RESULT.LOSS,
+                        [Color.BLACK]: Game.RESULT.WIN
+                    }
+                } else {
+                    this.result = {
+                        [Color.WHITE]: Game.RESULT.DRAW,
+                        [Color.BLACK]: Game.RESULT.DRAW
+                    }
+                }
+            }
         }
     }
 
@@ -464,7 +485,7 @@ class Game implements ChessGame {
         const endResult = this.currentBoard.endResult
         if (!this.currentBoard.id && endResult) {
             this.result = endResult.result
-            this.headers.set('result', endResult.headers)
+            this.end(endResult.headers)
             if (this.timeControl) {
                 // Stop the timer
                 this.timeControl.stopTimer()

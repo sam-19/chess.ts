@@ -127,7 +127,7 @@ interface ChessCore {
     /**
      * Dues the game have an end result.
      */
-    endResult: false | {
+    endResult: null | {
         result: {
             w: string
             b: string

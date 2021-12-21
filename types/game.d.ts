@@ -54,7 +54,7 @@ interface ChessGame {
     currentMoveVariations: { move: ChessMove, continuation: boolean }[]
 
     /**
-     * Has the game ended.
+     * Has the game ended either by rules or by resignation/draw agreement.
      */
     hasEnded: boolean
 
@@ -263,7 +263,7 @@ interface ChessGame {
     /**
      * Does the game have an end result.
      */
-    endResult: false | {
+    endResult: null | {
         result: {
             w: string
             b: string
