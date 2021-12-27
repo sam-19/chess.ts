@@ -494,7 +494,7 @@ class Game implements ChessGame {
         return turn
     }
 
-    makeMoveFromAlgebraic (orig: string, dest: string, options={} as MethodOptions.Board.makeMove) {
+    makeMoveFromAlgebraic (orig: string, dest: string, options: MethodOptions.Game.makeMove = {}) {
         const move = Move.generateFromAlgebraic(orig, dest, this.currentBoard)
         if (move.error !== undefined) {
             Log.error(`Cound not make move from algebraic (${orig}-${dest}): ${move.error}`)
@@ -504,7 +504,7 @@ class Game implements ChessGame {
         return this.makeMove(move as Move, options)
     }
 
-    makeMoveFromSan (san: string, options={} as MethodOptions.Board.makeMove) {
+    makeMoveFromSan (san: string, options: MethodOptions.Game.makeMove = {}) {
         const move = Move.generateFromSan(san, this.currentBoard)
         if (move.hasOwnProperty('error')) {
             Log.error(`Cound not make move from SAN (${san}): ${move.error}`)

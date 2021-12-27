@@ -129,7 +129,7 @@ interface ChessGame {
      * @param color PlayerColor
      * @param opts MethodOptions.Game.getCapturedPieces
      */
-    getCapturedPieces: (color: PlayerColor, opts: MethodOptions.Game.getCapturedPieces) => string[] | ChessPiece[]
+    getCapturedPieces: (color: PlayerColor, opts?: MethodOptions.Game.getCapturedPieces) => string[] | ChessPiece[]
 
     /**
      * Return the list of moves (from game start to currently selected move) in currently active line,
@@ -155,7 +155,7 @@ interface ChessGame {
      * @param move
      * @param options Options.Board.makeMove
      */
-    makeMove: (move: ChessMove, opts: MethodOptions.Game.makeMove) => ChessTurn | MoveError
+    makeMove: (move: ChessMove, opts?: MethodOptions.Game.makeMove) => ChessTurn | MoveError
 
     /**
      * Make a move from origination to destination square.
@@ -163,14 +163,14 @@ interface ChessGame {
      * @param dest board square (a1...h8)
      * @param options Options.Board.makeMove
      */
-    makeMoveFromAlgebraic: (orig: string, dest: string, options: MethodOptions.Board.makeMove) => ChessTurn | MoveError
+    makeMoveFromAlgebraic: (orig: string, dest: string, options?: MethodOptions.Board.makeMove) => ChessTurn | MoveError
 
     /**
      * Make move from a SAN string.
      * @param san
      * @param options Options.Board.makeMove
      */
-    makeMoveFromSan: (san: string, options: MethodOptions.Board.makeMove) => ChessTurn | MoveError
+    makeMoveFromSan: (san: string, options?: MethodOptions.Board.makeMove) => ChessTurn | MoveError
 
     /**
      * Move the rest of the current board's turn history to a new continuation of the current move.

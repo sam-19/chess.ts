@@ -9,6 +9,14 @@ import { ChessPiece } from "./piece"
 import { TCFieldModel } from "./time_control"
 import { ChessTurn } from "./turn"
 
+/**
+ * An object that, in addition to the game itself, contains its
+ * location within the loaded game library as a group name
+ * and list index within that group. In the case of an undesignated
+ * game, the game and index properties will be null.
+ */
+type GameEntry = { game: ChessGame | null, group: string, index: number | null }
+
 interface ChessCore {
     /**
      * Currently active group
@@ -21,6 +29,16 @@ interface ChessCore {
      */
     activeGroup :string
     /**
+    * Add a game to loaded games.
+    * @param game the game to add
+    * @param group optional group to add the game into (defaults to currently active group)
+    * @returns ```
+    * // The newly added game, its group and index within the group
+    * return { game: Game, group: string, index: number }
+    * ```
+    */
+    addGame: (game: ChessGame, group?: string) => GameEntry
+    /**
      * Clear all games from the given group
      * @param group defaults to currently active group
      */
@@ -30,19 +48,19 @@ interface ChessCore {
      * @param pgn { headers, moves }
      * @return Game
      */
-    createGameFromPgn: (pgn: { headers: string[][], moves: string }) => ChessGame
-    /**
-     * Check if currently active game is valid
-     * @param silent Silence the warning if game is not valid
-     */
-    isActiveValid: (silent?: boolean) => boolean
+    createGameFromPgn: (pgn: { headers: string[][], moves: string }) => GameEntry
     /**
      * Load a game that has already been parsed from PGN
      * @param index index of the parsed game in group list
      * @param group defaults to currently active group
-     * @param returnGame return the game instead of adding it to game list
+     * @return ```
+     * // The newly added game, its group and index within the group
+     * return { game: Game, group: string, index: number }
+     * // Or null, if such a parsed game cannot be found
+     * return null
+     * ```
      */
-    loadParsedGame: (index: number, group?: string, returnGame?: boolean) => ChessGame | null
+    loadParsedGame: (index: number, group?: string) => GameEntry | null
     /**
      * Load a small number of games from a PGN collection or return header information
      * @param pgn PGN game collection
@@ -388,4 +406,4 @@ interface ChessCore {
     // Auxiliary methods
 }
 
-export { ChessCore }
+export { ChessCore, GameEntry }

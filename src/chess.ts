@@ -15,7 +15,7 @@ import Options from './options'
 import Piece from './piece'
 import TimeControl from './time_control'
 
-import { ChessCore } from '../types/chess'
+import { ChessCore, GameEntry } from '../types/chess'
 import { MethodOptions } from '../types/options'
 import Turn from './turn'
 import { PlayerColor } from '../types/color'
@@ -37,23 +37,16 @@ class Chess implements ChessCore {
     static readonly TimeControl = TimeControl
 
     // Instance properties
-    active: {
-        group: string
-        index: number | null
-    }
+    active: GameEntry
     games: { [group: string]: Game[] }
     lastActive: { [group: string]: number | null }
-    lastRemoved: {
-        group: string
-        index: number
-        game: Game
-    } | null
+    lastRemoved: GameEntry | null
     parsedPgnGames: { [group: string]: { headers: string[][], moves: string }[] }
 
     // Default starting FEN
     constructor () {
         // Initialize the game
-        this.active = { group: 'default', index: null }
+        this.active = { game: null, group: 'default', index: null }
         this.games = {}
         this.lastActive = { default: null }
         this.lastRemoved = null // Enable undoing a remove
@@ -70,11 +63,8 @@ class Chess implements ChessCore {
      * Currently active game (read-only).
      */
     get activeGame () {
-        if (this.isActiveValid()) {
-            return this.games[this.active.group][this.active.index as number]
-        } else {
-            return null
-        }
+        console.log(this.games, this.active)
+        return this.active.game
     }
 
     /**
@@ -98,12 +88,17 @@ class Chess implements ChessCore {
         this.active.group = group
         if (!this.games[group].length) {
             this.active.index = null
+            this.active.game = null
         } else if (this.lastActive[group] !== null) {
             // Recover last active game
             this.active.index = this.lastActive[group]
+            this.active.game = this.active.index !== null
+                               ? this.games[group][this.active.index]
+                               : null
         } else {
             // Default to first game in group
             this.active.index = 0
+            this.active.game = this.games[group][0] || null
         }
     }
 
@@ -114,6 +109,27 @@ class Chess implements ChessCore {
      */
 
     /**
+     * Add a game to loaded games.
+     * @param game the game to add
+     * @param group optional group to add the game into (defaults to currently active group)
+     * @return ```
+     * // The newly added game, its group and index within the group
+     * return { game: Game, group: string, index: number }
+     * ```
+     */
+    addGame (game: Game, group=this.active.group) {
+        if (!this.games.hasOwnProperty(group)) {
+            this.games[group] = [] // Create group if it doesn't exist
+        }
+        this.games[group].push(game)
+        const newEntry = { game: game, group: group, index: this.games[group].length - 1 }
+        if (this.active.group === group && this.active.game === null) {
+            this.active = newEntry
+        }
+        return newEntry
+    }
+
+    /**
      * Clear all games from the given group
      * @param group defaults to currently active group
      */
@@ -121,16 +137,20 @@ class Chess implements ChessCore {
         this.games[group] = [] // Creates group if it doesn't exist
         if (this.active.group === group) {
             this.lastActive[group] = null
-            this.active = { group: 'default', index: null }
+            this.active = { game: null, group: 'default', index: null }
         }
     }
 
     /**
      * Parser for single PGN game entries, already divided into { headers, moves }
      * @param pgn { headers, moves }
-     * @return Game
+     * @param group defaults to currently active group
+     * @return ```
+     * // The newly added game, its group and index within the group
+     * return { game: Game, group: string, index: number }
+     * ```
      */
-    createGameFromPgn (pgn: { headers: string[][], moves: string }) {
+    createGameFromPgn (pgn: { headers: string[][], moves: string }, group=this.active.group) {
         // I found aaronfi's approach to this much more convenient than the original chess.js method
         const VALID_RESULTS = ['1-0', '1/2-1/2', '0-1', '0-0', '*', '+/-', '-/+', '-/-']
         let fen = Fen.DEFAULT_STARTING_STATE
@@ -292,9 +312,9 @@ class Chess implements ChessCore {
                     }
                     if (lastMove.hasOwnProperty('error')) {
                         // Making the move failed
-                        console.error("PGN move parsing error "
-                                      + pgn.moves.substring(pos, end)
-                                      + ": " + (lastMove as { error: string }).error)
+                        Log.error("PGN move parsing error "
+                                    + pgn.moves.substring(pos, end)
+                                    + ": " + (lastMove as { error: string }).error)
                         break parse_moves
                     }
                     // Set the cursor for next entry, skiping all leading white space characters
@@ -368,7 +388,7 @@ class Chess implements ChessCore {
                 }
             }
         }
-        return game
+        return this.addGame(game, group)
     }
 
     /**
@@ -381,47 +401,22 @@ class Chess implements ChessCore {
     }
 
     /**
-     * Check if currently active game is valid.
-     * @param silent Silence the warning if game is not valid
-     */
-    isActiveValid (silent=false) {
-        if (this.active.index !== null && this.games[this.active.group] !== undefined &&
-            this.games[this.active.group][this.active.index] !== undefined
-        ) {
-            return true
-        } else if (!silent) {
-            console.error("Interaction with currently active game requested, but no valid game is active!")
-        }
-        return false
-    }
-
-    /**
      * Load a game that has already been parsed from PGN
      * @param index index of the parsed game in group list
      * @param group defaults to currently active group
-     * @param returnGame return the game instead of adding it to game list
+     * @return ```
+     * // The newly added game, its group and index within the group
+     * return { game: Game, group: string, index: number }
+     * // Or null, if such a parsed game cannot be found
+     * return null
+     * ```
      */
-    loadParsedGame (index: number, group=this.active.group, returnGame=false) {
+    loadParsedGame (index: number, group=this.active.group) {
         // Make sure such a game is cached
         if (!this.parsedPgnGames.hasOwnProperty(group) || this.parsedPgnGames[group][index] === undefined) {
             return null
         }
-        console.log('CREATE GAME')
-        let game = this.createGameFromPgn(this.parsedPgnGames[group][index])
-        console.log('GAME', game)
-        if (this.active.group === group && !returnGame) {
-            // Check that game group exists
-            if (!this.games.hasOwnProperty(group)) {
-                this.games[group] = []
-            }
-            // Add game to group list
-            this.games[group].push(game)
-            this.active.index = this.games[group].length - 1
-            return null
-        } else {
-            // Just return the game
-            return game
-        }
+        return this.createGameFromPgn(this.parsedPgnGames[group][index])
     }
 
     /**
@@ -462,7 +457,7 @@ class Chess implements ChessCore {
         if (pgnGameCount) { // At least one game was found
             if (pgnGameCount <= (options.maxItems as number)) {
                 for (let i=0; i<pgnGameCount; i++) {
-                    this.games[group].push(this.createGameFromPgn(this.parsedPgnGames[group][i]))
+                    this.createGameFromPgn(this.parsedPgnGames[group][i])
                     if (this.active.group === group && this.active.index === null && options.activateFirst) {
                         this.active.index = 0
                     }
@@ -471,7 +466,7 @@ class Chess implements ChessCore {
                     }
                 }
             } else if (this.active.group === group && this.active.index === null && options.activateFirst) {
-                this.games[group].push(this.createGameFromPgn(this.parsedPgnGames[group][0]))
+                this.createGameFromPgn(this.parsedPgnGames[group][0])
                 this.active.index = 0
             }
             if (options.returnHeaders) {
@@ -530,11 +525,7 @@ class Chess implements ChessCore {
                         if (i===pgnGameCount) {
                             resolve(true)
                         }
-                        this.games[this.active.group].push(this.createGameFromPgn(this.parsedPgnGames[this.active.group][i]))
-                        if (this.active === null) {
-                            // Activate the first loaded game
-                            this.active = { group: group, index: 0 }
-                        }
+                        this.createGameFromPgn(this.parsedPgnGames[this.active.group][i])
                         counter++
                     }
                     resolve(true)
@@ -569,25 +560,28 @@ class Chess implements ChessCore {
     }
 
     /**
-     * Create a new game from given FEN
-     * @param fen
+     * Create a new game.
+     * @param fen optional FEN (defaults to traditional starting position and state)
      * @param group The group the game is created in (defaults to currently active group)
      * @param replace Force replace the currently selected game (default false)
      * @return newly added game position { group, index }
      */
-    newGame (fen=Fen.DEFAULT_STARTING_STATE, group=this.active.group, replace=false) {
+    newGame (fen=Fen.DEFAULT_STARTING_STATE, group=this.active.group, replace=false): GameEntry {
         // Check that group exists
         if (!this.games.hasOwnProperty(group)) {
             this.games[group] = []
         }
         if (this.active.group !== group) {
             // Add new game but don't activate it, if it's in another group
-            this.games[group].push(new Game(fen))
-            return { group: group, index: this.games[group].length - 1 }
+            const newGame = new Game(fen)
+            this.games[group].push(newGame)
+            return { game: newGame, group: group, index: this.games[group].length - 1 }
         } else {
             if (this.active.index === null || (this.activeGame?.shouldPreserve && !replace)) {
                 // Add a new game and activate it
-                this.games[group].push(new Game(fen))
+                const newGame = new Game(fen)
+                this.games[group].push(newGame)
+                this.active.game = newGame
                 this.active.index = this.games[group].length - 1
                 this.lastActive[group] = this.active.index
             } else {
@@ -795,6 +789,7 @@ class Chess implements ChessCore {
      */
     unsetActiveGame () {
         this.active.index = null
+        this.active.game = null
     }
 
     /**
@@ -895,11 +890,11 @@ class Chess implements ChessCore {
     makeMove (move: Move, opts?: MethodOptions.Board.makeMove) {
         return this.activeGame?.makeMove(move, opts) || Chess.noActiveGameError
     }
-    makeMoveFromAlgebraic (orig: string, dest: string) {
-        return this.activeGame?.makeMoveFromAlgebraic(orig, dest) || Chess.noActiveGameError
+    makeMoveFromAlgebraic (orig: string, dest: string, opts?: MethodOptions.Board.makeMove) {
+        return this.activeGame?.makeMoveFromAlgebraic(orig, dest, opts) || Chess.noActiveGameError
     }
-    makeMoveFromSan (san: string) {
-        return this.activeGame?.makeMoveFromSan(san) || Chess.noActiveGameError
+    makeMoveFromSan (san: string, opts?: MethodOptions.Board.makeMove) {
+        return this.activeGame?.makeMoveFromSan(san, opts) || Chess.noActiveGameError
     }
     moveHistoryToNewContinuation () {
         return this.activeGame?.moveHistoryToNewContinuation() || false
