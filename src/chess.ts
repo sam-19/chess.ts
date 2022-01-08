@@ -902,8 +902,8 @@ class Chess implements ChessCore {
     moveHistoryToNewContinuation () {
         return this.activeGame?.moveHistoryToNewContinuation() || false
     }
-    moveHistoryToNewVariation () {
-        return this.activeGame?.moveHistoryToNewVariation() || false
+    moveHistoryToNewVariation (newTurn?: Turn) {
+        return this.activeGame?.moveHistoryToNewVariation(newTurn) || false
     }
     nextTurn () {
         return this.activeGame?.nextTurn() || false
