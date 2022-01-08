@@ -848,6 +848,9 @@ class Chess implements ChessCore {
     get isPaused () {
         return this.activeGame?.isPaused || false
     }
+    get playerToMove () {
+        return this.activeGame?.playerToMove || Color.WHITE
+    }
     get turnIndexPosition () {
         return this.activeGame?.turnIndexPosition || []
     }
@@ -956,10 +959,8 @@ class Chess implements ChessCore {
     validateFen (fen: string, onlyPosition?: boolean, rules?: string) {
         return new Fen(fen).validate(onlyPosition, rules)
     }
-    whoIsToMove () {
-        return this.activeGame?.whoIsToMove() || Color.WHITE
-    }
 }
 
+(window as any).ChessTs = Chess
 export default Chess
 export { Board, Color, Fen, Flags, Game, Log, Move, Nag, Piece, TimeControl }

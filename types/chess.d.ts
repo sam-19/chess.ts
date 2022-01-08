@@ -204,6 +204,10 @@ interface ChessCore {
      */
     isPaused: boolean
     /**
+     * Which player is to move next.
+     */
+    playerToMove: PlayerColor
+    /**
      * Current board's turn index position as [index, historyLength].
      */
     turnIndexPosition: number[]
@@ -398,11 +402,6 @@ interface ChessCore {
      * @param rules which rules to use in validation (defaults to traditional rules)
      */
     validateFen: (fen: string, onlyPosition?: boolean, rules?: string) => FenValidationResult
-    /**
-     * Return the color whose turn it is to move
-     * @return Color.WHITE or Color.BLACK
-     */
-    whoIsToMove: () => PlayerColor
     // Auxiliary methods
 }
 

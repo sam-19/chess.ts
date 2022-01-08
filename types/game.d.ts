@@ -303,6 +303,10 @@ interface ChessGame {
      */
     isInStalemate: boolean
     /**
+     * Which player is to move next.
+     */
+    playerToMove: PlayerColor
+    /**
      * Add given headers to game headers.
      */
     addHeaders: (headers: string[][]) => void
@@ -347,11 +351,6 @@ interface ChessGame {
      * Get the FEN representation of this game.
      */
     toFen: (options: MethodOptions.Board.toFen) => string
-    /**
-     * Return the color whose turn it is to move
-     * @return Color.WHITE or Color.BLACK
-     */
-    whoIsToMove: () => PlayerColor
 }
 
 export { ChessGame }

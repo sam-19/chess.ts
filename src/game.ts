@@ -970,22 +970,22 @@ class Game implements ChessGame {
      * ======================================================================
      */
 
-    get breaks50MoveRule() {
+    get breaks50MoveRule () {
         return this.currentBoard.breaks50MoveRule
     }
-    get breaks75MoveRule() {
+    get breaks75MoveRule () {
         return this.currentBoard.breaks75MoveRule
     }
     get endResult () {
         return this.currentBoard.endResult
     }
-    get hasInsufficientMaterial() {
+    get hasInsufficientMaterial () {
         return this.currentBoard.hasInsufficientMaterial
     }
-    get hasRepeatedThreefold() {
+    get hasRepeatedThreefold () {
         return this.currentBoard.hasRepeatedThreefold
     }
-    get hasRepeatedFivefold() {
+    get hasRepeatedFivefold () {
         return this.currentBoard.hasRepeatedFivefold
     }
     get isFinished () {
@@ -994,14 +994,17 @@ class Game implements ChessGame {
     get isInCheck () {
         return this.currentBoard.isInCheck
     }
-    get isInCheckmate() {
+    get isInCheckmate () {
         return this.currentBoard.isInCheckmate
     }
-    get isDraw() {
+    get isDraw () {
         return this.currentBoard.isDraw
     }
-    get isInStalemate() {
+    get isInStalemate () {
         return this.currentBoard.isInStalemate
+    }
+    get playerToMove () {
+        return this.currentBoard.turn
     }
     addHeaders(headers: string[][]) {
         this.headers.addHeaders(headers)
@@ -1020,9 +1023,6 @@ class Game implements ChessGame {
     }
     toFen (options: MethodOptions.Board.toFen = {}) {
         return this.currentBoard.toFen(options)
-    }
-    whoIsToMove () {
-        return this.currentBoard.turn
     }
 }
 
