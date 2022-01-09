@@ -22,6 +22,19 @@ Nxe4 18. Bxe7 Qxe7 19. exd6 Qf6 20. Nbd2 Nxd6 21. Nc4 Nxc4 22. Bxc4 Nb6
 hxg5 29. b3 Ke6 30. a3 Kd6 31. axb4 cxb4 32. Ra5 Nd5 33. f3 Bc8 34. Kf2 Bf5
 35. Ra7 g6 36. Ra6+ Kc5 37. Ke1 Nf4 38. g3 Nxh3 39. Kd2 Kb5 40. Rd6 Kc5 41. Ra6
 Nf2 42. g4 Bd3 43. Re6 1/2-1/2`
+
+const testVariation = `[Date "2021.12.19"]
+[White "Player, White"]
+[Black "Player, Black"]
+[Result "1-0"]
+
+1. e4 d5 (1... d6) 2. Nc3 b6 3. d4 b5 4. Nxd5 c6 5. Nb4 c5
+6. dxc5 Nc6 7. Nxc6 Qa5+ 8. Nxa5 f5 9. Qd5 fxe4 10. Qxa8 Kf7
+11. Qxc8 Nf6 12. Bxb5 g5 13. Bxg5 Bh6 14. Qxh8 Bxg5
+15. Nc6 Nd5 16. Nh3 Nf4 17. Nxg5+ Kg6 18. Qe5 e6
+19. O-O-O a6 20. Qxf4 axb5 21. Rd6 e3 22. Rxe6+ Kh5
+23. Qf3+ Kh4 24. Rh6+ Kxg5 25. Qf6+ Kg4 26. Rg6+ Kh5
+27. g4# 1-0`
 // Printed board state at the end of the game
 const boardAtEnd = `  +------------------------+  Spassky, Boris V.
 8 | .  .  .  .  .  .  .  . |  Move 43, game over
@@ -109,6 +122,13 @@ describe('Loading games from PGN', () => {
     test('remove loaded game', () => {
         chess.removeGame()
         expect(chess.activeGame).toBeNull()
+    })
+    /* Test PGN with variation */
+    test('parse PGN with variation', () => {
+        const headers = chess.loadPgn(testVariation)
+        expect(headers).toBeDefined()
+        expect(headers.length).toStrictEqual(1)
+        expect(headers[0].length).toStrictEqual(4)
     })
 })
 describe('Game creation', () => {

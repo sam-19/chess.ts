@@ -665,14 +665,14 @@ class Game implements ChessGame {
             // Catch some extremely unlikely error (probably meaning a regression bug)
             if (!targetVarBranchOffs.length) {
                 // Cloudn't find a path
-                Log.error("Could not find a path to the target move!")
+                Log.error("Could not find a path to the target move (empty trail)!")
                 return false
             }
             targetVarBranchOffs.reverse() // Start with lowest variation
             const branchPoint = targetVarBranchOffs.shift() as number[] // [boardVar.id, lastMoveIndex]
             if (branchPoint[0]) {
                 // First branch-off is not in root variation
-                Log.error("Could not find a path to the target move!")
+                Log.error("Could not find a path to the target move (didn't start from root)!")
                 return false
             }
             this.currentBoard.selectTurn(branchPoint[1])
@@ -692,10 +692,12 @@ class Game implements ChessGame {
                     }
                 }
                 if (targetVarBranchOffs.length) {
-                    this.currentBoard.selectTurn(targetVarBranchOffs[0][1] as number)
+                    if (targetVarBranchOffs[0][1]) {
+                        this.currentBoard.selectTurn(targetVarBranchOffs[0][1] as number)
+                    }
                     targetVarBranchOffs.shift()
-                } else {
-                    Log.error("Could not find a path to the target move!")
+                } else if (this.currentBoard.id !== boardVar) {
+                    Log.error("Could not find a path to the target move (dead end)!")
                     return false
                 }
             }
