@@ -17,13 +17,13 @@ interface GameHeaders {
      * @param k header key
      * @returns header value string
      */
-    get: (k: string) => { [key: string]: string } | undefined
+    get: (k: string) => string | undefined
 
     /**
      * Return all headers with standardized key capitalization.
      * @returns headers
      */
-    getAll: () => { [key: string]: string }[]
+    getAll: () => { [key: string]: string }
 
     /**
      * Get key at index i.
@@ -67,7 +67,7 @@ interface GameHeaders {
     /**
      * Return headers with standardized keys.
      */
-    standardized: () => { [key: string]: string }[]
+    standardized: () => { [key: string]: string }
 
     /**
      * Convert these game headers into a JSON string.

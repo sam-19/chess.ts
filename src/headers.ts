@@ -46,7 +46,7 @@ class Headers implements GameHeaders {
     }
     // Instance properties
     keys: string[] = []
-    headers: any = {}
+    headers: {[key: string]: string} = {}
     /**
      * Create a new game headers object with the given key-value pairs.
      * @param headers [key: string, value: string][]
@@ -126,7 +126,7 @@ class Headers implements GameHeaders {
         this.headers[key.toLowerCase()] = value
     }
 
-    standardized (): { [key: string]: string }[] {
+    standardized (): { [key: string]: string } {
         const headers = {} as any
         this.keys.forEach((k) => {
             headers[Headers.KEYS[k as keyof typeof Headers.KEYS]] = this.headers[k]

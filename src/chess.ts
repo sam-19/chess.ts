@@ -63,7 +63,6 @@ class Chess implements ChessCore {
      * Currently active game (read-only).
      */
     get activeGame () {
-        console.log(this.games, this.active)
         return this.active.game
     }
 
