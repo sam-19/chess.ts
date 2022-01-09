@@ -408,9 +408,9 @@ class Board implements ChessBoard {
      */
 
     commitMove (move: Move, updatePosCount = true) {
-        // Determine active and passive player
+        // Determine active and opposing player
         const active = this.turn
-        const passive = Color.swap(this.turn)
+        const opponent = Color.swap(this.turn)
         let removedPiece = Piece.NONE
         // Move the piece to destination square and clear origin square
         this.squares[move.dest as number] = this.squares[move.orig as number]
@@ -459,18 +459,18 @@ class Board implements ChessBoard {
             }
         }
         // Remove castling rights if rook is captured
-        if (this.castlingRights[passive].length) {
-            if (passive === Color.WHITE) {
+        if (this.castlingRights[opponent].length) {
+            if (opponent === Color.WHITE) {
                 if (move.dest === Board.SQUARE_INDICES.a1) {
-                    this.castlingRights[active].remove(Flags.QSIDE_CASTLING, true)
+                    this.castlingRights[opponent].remove(Flags.QSIDE_CASTLING, true)
                 } else if (move.dest === Board.SQUARE_INDICES.h1) {
-                    this.castlingRights[active].remove(Flags.KSIDE_CASTLING, true)
+                    this.castlingRights[opponent].remove(Flags.KSIDE_CASTLING, true)
                 }
             } else {
                 if (move.dest === Board.SQUARE_INDICES.a8) {
-                    this.castlingRights[active].remove(Flags.QSIDE_CASTLING, true)
+                    this.castlingRights[opponent].remove(Flags.QSIDE_CASTLING, true)
                 } else if (move.dest === Board.SQUARE_INDICES.h8) {
-                    this.castlingRights[active].remove(Flags.KSIDE_CASTLING, true)
+                    this.castlingRights[opponent].remove(Flags.KSIDE_CASTLING, true)
                 }
             }
         }
@@ -773,8 +773,8 @@ class Board implements ChessBoard {
                     ) {
                         addMove(orig, dest, this, [Flags.KSIDE_CASTLING, Flags.MOVE_BLOCKED])
                     } else if (this.isAttacked(opponent, this.kingPos[active]) // Cannot castle a king in check
-                        || !this.isAttacked(opponent, orig + 1) // Can't castle a king across an attacked square
-                        || !this.isAttacked(opponent, dest)) // Can't move king into an attacked square
+                        || this.isAttacked(opponent, orig + 1) // Can't castle a king across an attacked square
+                        || this.isAttacked(opponent, dest)) // Can't move king into an attacked square
                     {
                         addMove(orig, dest, this, [Flags.KSIDE_CASTLING, Flags.MOVE_ILLEGAL])
                     } else {
@@ -790,9 +790,9 @@ class Board implements ChessBoard {
                     ) {
                         addMove(orig, dest, this, [Flags.QSIDE_CASTLING, Flags.MOVE_BLOCKED])
                     } else if (this.isAttacked(opponent, orig)
-                        || !this.isAttacked(opponent, orig - 1)
-                        || !this.isAttacked(opponent, dest))
-                    {
+                        || this.isAttacked(opponent, orig - 1)
+                        || this.isAttacked(opponent, dest)
+                    ) {
                         addMove(orig, dest, this, [Flags.QSIDE_CASTLING, Flags.MOVE_ILLEGAL])
                     } else {
                         addMove(orig, dest, this, [Flags.QSIDE_CASTLING])

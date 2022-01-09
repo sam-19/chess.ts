@@ -188,6 +188,7 @@ class Chess implements ChessCore {
             let annotation = null
             switch (pgn.moves.charAt(pos)) {
                 // Catch end of SAN string
+                case ' ':
                 case '\s':
                 case '\b':
                 case '\f':
@@ -233,8 +234,9 @@ class Chess implements ChessCore {
                         // This is a Palview style continuation variation
                         openVariation(true)
                         pos++
-                    } else
+                    } else {
                         openVariation(false)
+                    }
                     break
                 case ')':
                     if (!isLastMoveValid()) {
@@ -301,7 +303,7 @@ class Chess implements ChessCore {
                         end = pos + 2
                     } else {
                         // Check the position of the next non-move character
-                        end = pos + pgn.moves.substring(pos).search(/[\s${;!?()]/)
+                        end = pos + pgn.moves.substring(pos).search(/[\s\${;!\?\(\)]/)
                         if (end < pos) {
                             // This was the last move
                             // TODO: Handle incomplete file (missing result information)
