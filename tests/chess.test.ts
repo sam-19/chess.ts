@@ -31,8 +31,8 @@ const testVariation = `[Date "2021.12.19"]
 1. e4 d5 (1... d6) 2. Nc3 b6 3. d4 b5 4. Nxd5 c6 5. Nb4 c5
 6. dxc5 Nc6 7. Nxc6 Qa5+ 8. Nxa5 f5 9. Qd5 fxe4 10. Qxa8 Kf7
 11. Qxc8 Nf6 12. Bxb5 g5 13. Bxg5 Bh6 14. Qxh8 Bxg5
-15. Nc6 Nd5 16. Nh3 Nf4 17. Nxg5+ Kg6 18. Qe5 e6
-19. O-O-O a6 20. Qxf4 axb5 21. Rd6 e3 22. Rxe6+ Kh5
+15. Nc6 (* 15... Nd7 16. Ne5+) Nd5 16. Nh3 Nf4 17. Nxg5+ Kg6
+18. Qe5 e6 19. O-O-O a6 20. Qxf4 axb5 21. Rd6 e3 22. Rxe6+ Kh5
 23. Qf3+ Kh4 24. Rh6+ Kxg5 25. Qf6+ Kg4 26. Rg6+ Kh5
 27. g4# 1-0`
 // Printed board state at the end of the game
@@ -129,6 +129,27 @@ describe('Loading games from PGN', () => {
         expect(headers).toBeDefined()
         expect(headers.length).toStrictEqual(1)
         expect(headers[0].length).toStrictEqual(4)
+        const active = chess.activeGame
+        expect(active).toBeTruthy()
+        expect(active.currentBoard.history[1].variations.length).toStrictEqual(1)
+        const variation = active.currentBoard.history[1].variations[0]
+        expect(variation.continuation).toStrictEqual(false)
+        expect(variation.history.length).toStrictEqual(1)
+        active.selectTurn(0, variation.id)
+        expect(active.getMoveHistory('san')).toStrictEqual(['e4', 'd6'])
+        active.selectTurn(-1, 0)
+        expect(active.currentBoard.history[28].variations.length).toStrictEqual(1)
+        const continuation = active.currentBoard.history[28].variations[0]
+        expect(continuation.continuation).toStrictEqual(true)
+        expect(continuation.history.length).toStrictEqual(2)
+        active.selectTurn(1, continuation.id)
+        expect(active.getMoveHistory('san')).toStrictEqual([
+            'e4',   'd5',   'Nc3',  'b6',   'd4',   'b5',   'Nxd5', 'c6',
+            'Nb4',  'c5',   'dxc5', 'Nc6',  'Nxc6', 'Qa5+', 'Nxa5', 'f5',
+            'Qd5',  'fxe4', 'Qxa8', 'Kf7',  'Qxc8', 'Nf6',  'Bxb5', 'g5',
+            'Bxg5', 'Bh6',  'Qxh8', 'Bxg5', 'Nc6',  'Nd7',  'Ne5+'
+        ])
+        chess.removeGame()
     })
 })
 describe('Game creation', () => {
