@@ -565,7 +565,7 @@ class Chess implements ChessCore {
      * @param fen optional FEN (defaults to traditional starting position and state)
      * @param group The group the game is created in (defaults to currently active group)
      * @param replace Force replace the currently selected game (default false)
-     * @return newly added game position { group, index }
+     * @return newly added game and its position { game, group, index }
      */
     newGame (fen=Fen.DEFAULT_STARTING_STATE, group=this.active.group, replace=false): GameEntry {
         // Check that group exists
