@@ -5,7 +5,7 @@ interface GameHeaders {
      * Add all headers from the given array of key-value pairs.
      * @param headers [key: string, value: string][]
      */
-    addHeaders: (headers: string[][]) => void
+    add: (headers: string[][]) => void
 
     /**
      * Clear all headers.

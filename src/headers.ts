@@ -52,10 +52,10 @@ class Headers implements GameHeaders {
      * @param headers [key: string, value: string][]
      */
     constructor (headers: string[][] = []) {
-        this.addHeaders(headers)
+        this.add(headers)
     }
 
-    addHeaders (headers: string[][]) {
+    add (headers: string[][]) {
         for (let i=0; i<headers.length; i++) {
             this.set(headers[i][0], headers[i][1])
         }
@@ -120,7 +120,7 @@ class Headers implements GameHeaders {
     }
 
     set (key: string, value: string) {
-        if (Object.keys(Headers.KEYS).indexOf(key) === -1) {
+        if (Object.keys(Headers.KEYS).indexOf(key.toLowerCase()) === -1) {
             return
         }
         if (this.keys.indexOf(key.toLowerCase()) === -1) {
@@ -131,11 +131,11 @@ class Headers implements GameHeaders {
 
     standardized (): { [key: string]: string } {
         const headers = {} as any
-        this.keys.forEach((k) => {
+        for (const k of this.keys) {
             // At this point the user submitted headers have been checked twice against the
-            // list of supported values.
+            // list of supported values and there is no second level property (at least not yet).
             headers.get[Headers.KEYS[k as keyof typeof Headers.KEYS]] = this.headers.get(k)
-        })
+        }
         return headers
     }
 
@@ -144,7 +144,7 @@ class Headers implements GameHeaders {
     }
 
     toString () {
-        return "{ " + this.keys.map(key => `${Headers.KEYS[key as keyof typeof Headers.KEYS]}: ${this.headers.get(key)}`).join(', ') + " }"
+        return "{ " + this.keys.map(key => `${Headers.KEYS[key as keyof typeof Headers.KEYS]}: ${this.headers.get(key)}`).join('; ') + " }"
     }
 }
 

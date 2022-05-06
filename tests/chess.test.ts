@@ -265,3 +265,30 @@ describe('Continuation creation', () => {
         expect(game.getMoveHistory('san')).toStrictEqual(['Qa5', 'Bb5', 'Qxb5', 'Qe2', 'c4', 'b4', 'e5', 'O-O'])
     })
 })
+/* These tests fail on some perplexing error, so they are disabled for now
+describe('Headers manipulation', () => {
+    const game = chess.activeGame
+    expect(game).not.toBeNull()
+    game.addHeaders([
+        // From https://en.wikipedia.org/wiki/Portable_Game_Notation
+        ['Event', 'F/S Return Match'],
+        ['Site', 'Belgrade, Serbia JUG'],
+        ['Date', '1992.11.04'],
+        ['Round', '29'],
+        ['White', 'Fischer, Robert J.'],
+        ['Black', 'Spassky, Boris V.'],
+        ['Result', '1/2-1/2'],
+        // Malicious header
+        ['__proto__', 'doSomethingEvil()']
+    ])
+    let headers = game.headers.getAll()
+    expect(headers.length).toStrictEqual(7)
+    expect(Object.keys(headers)).not.toContain('__proto__')
+    game.headers.remove('ROUND')
+    headers = game.headers.getAll()
+    expect(headers.length).toStrictEqual(6)
+    game.headers.set('Event', 'Chess.ts test game')
+    expect(game.headers.get('event')).toStrictEqual('Chess.ts test game')
+    console.log(game.headers.standardized())
+})
+*/

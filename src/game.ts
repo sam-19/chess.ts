@@ -1009,7 +1009,7 @@ class Game implements ChessGame {
         return this.currentBoard.turn
     }
     addHeaders(headers: string[][]) {
-        this.headers.addHeaders(headers)
+        this.headers.add(headers)
     }
     getMoves (filter: MethodOptions.Board.getMoves = {}) {
         return this.currentBoard.getMoves(filter)
