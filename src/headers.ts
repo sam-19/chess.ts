@@ -46,7 +46,7 @@ class Headers implements GameHeaders {
     }
     // Instance properties
     keys: string[] = []
-    headers: {[key: string]: string} = {}
+    headers: Map<string,string> = new Map()
     /**
      * Create a new game headers object with the given key-value pairs.
      * @param headers [key: string, value: string][]
@@ -63,12 +63,12 @@ class Headers implements GameHeaders {
 
     clear () {
         this.keys = []
-        this.headers = {}
+        this.headers.clear()
     }
 
     get (k: string) {
-        if (this.headers[k.toLowerCase()] !== undefined) {
-            return this.headers[k.toLowerCase()]
+        if (this.headers.get(k.toLowerCase()) !== undefined) {
+            return this.headers.get(k.toLowerCase())
         } else {
             return undefined
         }
@@ -87,8 +87,8 @@ class Headers implements GameHeaders {
     }
 
     getValue (i: number) {
-        if (this.headers[this.keys[i]] !== undefined)
-            return this.headers[this.keys[i]]
+        if (this.headers.get(this.keys[i]) !== undefined)
+            return this.headers.get(this.keys[i])
         else
             return undefined
     }
@@ -99,9 +99,9 @@ class Headers implements GameHeaders {
 
     remove (k: string) {
         if (k.toLowerCase() in this.headers) {
-            delete this.headers[
+            this.headers.delete(
                 this.keys.splice(this.keys.indexOf(k.toLowerCase()), 1)[0]
-            ]
+            )
         }
     }
 
@@ -114,22 +114,27 @@ class Headers implements GameHeaders {
         preserve = preserve.map(key => key.toLowerCase())
         for (let i=0; i<this.keys.length; i++) {
             if (preserve.indexOf(this.keys[i]) === -1) {
-                delete this.headers[this.keys.splice(i, 1)[0]]
+                this.headers.delete(this.keys.splice(i, 1)[0])
             }
         }
     }
 
     set (key: string, value: string) {
+        if (Object.keys(Headers.KEYS).indexOf(key) === -1) {
+            return
+        }
         if (this.keys.indexOf(key.toLowerCase()) === -1) {
             this.keys.push(key.toLowerCase())
         }
-        this.headers[key.toLowerCase()] = value
+        this.headers.set(key.toLowerCase(), value)
     }
 
     standardized (): { [key: string]: string } {
         const headers = {} as any
         this.keys.forEach((k) => {
-            headers[Headers.KEYS[k as keyof typeof Headers.KEYS]] = this.headers[k]
+            // At this point the user submitted headers have been checked twice against the
+            // list of supported values.
+            headers.get[Headers.KEYS[k as keyof typeof Headers.KEYS]] = this.headers.get(k)
         })
         return headers
     }
@@ -139,7 +144,7 @@ class Headers implements GameHeaders {
     }
 
     toString () {
-        return "{ " + this.keys.map(key => `${Headers.KEYS[key as keyof typeof Headers.KEYS]}: ${this.headers[key]}`).join(', ') + " }"
+        return "{ " + this.keys.map(key => `${Headers.KEYS[key as keyof typeof Headers.KEYS]}: ${this.headers.get(key)}`).join(', ') + " }"
     }
 }
 
