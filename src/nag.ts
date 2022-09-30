@@ -1,5 +1,5 @@
 import { MoveNag, NagEntry } from '../types/nag'
-import Log from 'simple-typescript-log'
+import Log from 'scoped-ts-log'
 
 class Nag implements MoveNag {
     // Static properties
@@ -175,7 +175,7 @@ class Nag implements MoveNag {
                 return this
             }
         }
-        Log.error(`Could not find mathich NAG for code ${code}.`)
+        Log.error(`Could not find mathich NAG for code ${code}.`, 'Nag')
     }
 
     get value () {

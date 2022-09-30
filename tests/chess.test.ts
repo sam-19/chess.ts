@@ -50,7 +50,7 @@ const boardAtEnd = `  +------------------------+  Spassky, Boris V.
 
 const chess = new Chess()
 // Only log warnings and errors
-Chess.Log.setLevel(2)
+Chess.Log.setPrintThreshold("WARN")
 describe('Chess class', () => {
     test('create Chess object with default parameters', () => {
         expect(chess).toBeDefined()

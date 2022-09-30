@@ -8,7 +8,7 @@ import Color from './color'
 import Fen from './fen'
 import Flags from './flags'
 import Game from './game'
-import Log from 'simple-typescript-log'
+import Log from 'scoped-ts-log'
 import Move from './move'
 import Nag from './nag'
 import Options from './options'
@@ -313,9 +313,12 @@ class Chess implements ChessCore {
                     }
                     if (lastMove.hasOwnProperty('error')) {
                         // Making the move failed
-                        Log.error("PGN move parsing error "
-                                    + pgn.moves.substring(pos, end)
-                                    + ": " + (lastMove as { error: string }).error)
+                        Log.error(
+                            "PGN move parsing error "
+                            + pgn.moves.substring(pos, end)
+                            + ": " + (lastMove as { error: string }).error,
+                        'Chess'
+                    )
                         break parse_moves
                     }
                     // Set the cursor for next entry, skiping all leading white space characters
@@ -515,7 +518,7 @@ class Chess implements ChessCore {
                 if (options.reportProgress) {
                     options.reportProgress([0, pgnGameCount])
                 } else {
-                    Log.info(`Total number of games is ${pgnGameCount}, parsing in batches`)
+                    Log.info(`Total number of games is ${pgnGameCount}, parsing in batches`, 'Chess')
                 }
             }
 
@@ -536,7 +539,7 @@ class Chess implements ChessCore {
                         if (options.reportProgress) {
                             options.reportProgress([curGame, pgnGameCount])
                         } else {
-                            Log.info(`Parsed ${curGame} games`)
+                            Log.info(`Parsed ${curGame} games`, 'Chess')
                         }
                         // Wait a short moment mefore starting next batch to avoid WebSocket timeout
                         window.setTimeout(parseGames, 100)
@@ -544,14 +547,14 @@ class Chess implements ChessCore {
                         if (options.reportProgress) {
                             options.reportProgress([pgnGameCount, pgnGameCount])
                         }
-                        Log.info("Finished parsing games")
+                        Log.info("Finished parsing games", 'Chess')
                         // Purge cache, all games have been processed
                         this.parsedPgnGames[this.active.group] = []
                     } else if (counter >= (options.maxAmount as number)) {
                         if (options.reportProgress) {
                             options.reportProgress([pgnGameCount, pgnGameCount])
                         } else {
-                            Log.info("Finished parsing games")
+                            Log.info("Finished parsing games", 'Chess')
                         }
                     }
                 })

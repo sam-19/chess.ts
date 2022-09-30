@@ -1,7 +1,7 @@
 import Board from './board'
 import Color from './color'
 import Flags from './flags'
-import Log from 'simple-typescript-log'
+import Log from 'scoped-ts-log'
 import Options from './options'
 import Piece from './piece'
 
@@ -104,7 +104,7 @@ class Move implements ChessMove {
         this.movedPiece = movedPiece
         // Check that origin and destination squares are valid
         if (!Board.isValidSquareIndex(orig) || !Board.isValidSquareIndex(dest)) {
-            Log.error("Invalid origin and/or destination square give to move generator: " + orig + ", " + dest + ".")
+            Log.error("Invalid origin and/or destination square give to move generator: " + orig + ", " + dest + ".", 'Move')
             this.orig = -1
             this.dest = -1
         } else {

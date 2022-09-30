@@ -2,7 +2,7 @@ import Color from './color'
 import Fen from './fen'
 import Flags from './flags'
 import Game from './game'
-import Log from 'simple-typescript-log'
+import Log from 'scoped-ts-log'
 import Move from './move'
 import Turn from './turn'
 import Options from './options'
@@ -216,13 +216,13 @@ class Board implements ChessBoard {
         // Seperate check for algebraic and 0x88 index lookups
         if (typeof square === 'number') {
             if (!Board.isValidSquareIndex(square)) {
-                Log.error(`Cannot convert ${square} to board square index: Value is not a valid 0x88 board square.`)
+                Log.error(`Cannot convert ${square} to board square index: Value is not a valid 0x88 board square.`, 'Board')
                 return -1
             }
             return square
         } else {
             if (!Board.isValidSquareName(square)) {
-                Log.error(`Cannot convert ${square} to board square index: Value is not a valid algebraic representation of a square.`)
+                Log.error(`Cannot convert ${square} to board square index: Value is not a valid algebraic representation of a square.`, 'Board')
                 return -1
             }
             return Board.SQUARE_INDICES[square as keyof typeof Board.SQUARE_INDICES]
@@ -653,7 +653,7 @@ class Board implements ChessBoard {
                     if (newMove.error === undefined) {
                         newMoves.push(newMove)
                     } else {
-                        Log.error(newMove.error)
+                        Log.error(newMove.error, 'Board')
                     }
                 })
             } else {
@@ -661,7 +661,7 @@ class Board implements ChessBoard {
                 if (newMove.error === undefined) {
                     newMoves.push(newMove)
                 } else {
-                    Log.error(newMove.error)
+                    Log.error(newMove.error, 'Board')
                 }
             }
         }
@@ -1047,7 +1047,7 @@ class Board implements ChessBoard {
         const gameFen = new Fen(fen)
         let fenError = gameFen.validate()
         if (fenError.errorCode) {
-            Log.error(`Cannot create variation from FEN: ${fenError.errorMessage} (${fen}).`)
+            Log.error(`Cannot create variation from FEN: ${fenError.errorMessage} (${fen}).`, 'Board')
             return false
         }
         const params = fen.split(/\s+/)
@@ -1136,7 +1136,7 @@ class Board implements ChessBoard {
                     // Move already exists
                     if (contIdx !== -1) {
                         // Enter the continuation
-                        Log.debug("Attempted move was already a continuation of the current move.")
+                        Log.debug("Attempted move was already a continuation of the current move.", 'Board')
                         if (this.game.enterContinuation(contIdx)) {
                             return this.game.currentBoard.history[0]
                         } else {
@@ -1144,25 +1144,25 @@ class Board implements ChessBoard {
                         }
                     } else {
                         // The move is either the next move in history or one of its variations
-                        const logLvl = Log.getLevel()
-                        Log.setLevel(Log.LEVELS.DISABLE) // Do not log next move
+                        const logLvl = Log.getPrintThreshold()
+                        Log.setPrintThreshold("DISABLE") // Do not log next move
                         this.nextTurn()
-                        Log.setLevel(logLvl)
+                        Log.setPrintThreshold(logLvl)
                         if (varIdx !== -1) {
                             // Enter the correct variation
-                            Log.debug("Attempted move was already a variation of the next move in history.")
+                            Log.debug("Attempted move was already a variation of the next move in history.", 'Board')
                             if (this.game.enterVariation(varIdx)) {
                                 return this.game.currentBoard.history[0]
                             } else {
                                 return { error: `Cound not enter existing variation.` } as MoveError
                             }
                         } else {
-                            Log.debug("Attempted move was equal to already existing next move in history.")
+                            Log.debug("Attempted move was equal to already existing next move in history.", 'Board')
                             return this.history[this.selectedTurnIndex]
                         }
                     }
                 } else {
-                    Log.debug("Branching a new variation")
+                    Log.debug("Branching a new variation", 'Board')
                     // New move; branch a new variation
                     // We have to make the next move so that we can take it back when parsing the variation
                     // (kinda stupid, I know, but that's how a variation is defined)
@@ -1241,10 +1241,10 @@ class Board implements ChessBoard {
     makeMoveFromAlgebraic (orig: string, dest: string, options: MethodOptions.Board.makeMove = {}) {
         const move = Move.generateFromAlgebraic(orig, dest, this)
         if (!move.hasOwnProperty('error')) {
-            Log.debug(`Making a move from algebraic: ${orig}-${dest}.`)
+            Log.debug(`Making a move from algebraic: ${orig}-${dest}.`, 'Board')
             return this.makeMove(move as Move, options)
         } else {
-            Log.error(`Cound not make move from algebraic (${orig}-${dest}): ${move.error}`)
+            Log.error(`Cound not make move from algebraic (${orig}-${dest}): ${move.error}`, 'Board')
             return move as MoveError
         }
     }
@@ -1252,7 +1252,7 @@ class Board implements ChessBoard {
     makeMoveFromSAN (san: string, options: MethodOptions.Board.makeMove = {}) {
         let move = Move.generateFromSan(san, this)
         if (!move.hasOwnProperty('error')) {
-            Log.debug(`Making a move from SAN: ${san}.`)
+            Log.debug(`Making a move from SAN: ${san}.`, 'Board')
             return this.makeMove(move as Move, options)
         } else {
             return move as MoveError
@@ -1262,7 +1262,7 @@ class Board implements ChessBoard {
     nextTurn () {
         // Check that we're not already at the end of turn history
         if (this.selectedTurnIndex === this.history.length - 1) {
-            Log.warn("Could not select next turn; already at the end of turn history.")
+            Log.warn("Could not select next turn; already at the end of turn history.", 'Board')
             return false
         }
         return this.selectTurn(this.selectedTurnIndex + 1)
@@ -1280,14 +1280,14 @@ class Board implements ChessBoard {
     placePiece (piece: Piece, square: number | string) {
         // Check that piece and square are valid
         if (!(piece.symbol in Piece.PIECES)) {
-            Log.error(`Cannot put piece to requested square: Piece (${piece}) is invalid.`)
+            Log.error(`Cannot put piece to requested square: Piece (${piece}) is invalid.`, 'Board')
             return false
         }
         square = Board.squareIndex(square)
         if (square >= 0) {
             // Each player may have only one king on the board
             if (piece.type === Piece.TYPE_KING && this.kingPos[piece.color] !== null) {
-                Log.error("Cannot have more than one king per side.")
+                Log.error("Cannot have more than one king per side.", 'Board')
                 return false
             }
             // Check if there is a piece already in the square and return it (capture)
@@ -1299,7 +1299,7 @@ class Board implements ChessBoard {
             }
             return prevPiece
         } else {
-            Log.error(`Cannot put piece to requested square: Square (${square}) is invalid.`)
+            Log.error(`Cannot put piece to requested square: Square (${square}) is invalid.`, 'Board')
             return false
         }
 
@@ -1308,7 +1308,7 @@ class Board implements ChessBoard {
     prevTurn () {
         // Check that we're not already at the start of turn history
         if (this.selectedTurnIndex === -1) {
-            Log.warn("Could not select previous turn; already at the start of turn history.")
+            Log.warn("Could not select previous turn; already at the start of turn history.", 'Board')
             return false
         }
         return this.selectTurn(this.selectedTurnIndex - 1)
@@ -1318,12 +1318,12 @@ class Board implements ChessBoard {
         square = Board.squareIndex(square)
         // Check that square is valid
         if (square < 0) {
-            Log.error(`Cannot remove piece from ${square}: Value is not a valid square.`)
+            Log.error(`Cannot remove piece from ${square}: Value is not a valid square.`, 'Board')
             return false
         }
         const piece = this.pieceAt(square)
         if (piece === Piece.NONE) {
-            Log.info(`Could not remove piece from ${Board.SQUARE_NAMES[square as keyof typeof Board.SQUARE_NAMES]}: The square was already vacant.`)
+            Log.info(`Could not remove piece from ${Board.SQUARE_NAMES[square as keyof typeof Board.SQUARE_NAMES]}: The square was already vacant.`, 'Board')
         } else if (piece.type === Piece.TYPE_KING) {
             this.kingPos[piece.color] = null
         }
@@ -1343,15 +1343,15 @@ class Board implements ChessBoard {
     selectTurn (index: number) {
         // Check that index is valid
         if (index < -1 || index > this.history.length - 1) {
-            Log.warn(`Attempted to select a turn with invalid index: ${index}.`)
+            Log.warn(`Attempted to select a turn with invalid index: ${index}.`, 'Board')
             return false
         }
         if (index === this.selectedTurnIndex) {
             // Move is already selected
-            Log.info("Attempted to select a turn that was already selected.")
+            Log.info("Attempted to select a turn that was already selected.", 'Board')
             return true
         }
-        Log.debug(`Selecting a new turn from history: ${index}.`)
+        Log.debug(`Selecting a new turn from history: ${index}.`, 'Board')
         // Browse to given move
         // TODO: Allow visual scrolling through the turn history step by step?
         if (index < this.selectedTurnIndex) {
@@ -1462,12 +1462,12 @@ class Board implements ChessBoard {
     undoMoves (options: MethodOptions.Board.undoMoves = { updatePosCount: true }) {
         if (options.move !== undefined && (options.move < 0 || options.move >= this.history.length)) {
             // Move index is out of bounds
-            Log.error(`Could not undo move: Move index is out of bounds (${options.move}).`)
+            Log.error(`Could not undo move: Move index is out of bounds (${options.move}).`, 'Board')
             return false
         }
         if (!this.plyNum) {
             // There is no move to undo
-            Log.debug("Cound not undo move: There are no moves made yet.")
+            Log.debug("Cound not undo move: There are no moves made yet.", 'Board')
             return false
         }
         let moveIndex = this.history.length - 1 // Remove last move by default
