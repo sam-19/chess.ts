@@ -21,8 +21,8 @@ class Fen implements ChessFen {
         8: '4th field (en-passant square) is invalid.',
         9: '3rd field (castling availability) is invalid.',
        10: '2nd field (side to move) is invalid.',
-       11: 'White has more than 32 pieces on the board.',
-       12: 'Black has more than 32 pieces on the board.',
+       11: 'White has more than 16 pieces on the board.',
+       12: 'Black has more than 16 pieces on the board.',
        13: 'White has more than 8 pawns on the board.',
        14: 'Black has more than 8 pawns on the board.',
        15: 'White doesn\'t have the right number of kings on the board.',
@@ -132,9 +132,9 @@ class Fen implements ChessFen {
                 return { isValid: false, errorCode: 10, errorMessage: Fen.ERRORS[5] }
         }
         if (rules === 'traditional') {
-            if (pieces[Color.WHITE] > 32)
+            if (pieces[Color.WHITE] > 16)
                 return { isValid: false, errorCode: 11, errorMessage: Fen.ERRORS[11] }
-            else if (pieces[Color.BLACK] > 32)
+            else if (pieces[Color.BLACK] > 16)
                 return { isValid: false, errorCode: 12, errorMessage: Fen.ERRORS[12] }
             else if (pawns[Color.WHITE] > 8)
                 return { isValid: false, errorCode: 13, errorMessage: Fen.ERRORS[13] }
