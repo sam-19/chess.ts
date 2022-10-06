@@ -131,6 +131,20 @@ class Fen implements ChessFen {
             if (sumSquares !== 8)
                 return { isValid: false, errorCode: 10, errorMessage: Fen.ERRORS[5] }
         }
+        if (rules === 'traditional') {
+            if (pieces[Color.WHITE] > 32)
+                return { isValid: false, errorCode: 11, errorMessage: Fen.ERRORS[11] }
+            else if (pieces[Color.BLACK] > 32)
+                return { isValid: false, errorCode: 12, errorMessage: Fen.ERRORS[12] }
+            else if (pawns[Color.WHITE] > 8)
+                return { isValid: false, errorCode: 13, errorMessage: Fen.ERRORS[13] }
+            else if (pawns[Color.BLACK] > 8)
+                return { isValid: false, errorCode: 14, errorMessage: Fen.ERRORS[14] }
+            else if (kings[Color.WHITE] !== 1)
+                return { isValid: false, errorCode: 15, errorMessage: Fen.ERRORS[15] }
+            else if (kings[Color.BLACK] !== 1)
+                return { isValid: false, errorCode: 16, errorMessage: Fen.ERRORS[16] }
+        }
         if (onlyPosition) {
             // Board position is valid
             return { isValid: true, errorCode: 0, errorMessage: Fen.ERRORS[0] }
@@ -156,20 +170,6 @@ class Fen implements ChessFen {
         // Validate castling rights token
         if( !/^(KQ?k?q?|Qk?q?|kq?|q|-)$/.test(tokens[2])) {
             return { isValid: false, errorCode: 5, errorMessage: Fen.ERRORS[10] }
-        }
-        if (rules === 'traditional') {
-            if (pieces[Color.WHITE] > 32)
-                return { isValid: false, errorCode: 11, errorMessage: Fen.ERRORS[11] }
-            else if (pieces[Color.BLACK] > 32)
-                return { isValid: false, errorCode: 12, errorMessage: Fen.ERRORS[12] }
-            else if (pawns[Color.WHITE] > 8)
-                return { isValid: false, errorCode: 13, errorMessage: Fen.ERRORS[13] }
-            else if (pawns[Color.BLACK] > 8)
-                return { isValid: false, errorCode: 14, errorMessage: Fen.ERRORS[14] }
-            else if (kings[Color.WHITE] !== 1)
-                return { isValid: false, errorCode: 15, errorMessage: Fen.ERRORS[15] }
-            else if (kings[Color.BLACK] !== 1)
-                return { isValid: false, errorCode: 16, errorMessage: Fen.ERRORS[16] }
         }
         // this.fen is valid
         return { isValid: true, errorCode: 0, errorMessage: Fen.ERRORS[0] }
