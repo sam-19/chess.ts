@@ -159,17 +159,17 @@ class Fen implements ChessFen {
         }
         // Player to move must be either w (white) or b (black)
         if (!/^(w|b)$/.test(tokens[1])) {
-            return { isValid: false, errorCode: 6, errorMessage: Fen.ERRORS[8] }
+            return { isValid: false, errorCode: 6, errorMessage: Fen.ERRORS[10] }
         }
         // Validate en passant token (had to move this down here to have turn checked first)
         if (tokens[1] === 'w' && !/^(-|[abcdefgh]6)$/.test(tokens[3])
             || tokens[1] === 'b' && !/^(-|[abcdefgh]3)$/.test(tokens[3]))
         {
-            return { isValid: false, errorCode: 4, errorMessage: Fen.ERRORS[9] }
+            return { isValid: false, errorCode: 4, errorMessage: Fen.ERRORS[8] }
         }
         // Validate castling rights token
         if( !/^(KQ?k?q?|Qk?q?|kq?|q|-)$/.test(tokens[2])) {
-            return { isValid: false, errorCode: 5, errorMessage: Fen.ERRORS[10] }
+            return { isValid: false, errorCode: 5, errorMessage: Fen.ERRORS[9] }
         }
         // this.fen is valid
         return { isValid: true, errorCode: 0, errorMessage: Fen.ERRORS[0] }
