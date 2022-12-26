@@ -30,8 +30,8 @@ class Annotation implements MoveAnnotation {
                 length: text.trim().length
             }]
         } else {
-            const tags = text.match(/\[%.+?\]/g) || []
-            if (!tags.length) {
+            const tags = text.match(/\[%.+?\]/g)
+            if (!tags) {
                 console.error(`The annotation "${text}" contained an opening command tag but not a valid closing tag!`)
                 return
             }
