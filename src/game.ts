@@ -15,6 +15,8 @@ import { PlayerColor } from '../types/color'
 import { ChessTurn } from '../types/turn'
 import { TCTimers } from '../types/time_control'
 
+const SCOPE = 'Game'
+
 class Game implements ChessGame {
     /**
      * Each player gets their own result code.
@@ -103,7 +105,7 @@ class Game implements ChessGame {
             if (board) {
                 this.currentBoard = board
             } else {
-                Log.error(`Could not create board from FEN "${fen}", using starting state instead!`, 'Chess')
+                Log.error(`Could not create board from FEN "${fen}", using starting state instead!`, SCOPE)
                 this.currentBoard = new Board(this)
             }
             // Set appropriate header if we are not starting from default
@@ -212,7 +214,7 @@ class Game implements ChessGame {
     createVariationFromSan (san: string, continuation=false) {
         // Check that a SAN string is given
         if (san === undefined || san === null || san === "") {
-            Log.error(`Failed to create a new variation/continuation from SAN (${san}): Invalid input.`, 'Chess')
+            Log.error(`Failed to create a new variation/continuation from SAN (${san}): Invalid input.`, SCOPE)
             return false
         }
         const addition = (continuation ? 1 : 0)
@@ -220,16 +222,16 @@ class Game implements ChessGame {
         if (this.currentBoard.selectedTurnIndex < this.currentBoard.history.length - addition) {
             // Check that the given SAN is really generating a new variation
             if (san === this.currentBoard.history[this.currentBoard.selectedTurnIndex + addition].move.san) {
-                Log.debug(`Did not create a new variation from SAN (${san}): Move matches the next move in current variation.`, 'Chess')
+                Log.debug(`Did not create a new variation from SAN (${san}): Move matches the next move in current variation.`, SCOPE)
                 return false
             } else if (Move.WILDCARD_MOVES.indexOf(san) !== -1) {
                 if (!continuation) {
-                    Log.error(`Did not create a new variation from SAN (${san}): Cannot start a new variation with a wilcard move.`, 'Chess')
+                    Log.error(`Did not create a new variation from SAN (${san}): Cannot start a new variation with a wilcard move.`, SCOPE)
                     return false
                 } // TODO: Continuation can be started with a wilcard move, but does this require extra handling?
             }
         } else {
-            Log.warn(`Cannot create a new variation from SAN (${san}): Already at the end of current variation.`, 'Chess')
+            Log.warn(`Cannot create a new variation from SAN (${san}): Already at the end of current variation.`, SCOPE)
             return false
         }
         // Create the new variation
@@ -241,16 +243,16 @@ class Game implements ChessGame {
             // Check that we can make this move
             if (this.currentBoard.makeMove(move as Move)) {
                 if (continuation) {
-                    Log.debug(`New (continuation) variation started from SAN: ${san}`, 'Chess')
+                    Log.debug(`New (continuation) variation started from SAN: ${san}`, SCOPE)
                 } else {
-                    Log.debug(`New variation started from SAN: ${san}`, 'Chess')
+                    Log.debug(`New variation started from SAN: ${san}`, SCOPE)
                 }
                 return true
             } else {
                 return false
             }
         } else {
-            Log.error(`Could not create a new variation from SAN: ${move.error}`, 'Chess')
+            Log.error(`Could not create a new variation from SAN: ${move.error}`, SCOPE)
             // Return to parent variation and remove new variation from its child variations
             this.currentBoard = this.currentBoard.parentBoard as Board
             this.currentBoard.history[this.currentBoard.selectedTurnIndex].variations.pop()
@@ -294,23 +296,23 @@ class Game implements ChessGame {
     enterContinuation (i = 0) {
         if (!this.currentBoard.history.length) {
             // There can't be continuations if there are no moves
-            Log.error("Cannot enter new continuation: Current variation has no moves.", 'Chess')
+            Log.error("Cannot enter new continuation: Current variation has no moves.", SCOPE)
             return false
         }
         const turn = this.currentBoard.selectedTurn
         if (!turn.variations.length) {
             // Move has no child variations
-            Log.error("Cannot enter new continuation: Current move has no variations.", 'Chess')
+            Log.error("Cannot enter new continuation: Current move has no variations.", SCOPE)
             return false
         } else if (i < 0 || i >= turn.variations.length) {
             // Variation index is out of bounds
-            Log.debug(`Cannot enter new continuation: Requested continuation does not exist (${i}).`, 'Chess')
+            Log.debug(`Cannot enter new continuation: Requested continuation does not exist (${i}).`, SCOPE)
             return false
         } else if (!turn.variations[i].continuation) {
-            Log.debug("Requested variation is not a continuation, entering anyway.", 'Chess')
+            Log.debug("Requested variation is not a continuation, entering anyway.", SCOPE)
         } else {
             // All good
-            Log.debug("Entering new variation.", 'Chess')
+            Log.debug("Entering new variation.", SCOPE)
         }
         this.currentBoard = turn.variations[i]
         return this.selectTurn(0)
@@ -319,23 +321,23 @@ class Game implements ChessGame {
     enterVariation (i = 0) {
         if (!this.currentBoard.history.length) {
             // There can't be variations if there are no moves
-            Log.error("Cannot enter new variation: Current variation has no moves.", 'Chess')
+            Log.error("Cannot enter new variation: Current variation has no moves.", SCOPE)
             return false
         }
         const turn = this.currentBoard.selectedTurn
         if (!turn.variations.length) {
             // Move has no child variations
-            Log.error("Cannot enter new variation: Current move has no variations.", 'Chess')
+            Log.error("Cannot enter new variation: Current move has no variations.", SCOPE)
             return false
         } else if (i < 0 || i >= turn.variations.length) {
             // Variation index is out of bounds
-            Log.error(`Cannot enter new variation: Requested cariation does not exist (${i}).`, 'Chess')
+            Log.error(`Cannot enter new variation: Requested cariation does not exist (${i}).`, SCOPE)
             return false
         } else if (turn.variations[i].continuation) {
-            Log.debug("Requested variation is a continuation, entering anyway.", 'Chess')
+            Log.debug("Requested variation is a continuation, entering anyway.", SCOPE)
         } else {
             // All good
-            Log.debug("Entering new variation.", 'Chess')
+            Log.debug("Entering new variation.", SCOPE)
         }
         // The child variation starts with this current move undone
         this.currentBoard = turn.variations[i]
@@ -424,7 +426,7 @@ class Game implements ChessGame {
     }
 
     goToStart () {
-        Log.debug("Returning to start of the game.", 'Chess')
+        Log.debug("Returning to start of the game.", SCOPE)
         this.selectTurn(-1, 0)
     }
 
@@ -472,7 +474,7 @@ class Game implements ChessGame {
                     // Append the matching continuation to current turn history
                     this.currentBoard.history.push(...matchingVar.history)
                 } else {
-                    Log.error("Failed to move current history into a new continuation!", 'Chess')
+                    Log.error("Failed to move current history into a new continuation!", SCOPE)
                 }
             }
         }
@@ -497,20 +499,20 @@ class Game implements ChessGame {
     makeMoveFromAlgebraic (orig: string, dest: string, options: MethodOptions.Game.makeMove = {}) {
         const move = Move.generateFromAlgebraic(orig, dest, this.currentBoard)
         if (move.error !== undefined) {
-            Log.error(`Cound not make move from algebraic (${orig}-${dest}): ${move.error}`, 'Chess')
+            Log.error(`Cound not make move from algebraic (${orig}-${dest}): ${move.error}`, SCOPE)
             return move
         }
-        Log.debug(`Making a move from algebraic: ${orig}-${dest}.`, 'Chess')
+        Log.debug(`Making a move from algebraic: ${orig}-${dest}.`, SCOPE)
         return this.makeMove(move as Move, options)
     }
 
     makeMoveFromSan (san: string, options: MethodOptions.Game.makeMove = {}) {
         const move = Move.generateFromSan(san, this.currentBoard)
         if (Object.prototype.hasOwnProperty.call(move, 'error')) {
-            Log.error(`Cound not make move from SAN (${san}): ${move.error}`, 'Chess')
+            Log.error(`Cound not make move from SAN (${san}): ${move.error}`, SCOPE)
             return move as { error: string }
         }
-        Log.debug(`Making a move from SAN: ${san}.`, 'Chess')
+        Log.debug(`Making a move from SAN: ${san}.`, SCOPE)
         return this.makeMove(move as Move, options)
     }
 
@@ -592,16 +594,16 @@ class Game implements ChessGame {
             )
                 return true
             else {
-                Log.error("Failed to move to previous entry in parent variation.", 'Chess')
+                Log.error("Failed to move to previous entry in parent variation.", SCOPE)
                 return false
             }
         } else if (this.currentBoard.selectedTurnIndex === -1) {
-            Log.debug("Cannot move back in history: Already at start of game.", 'Chess')
+            Log.debug("Cannot move back in history: Already at start of game.", SCOPE)
             return false
         } else if (this.selectTurn(this.currentBoard.selectedTurnIndex - 1)) {
             return true
         } else {
-            Log.error("Failed to move to previous entry in variation.", 'Chess')
+            Log.error("Failed to move to previous entry in variation.", SCOPE)
             return false
         }
     }
@@ -609,26 +611,26 @@ class Game implements ChessGame {
     returnFromContinuation () {
         // Check if there is a variation to return to
         if (this.currentBoard.parentBoard === null) {
-            Log.debug("Cannot return from current continuation: Already at root variation.", 'Chess')
+            Log.debug("Cannot return from current continuation: Already at root variation.", SCOPE)
             return false
         }
         // Return to branch move index on parent variation
         const branchTurnIndex = this.currentBoard.parentBranchTurnIndex as number
         this.currentBoard = this.currentBoard.parentBoard
-        Log.debug(`Returning from current continuation to parent variation move #${branchTurnIndex}.`, 'Chess')
+        Log.debug(`Returning from current continuation to parent variation move #${branchTurnIndex}.`, SCOPE)
         return this.selectTurn(branchTurnIndex)
     }
 
     returnFromVariation () {
         // Check if there is a variation to return to
         if (this.currentBoard.parentBoard === null) {
-            Log.debug("Cannot return from current variation: Already at root variation.", 'Chess')
+            Log.debug("Cannot return from current variation: Already at root variation.", SCOPE)
             return false
         }
         // Return to branch move index on parent variation
         const branchTurnIndex = (this.currentBoard.parentBranchTurnIndex as number) - 1
         this.currentBoard = this.currentBoard.parentBoard
-        Log.debug(`Returning from current variation to parent variation move #${branchTurnIndex}.`, 'Chess')
+        Log.debug(`Returning from current variation to parent variation move #${branchTurnIndex}.`, SCOPE)
         return this.selectTurn(branchTurnIndex)
     }
 
@@ -641,9 +643,12 @@ class Game implements ChessGame {
             // traversed to the target move through it. I almost got it working, but in the end there were
             // some weird edge case bugs that I couldn't crack, so I opted for this simple solution.
             // Start by going to ... the start
-            while (this.currentBoard.id) {
+            while (this.currentBoard.parentBoard) {
                 // If we're not in the root variation, go there
-                this.prevTurn()
+                if (!this.prevTurn()) {
+                    Log.error(`Could not select previous turn while tracing back to root board.`, SCOPE)
+                    break
+                }
             }
             // If target is in root variation, just go there
             if (boardVar === 0) {
@@ -665,14 +670,14 @@ class Game implements ChessGame {
             // Catch some extremely unlikely error (probably meaning a regression bug)
             if (!targetVarBranchOffs.length) {
                 // Cloudn't find a path
-                Log.error("Could not find a path to the target move (empty trail)!", 'Chess')
+                Log.error("Could not find a path to the target move (empty trail)!", SCOPE)
                 return false
             }
             targetVarBranchOffs.reverse() // Start with lowest variation
             const branchPoint = targetVarBranchOffs.shift() as number[] // [boardVar.id, lastMoveIndex]
             if (branchPoint[0]) {
                 // First branch-off is not in root variation
-                Log.error("Could not find a path to the target move (didn't start from root)!", 'Chess')
+                Log.error("Could not find a path to the target move (didn't start from root)!", SCOPE)
                 return false
             }
             this.currentBoard.selectTurn(branchPoint[1])
@@ -697,7 +702,7 @@ class Game implements ChessGame {
                     }
                     targetVarBranchOffs.shift()
                 } else if (this.currentBoard.id !== boardVar) {
-                    Log.error("Could not find a path to the target move (dead end)!", 'Chess')
+                    Log.error("Could not find a path to the target move (dead end)!", SCOPE)
                     return false
                 }
             }
@@ -726,7 +731,7 @@ class Game implements ChessGame {
             return false
         }
         if (this.timeControl !== null && this.timeControl.getReportFunction() === null) {
-            Log.error("Cannot start game before time control report function is set!", 'Chess')
+            Log.error("Cannot start game before time control report function is set!", SCOPE)
             return false
         }
         if (!this.hasStarted) {
@@ -909,24 +914,24 @@ class Game implements ChessGame {
     updateSetup () {
         // Make sure the game was reset before method was called
         if (this.currentBoard.history.length) {
-            Log.error("Cannot change game setup after game has started!", 'Chess')
+            Log.error("Cannot change game setup after game has started!", SCOPE)
             return
         }
         const fen = this.currentBoard.toFen()
         if (fen !== Fen.DEFAULT_STARTING_STATE) {
             this.headers.set('setup', '1')
             this.headers.set('fen', fen)
-            Log.info(`Game has been set up using the fen ${fen}`, 'Chess')
+            Log.info(`Game has been set up using the fen ${fen}`, SCOPE)
         } else {
             this.headers.remove('setup')
             this.headers.remove('fen')
-            Log.info(`Game has been set up using the default starting state`, 'Chess')
+            Log.info(`Game has been set up using the default starting state`, SCOPE)
         }
     }
 
     toString () {
         // Retrieve PGN move data
-        const pgn = this.toPgn({ showHeaders: false })
+        const pgn = this.toPgn({ showHeaders: false }).split('\n').join(' ')
         // PGN moves should fit on 4 lines beside the ASCII board representation
         const lineWidth = Math.max(80, Math.floor(pgn.length / 4))
         const pgnLines = []
@@ -934,25 +939,30 @@ class Game implements ChessGame {
         for (let i=0; i<pgn.length;) {
             const start = i
             i += lineWidth
+            // Check if the rest of the PGN can be fit on this line
+            if (i >= pgn.length) {
+                pgnLines.push(pgn.substring(start))
+                break
+            }
+            // Otherwise, trace back to the next white space and cut there
             while (pgn.charAt(i) !== ' ' && i > start) {
-                i++
+                i--
             }
             pgnLines.push(pgn.substring(start, i))
             i++ // Jump over the white space
         }
         let result = ""
         const asciiLines = this.currentBoard.toString().split('\n')
-        const meta = ` : (variations: ${this.variations.length}, current move: ${this.currentBoard.selectedTurnIndex}/${this.currentBoard.history.length})`
         // generate ascii board graph
         for (let i=0; i<asciiLines.length; i++) {
             result += asciiLines[i]
             // Print metadata on top for black and on bottom for white
             if (this.currentBoard.turn === Color.WHITE) {
                 if (i === 9) {
-                    result += meta
+                    result
                 }
             } else if (i === 0) {
-                result += meta
+                result
             }
             // Print PGN move line if we are past the header
             if (i >= 2 && pgnLines.length > i-2) {
@@ -962,6 +972,7 @@ class Game implements ChessGame {
             if (i >= 4 && pgnLines.length === i-3) {
                 result += "  " + this.currentBoard.toFen()
             }
+            result += '\n'
         }
         return result
     }

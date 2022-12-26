@@ -484,6 +484,12 @@ class Board implements ChessBoard {
         } else {
             this.enPassantSqr = null
         }
+        // Prepare the state for next move
+        this.plyNum++
+        this.turnNum = Math.floor(this.plyNum/2) + 1
+        this.turn = Color.swap(this.turn) as PlayerColor
+        this.resetMoveCache()
+        const fen  = this.toFen({ meta: false })
         // Reset half move counter and three fold repetition counter if a pawn moves or capture takes place
         if (move.movedPiece.type === Piece.TYPE_PAWN
             || move.flags.contains(Flags.CAPTURE)
@@ -491,24 +497,18 @@ class Board implements ChessBoard {
         ) {
             this.halfMoveCount = 0
             if (updatePosCount) {
-                this.posCount = new Map()
+                this.posCount = new Map<string, number>()
             }
         } else {
             this.halfMoveCount++
-            if (updatePosCount) {
-                const fen  = this.toFen({ meta: false })
-                if (this.posCount.has(fen)) {
-                    this.posCount.set(fen, this.posCount.get(fen) || 0 + 1)
-                } else {
-                    this.posCount.set(fen, 1)
-                }
+        }
+        if (updatePosCount) {
+            if (this.posCount.has(fen)) {
+                this.posCount.set(fen, this.posCount.get(fen) || 0 + 1)
+            } else {
+                this.posCount.set(fen, 1)
             }
         }
-        // Prepare the state for next move
-        this.plyNum++
-        this.turnNum = Math.floor(this.plyNum/2) + 1
-        this.turn = Color.swap(this.turn) as PlayerColor
-        this.resetMoveCache()
         return removedPiece
     }
 
@@ -534,15 +534,8 @@ class Board implements ChessBoard {
             const active = this.turn
             const move = moves[i].move
             // Undo capture and en passant
-            if (move.flags.contains(Flags.CAPTURE)) {
+            if (move.flags.contains(Flags.CAPTURE) || move.flags.contains(Flags.EN_PASSANT)) {
                 this.squares[move.dest as number] = move.capturedPiece as Piece
-            }
-            else if (move.flags.contains(Flags.EN_PASSANT)) {
-                if (active === Color.WHITE) {
-                    this.squares[move.dest + Move.DOWN] = move.capturedPiece as Piece // Must be pawn
-                } else {
-                    this.squares[move.dest + Move.UP] = move.capturedPiece as Piece
-                }
             } else {
                 this.squares[move.dest as number] = Piece.NONE
             }
@@ -888,8 +881,8 @@ class Board implements ChessBoard {
             // Populate notation fields
             if (options.onlyDestinations) {
                 // Destinations are always the same
+                moveData.move = move.algebraic?.substring(3,5) || ''
                 if (options.includeFen) {
-                    moveData.move = move.algebraic?.substring(3,5) || ''
                     moveData.fen = move.fen || ''
                 } else {
                     moveData.algebraic = move.algebraic?.substring(3,5) || ''
@@ -897,28 +890,29 @@ class Board implements ChessBoard {
             } else {
                 if (options.notation == 'all') {
                     moveData.algebraic = move.algebraic || ''
+                    moveData.move = move.san || ''
                     moveData.san = move.san || ''
                     moveData.uci = move.algebraic?.substring(0,2) || '' + move.algebraic?.substring(3) || ''
                     if (options.includeFen) {
                         moveData.fen = move.fen || ''
                     }
                 } else if (options.notation === 'algebraic') {
+                    moveData.move = move.algebraic || ''
                     if (options.includeFen) {
-                        moveData.move = move.algebraic || ''
                         moveData.fen = move.fen || ''
                     } else {
                         moveData.algebraic = move.algebraic || ''
                     }
                 } else if (options.notation === 'san') {
+                    moveData.move = move.san || ''
                     if (options.includeFen) {
-                        moveData.move = move.san || ''
                         moveData.fen = move.fen || ''
                     } else {
                         moveData.san = move.san || ''
                     }
                 } else if (options.notation === 'uci') {
+                    moveData.move = move.algebraic?.substring(0,2) || '' + move.algebraic?.substring(3) || ''
                     if (options.includeFen) {
-                        moveData.move = move.algebraic?.substring(0,2) || '' + move.algebraic?.substring(3) || ''
                         moveData.fen = move.fen || ''
                     } else {
                         moveData.uci = move.algebraic?.substring(0,2) || '' + move.algebraic?.substring(3) || ''
