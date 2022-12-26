@@ -1,6 +1,10 @@
 // This class name is an exception to the rule of otherwise singular class names, because one Flags is in fact
 // a collection of all the flags of a particular context.
+import Log from 'scoped-ts-log'
 import { MoveFlags } from '../types/flags'
+
+const SCOPE = 'flags'
+
 /**
  * A collection of flags that describe a given move.
  */
@@ -60,25 +64,25 @@ class Flags implements MoveFlags {
             this.add(flag)
         }
     }
-    
+
     get length () {
         return this.flags.length
     }
-    
+
     add (flag: number) {
         if (this.contains(flag)) {
-            console.warn(`Could not add flag: Flag collection already contained ${Flags.DISPLAY[flag as keyof typeof Flags.DISPLAY]}`)
+            Log.warn(`Could not add flag: Flag collection already contained ${Flags.DISPLAY[flag as keyof typeof Flags.DISPLAY]}.`, SCOPE)
         } else if (Flags.VALID.indexOf(flag) === -1) {
-            console.error(`Could not add flag: The flag code ${flag} did not match any valid flags!`)
+            Log.error(`Could not add flag: The flag code ${flag} did not match any valid flags!`, SCOPE)
         } else {
             this.flags.push(flag)
         }
     }
-    
+
     clear () {
         this.flags = []
     }
-    
+
     contains (flag: number) {
         for (let i=0; i<this.flags.length; i++) {
             if (this.flags[i] === flag) {
@@ -87,11 +91,11 @@ class Flags implements MoveFlags {
         }
         return false
     }
-    
+
     copy () {
         return new Flags(this.flags)
     }
-    
+
     remove (flag: number, silent: boolean = false) {
         for (let i=0; i<this.flags.length; i++) {
             if (this.flags[i] === flag) {
@@ -100,10 +104,10 @@ class Flags implements MoveFlags {
             }
         }
         if (!silent) {
-            console.warn(`Could not remove flag: Flag collection did not contain ${Flags.DISPLAY[flag as keyof typeof Flags.DISPLAY]}`)
+            Log.warn(`Could not remove flag: Flag collection did not contain ${Flags.DISPLAY[flag as keyof typeof Flags.DISPLAY]}.`, SCOPE)
         }
     }
-    
+
     replace (old: number, flag: number, silent: boolean = false) {
         for (let i=0; i<this.flags.length; i++) {
             if (this.flags[i] === old) {
@@ -113,7 +117,7 @@ class Flags implements MoveFlags {
             }
         }
         if (!silent) {
-            console.warn(`Could not remove flag: Flag collection did not contain ${Flags.DISPLAY[flag as keyof typeof Flags.DISPLAY]}`)
+            Log.warn(`Could not remove flag: Flag collection did not contain ${Flags.DISPLAY[flag as keyof typeof Flags.DISPLAY]}.`, SCOPE)
         }
         // Add the new flag anyway
         this.add(flag)

@@ -2,8 +2,11 @@
  * A single move annotation.
  */
 
+import Log from 'scoped-ts-log'
 import { MoveAnnotation, AnnotationTextPart } from '../types/annotation'
 import Nag from './nag'
+
+const SCOPE = 'annotation'
 
 class Annotation implements MoveAnnotation {
     cleanText: string = ''
@@ -32,7 +35,7 @@ class Annotation implements MoveAnnotation {
         } else {
             const tags = text.match(/\[%.+?\]/g)
             if (!tags) {
-                console.error(`The annotation "${text}" contained an opening command tag but not a valid closing tag!`)
+                Log.error(`The annotation "${text}" contained an opening command tag but not a valid closing tag!`, SCOPE)
                 return
             }
             // We need to trim the commands from the annotation while we go through them. Otherwise the
@@ -50,7 +53,7 @@ class Annotation implements MoveAnnotation {
                 let cmd = tags[i].substring(2, tags[i].length - 1).trim().split(/\s+/)
                 let label = ''
                 if (cmd.length < 2) {
-                    console.error(`Annotation command ${tags[i]} is malformed!`)
+                    Log.error(`Annotation command ${tags[i]} is malformed!`, SCOPE)
                     continue
                 } else if (cmd.length > 2) {
                     // Combine all items from the third one onward into one label
