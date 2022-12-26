@@ -87,12 +87,12 @@ class Move implements ChessMove {
     promotionPiece: ChessPiece | null = null
     san: string | null = null
     uci: string | null = null
-    wildcard: boolean = false
+    wildcard = false
     // Possible error
     error?: string
 
     constructor (options: MethodOptions.MoveOptions) {
-        let {                   // These must be passed
+        const {                   // These must be passed
             orig,               // Int
             dest,               // Int
             movedPiece,         // Piece
@@ -111,7 +111,6 @@ class Move implements ChessMove {
             this.orig = orig
             this.dest = dest
         }
-        this.capturedPiece = capturedPiece
         if (!flags.length) {
             this.flags.add(Flags.NORMAL)
         }
@@ -120,13 +119,16 @@ class Move implements ChessMove {
         }
         // Check for en passant capture
         if (!capturedPiece && this.flags.contains(Flags.EN_PASSANT)) {
-            capturedPiece = (movedPiece.color === Color.WHITE ? Piece.BLACK_PAWN : Piece.WHITE_PAWN)
+            this.capturedPiece = (movedPiece.color === Color.WHITE ? Piece.BLACK_PAWN : Piece.WHITE_PAWN)
+        } else {
+            this.capturedPiece = capturedPiece
         }
         // TODO: Hande interactive promotion
         if (!promotionPiece) {
-            promotionPiece = (movedPiece.color === Color.WHITE ? Piece.WHITE_QUEEN : Piece.BLACK_QUEEN)
+            this.promotionPiece = (movedPiece.color === Color.WHITE ? Piece.WHITE_QUEEN : Piece.BLACK_QUEEN)
+        } else {
+            this.promotionPiece = promotionPiece
         }
-        this.promotionPiece = promotionPiece
         // Generate algebraic and UCI notation for move
         this.algebraic = Board.SQUARE_NAMES[this.orig as keyof typeof Board.SQUARE_NAMES]
                          + "-"
@@ -136,7 +138,7 @@ class Move implements ChessMove {
     }
     // Copy from another Move object
     static copyFrom (move: ChessMove) {
-        let copy = Object.create(Move.prototype)
+        const copy = Object.create(Move.prototype)
         copy.orig = move.orig
         copy.dest = move.dest
         copy.movedPiece = move.movedPiece
@@ -187,8 +189,8 @@ class Move implements ChessMove {
                 // Matches piece (match[1]), orig (match[2]), dest (match[3]) and promotion piece (match[4])
                 // TODO: Write tests for this, good starting point:
                 // https://github.com/jhlywa/chess.js/commit/309a0fd4e309e4d06cb3d2956c35710002c66711
-                let sloppySAN = san.match(/([pnbrqkPNBRQK])?([a-h])?([1-8])?x?-?([a-h][1-8])([qrbnQRBN])?[+#]?/)
-                let oSqr = []
+                const sloppySAN = san.match(/([pnbrqkPNBRQK])?([a-h])?([1-8])?x?-?([a-h][1-8])([qrbnQRBN])?[+#]?/)
+                const oSqr = []
                 if (sloppySAN === null) {
                     return { error: `SAN ${san} provided to move generator does not represent a legal move!` }
                 }
@@ -223,7 +225,7 @@ class Move implements ChessMove {
             return { error: "Request to move generator doesn't include a valid Board." }
         // Check for promotion piece if move is a promotion move
         if (dest.length === 3 && promotionPiece === undefined) {
-            let promo = dest.substring(2)
+            const promo = dest.substring(2)
             dest = dest.substring(0,2)
             if (board.turn === Color.WHITE) {
                 promotionPiece = Piece.forSymbol(promo.toUpperCase())
@@ -259,7 +261,7 @@ class Move implements ChessMove {
         if (!legalMoves.length)
             return { error: "Could not generate wildcard move: No legal moves exist." }
         else {
-            let move = legalMoves[0]
+            const move = legalMoves[0]
             // Set wildcand flag
             move.wildcard = true
             return move

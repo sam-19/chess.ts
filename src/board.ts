@@ -125,13 +125,13 @@ class Board implements ChessBoard {
      * @param options MethodOptions.Board.createFromParent
      * @return new board variation
      */
-    static branchFromParent (parent: Board, options: any = {}) {
+    static branchFromParent (parent: Board, options: MethodOptions.Board.branchFromParent = {}) {
         options = Options.Board.branchFromParent().assign(options) as MethodOptions.Board.branchFromParent
         const newBoard = Board.copy(parent)
         if (!options.continuation) {
             newBoard.undoMoves({ move: parent.selectedTurnIndex })
         }
-        newBoard.continuation = options.continuation
+        newBoard.continuation = options.continuation || false
         // Reset history
         newBoard.history = []
         newBoard.parentBoard = parent
@@ -347,7 +347,7 @@ class Board implements ChessBoard {
         } else if (totalPieces === 3 && (pieceCount[Piece.TYPE_BISHOP] === 1 || pieceCount[Piece.TYPE_KNIGHT] === 1)) {
             return true // One side has king and the other king and bishop/knight
         } else if (totalPieces === pieceCount[Piece.TYPE_BISHOP] + 2) {
-            let bSum = bishops.reduce((a, b) => a + b, 0)
+            const bSum = bishops.reduce((a, b) => a + b, 0)
             return (bSum === 0 || bSum === bishops.length)
         } else {
             return false
@@ -614,7 +614,7 @@ class Board implements ChessBoard {
                 return this.moveCache.moves
             }
             // Else we'll check for valid moves
-            let legalMoves = []
+            const legalMoves = []
             for (let i=0; i<this.moveCache.moves.length; i++) {
                 if (this.moveCache.moves[i].legal)
                     legalMoves.push(this.moveCache.moves[i])
@@ -668,7 +668,7 @@ class Board implements ChessBoard {
         // Full square range on the 0x88 board
         let firstSqr = Board.SQUARE_INDICES.a8
         let lastSqr = Board.SQUARE_INDICES.h1
-        if (options.onlyForSquare !== undefined) {
+        if (options.onlyForSquare !== undefined && options.onlyForSquare !== null) {
             const onlySqr = Board.squareIndex(options.onlyForSquare)
             // Set first and last squares to the requested square
             if (onlySqr !== -1) {
@@ -801,7 +801,7 @@ class Board implements ChessBoard {
             }
         }
         // Make another array for only legal moves
-        let legalMoves = []
+        const legalMoves = []
         for (const move of newMoves) {
             const tmpBoard = this.makeMockMove(move)
             if (options.includeFen) {
@@ -869,7 +869,7 @@ class Board implements ChessBoard {
         let moveDataType: { move: string, fen: string, algebraic: string, san: string, uci: string }
         let finalMovesType: { blocked: typeof moveDataType[], illegal: typeof moveDataType[], legal: typeof moveDataType[] }
         const options = Options.Board.getMoves().assign(opts) as MethodOptions.Board.getMoves
-        let moves = this.generateMoves({
+        const moves = this.generateMoves({
             includeSan: options.notation === 'all' || options.notation === 'san',
             includeFen: options.includeFen,
             onlyLegal: options.filter === 'legal'
@@ -943,7 +943,7 @@ class Board implements ChessBoard {
             return false
         }
         // Initialize an array of attackers for detailed reporting
-        let attackers = []
+        const attackers = []
         for (let i=Board.SQUARE_INDICES.a8; i<=Board.SQUARE_INDICES.h1; i++) {
             if (i & 0x88) {
                 i += 7
@@ -1045,7 +1045,7 @@ class Board implements ChessBoard {
     loadFen (fen: string) {
         // Check that given FEN is valid
         const gameFen = new Fen(fen)
-        let fenError = gameFen.validate()
+        const fenError = gameFen.validate()
         if (fenError.errorCode) {
             Log.error(`Cannot create variation from FEN: ${fenError.errorMessage} (${fen}).`, 'Board')
             return false
@@ -1194,7 +1194,7 @@ class Board implements ChessBoard {
         }
         // We're at the end of turn history or this is not a user move
         // Record move time and delta from last move
-        let meta = {} as { moveTime: number, moveTimeDelta: number, comments: string, puzzleSolution: boolean }
+        const meta = {} as { moveTime: number, moveTimeDelta: number, comments: string, puzzleSolution: boolean }
         if (this.history.length) {
             if (!options.moveTime) {
                 meta.moveTime = Date.now()
@@ -1225,7 +1225,8 @@ class Board implements ChessBoard {
             turnNum: this.turnNum,
         })
         // TODO: Handle removed pawn when promoting
-        const removedPiece = this.commitMove(move, options.updatePosCount)
+        //const removedPiece = this.commitMove(move, options.updatePosCount)
+        this.commitMove(move, options.updatePosCount)
         this.selectedTurnIndex++
         if (options.comment) {
             this.selectedTurn.annotations.push(new Annotation(options.comment))
@@ -1233,14 +1234,14 @@ class Board implements ChessBoard {
         this.history.splice(this.selectedTurnIndex, 0, newMove)
         // TODO: Check if the main variation (and thus the game) has finished
         if (options.isPlayerMove && !this.id && this.isFinished) {
-            console.log('main variation finished')
+            Log.debug('Main variation finished', 'Board')
         }
         return newMove
     }
 
     makeMoveFromAlgebraic (orig: string, dest: string, options: MethodOptions.Board.makeMove = {}) {
         const move = Move.generateFromAlgebraic(orig, dest, this)
-        if (!move.hasOwnProperty('error')) {
+        if (!Object.prototype.hasOwnProperty.call(move, 'error')) {
             Log.debug(`Making a move from algebraic: ${orig}-${dest}.`, 'Board')
             return this.makeMove(move as Move, options)
         } else {
@@ -1250,8 +1251,8 @@ class Board implements ChessBoard {
     }
 
     makeMoveFromSAN (san: string, options: MethodOptions.Board.makeMove = {}) {
-        let move = Move.generateFromSan(san, this)
-        if (!move.hasOwnProperty('error')) {
+        const move = Move.generateFromSan(san, this)
+        if (!Object.prototype.hasOwnProperty.call(move, 'error')) {
             Log.debug(`Making a move from SAN: ${san}.`, 'Board')
             return this.makeMove(move as Move, options)
         } else {
@@ -1487,11 +1488,11 @@ class Board implements ChessBoard {
 
     validate (ignoreTurn = false, fixMinor = false) {
         let isValid = true
-        let errors = []
+        const errors = []
         // Count pieces
-        let pawnCount = { w: 0, b: 0 }
-        let kingCount = { w: 0, b: 0 }
-        let officerCount = { w: 0, b: 0 }
+        const pawnCount = { w: 0, b: 0 }
+        const kingCount = { w: 0, b: 0 }
+        const officerCount = { w: 0, b: 0 }
         this.squares.forEach((piece) => {
             if (piece === Piece.WHITE_PAWN) {
                 pawnCount.w++

@@ -20,6 +20,7 @@ import { MethodOptions } from '../types/options'
 import Turn from './turn'
 import { PlayerColor } from '../types/color'
 import { MoveError } from '../types/move'
+import { TCTimers } from '../types/time_control'
 
 class Chess implements ChessCore {
     // Static properties
@@ -39,16 +40,16 @@ class Chess implements ChessCore {
     // Instance properties
     active: GameEntry
     games: { [group: string]: Game[] }
-    lastActive: { [group: string]: number | null }
+    lastActive: { [group: string]: number }
     lastRemoved: GameEntry | null
     parsedPgnGames: { [group: string]: { headers: string[][], moves: string }[] }
 
     // Default starting FEN
     constructor () {
         // Initialize the game
-        this.active = { game: null, group: 'default', index: null }
+        this.active = { game: null, group: 'default', index: -1 }
         this.games = {}
-        this.lastActive = { default: null }
+        this.lastActive = { default: -1 }
         this.lastRemoved = null // Enable undoing a remove
         this.parsedPgnGames = { default: [] }
     }
@@ -81,12 +82,12 @@ class Chess implements ChessCore {
             return
         }
         // Check that group exists
-        if (!this.games.hasOwnProperty(group)) {
+        if (!Object.prototype.hasOwnProperty.call(this.games, group)) {
             this.games[group] = []
         }
         this.active.group = group
         if (!this.games[group].length) {
-            this.active.index = null
+            this.active.index = -1
             this.active.game = null
         } else if (this.lastActive[group] !== null) {
             // Recover last active game
@@ -117,7 +118,7 @@ class Chess implements ChessCore {
      * ```
      */
     addGame (game: Game, group=this.active.group) {
-        if (!this.games.hasOwnProperty(group)) {
+        if (!Object.prototype.hasOwnProperty.call(this.games, group)) {
             this.games[group] = [] // Create group if it doesn't exist
         }
         this.games[group].push(game)
@@ -135,8 +136,8 @@ class Chess implements ChessCore {
     clearAllGames (group=this.active.group) {
         this.games[group] = [] // Creates group if it doesn't exist
         if (this.active.group === group) {
-            this.lastActive[group] = null
-            this.active = { game: null, group: 'default', index: null }
+            this.lastActive[group] = -1
+            this.active = { game: null, group: 'default', index: -1 }
         }
     }
 
@@ -181,7 +182,7 @@ class Chess implements ChessCore {
         let lastMove: Turn | MoveError | false = false
         /** Check that the last parsed move is valid. */
         const isLastMoveValid = () => {
-            return (lastMove && !lastMove.hasOwnProperty('error'))
+            return (lastMove && !Object.prototype.hasOwnProperty.call(lastMove, 'error'))
         }
         parse_moves:
         for (let pos=0; pos<pgn.moves.length; pos++) {
@@ -189,7 +190,6 @@ class Chess implements ChessCore {
             switch (pgn.moves.charAt(pos)) {
                 // Catch end of SAN string
                 case ' ':
-                case '\s':
                 case '\b':
                 case '\f':
                 case '\n':
@@ -253,20 +253,18 @@ class Chess implements ChessCore {
                     lastMove = lastMove as Turn
                     // NAG (or Numeric Annotation Glyph)
                     end = pos + 1
-                    while (pgn.moves.charAt(end).match(/[!\?\d]/) !== null) {
+                    while (pgn.moves.charAt(end).match(/[!?\d]/) !== null) {
                         end++
                     }
-                    let nag
-                    if (pgn.moves.charAt(pos) === '$') {
-                        nag = new Annotation('', parseInt(pgn.moves.substring(pos+1, end)))
-                    } else {
-                        nag = new Annotation('', parseInt(pgn.moves.substring(pos, end)))
-                    }
                     // Append NAG to move
-                    lastMove.annotations.push(nag)
+                    if (pgn.moves.charAt(pos) === '$') {
+                        lastMove.annotations.push(new Annotation('', parseInt(pgn.moves.substring(pos+1, end))))
+                    } else {
+                        lastMove.annotations.push(new Annotation('', parseInt(pgn.moves.substring(pos, end))))
+                    }
                     pos = end - 1 // for loop will add 1 to the pos after break
                     break
-                default:
+                default: {
                     // Just your ordinary SAN move
                     for (let i=0; i<VALID_RESULTS.length; i++) {
                         // Check if this is the end of the game
@@ -283,7 +281,7 @@ class Chess implements ChessCore {
                     if (pos === pgn.moves.length)
                         break
                     // Pick up the running turn number
-                    let mNum = game.currentBoard.turnNum.toString()
+                    const mNum = game.currentBoard.turnNum.toString()
                     if (pgn.moves.indexOf(mNum, pos) === pos) {
                         // Skip the move number
                         pos += mNum.length
@@ -295,7 +293,7 @@ class Chess implements ChessCore {
                     // Check if this a wildcard move (all wildvard moves are 2 characters long)
                     if (Move.WILDCARD_MOVES.indexOf(pgn.moves.substring(pos, pos+2)) !== -1) {
                         // TODO: And actual mock move for null moves
-                        let anyMove = Move.generateWildcardMove(game.currentBoard)
+                        const anyMove = Move.generateWildcardMove(game.currentBoard)
                         if (anyMove.error === undefined) {
                             lastMove = game.makeMove(anyMove as Move, moveOpts)
                         }
@@ -303,7 +301,7 @@ class Chess implements ChessCore {
                         end = pos + 2
                     } else {
                         // Check the position of the next non-move character
-                        end = pos + pgn.moves.substring(pos).search(/[\s\${;!\?\(\)]/)
+                        end = pos + pgn.moves.substring(pos).search(/[\s${;!?()]/)
                         if (end < pos) {
                             // This was the last move
                             // TODO: Handle incomplete file (missing result information)
@@ -311,7 +309,7 @@ class Chess implements ChessCore {
                         }
                         lastMove = game.makeMoveFromSan(pgn.moves.substring(pos, end), moveOpts)
                     }
-                    if (lastMove.hasOwnProperty('error')) {
+                    if (Object.prototype.hasOwnProperty.call(lastMove, 'error')) {
                         // Making the move failed
                         Log.error(
                             "PGN move parsing error "
@@ -321,9 +319,10 @@ class Chess implements ChessCore {
                     )
                         break parse_moves
                     }
-                    // Set the cursor for next entry, skiping all leading white space characters
+                    // Set the cursor for next entry, skipping all leading white space characters
                     pos = end + (pgn.moves.substring(end).match(/^(\s*)/) || ['',''])[1].length - 1
                     break
+                }
             }
         }
         if (game.currentBoard.id !== 0) {
@@ -417,7 +416,7 @@ class Chess implements ChessCore {
      */
     loadParsedGame (index: number, group=this.active.group) {
         // Make sure such a game is cached
-        if (!this.parsedPgnGames.hasOwnProperty(group) || this.parsedPgnGames[group][index] === undefined) {
+        if (!Object.prototype.hasOwnProperty.call(this.parsedPgnGames, group) || this.parsedPgnGames[group][index] === undefined) {
             return null
         }
         return this.createGameFromPgn(this.parsedPgnGames[group][index])
@@ -440,7 +439,7 @@ class Chess implements ChessCore {
     loadPgn (pgn: string, group=this.active.group, opts: MethodOptions.Chess.loadPgn = {}) {
         const options = Options.Chess.loadPgn().assign(opts) as MethodOptions.Chess.loadPgn
         // Check that group exists
-        if (group !== this.active.group && !this.games.hasOwnProperty(group)) {
+        if (group !== this.active.group && !Object.prototype.hasOwnProperty.call(this.games, group)) {
             this.games[group] = []
         }
         // Strip carriage returns or convert them to new lines from PGN
@@ -450,26 +449,26 @@ class Chess implements ChessCore {
             this.parsedPgnGames[group] = []
             this.games[group] = []
             if (this.active.group === group) {
-                this.active.index = null
+                this.active.index = -1
             }
-        } else if (!this.parsedPgnGames.hasOwnProperty(group)) {
+        } else if (!Object.prototype.hasOwnProperty.call(this.parsedPgnGames, group)) {
             // Create a group if it doesn't exist
             this.parsedPgnGames[group] = []
         }
         this.parsedPgnGames[group] = this.parsedPgnGames[group].concat(this.parseFullPgn(pgn))
-        let pgnGameCount = this.parsedPgnGames[group].length
+        const pgnGameCount = this.parsedPgnGames[group].length
         if (pgnGameCount) { // At least one game was found
             if (pgnGameCount <= (options.maxItems as number)) {
                 for (let i=0; i<pgnGameCount; i++) {
                     this.createGameFromPgn(this.parsedPgnGames[group][i])
-                    if (this.active.group === group && this.active.index === null && options.activateFirst) {
+                    if (this.active.group === group && this.active.index === -1 && options.activateFirst) {
                         this.active.index = 0
                     }
                     if (options.returnHeaders) {
                         options.returnHeaders(this.parsedPgnGames[group].map(game => game.headers))
                     }
                 }
-            } else if (this.active.group === group && this.active.index === null && options.activateFirst) {
+            } else if (this.active.group === group && this.active.index === -1 && options.activateFirst) {
                 this.createGameFromPgn(this.parsedPgnGames[group][0])
                 this.active.index = 0
             }
@@ -502,7 +501,7 @@ class Chess implements ChessCore {
     loadPgnInBatches (pgn: string, group=this.active.group, opts: MethodOptions.Chess.loadPgnInBatches = {}, reset=true) {
         const options = Options.Chess.loadPgn().assign(opts) as MethodOptions.Chess.loadPgnInBatches
         // Check that group exists
-        if (group !== this.active.group && !this.games.hasOwnProperty(group)) {
+        if (group !== this.active.group && !Object.prototype.hasOwnProperty.call(this.games, group)) {
             this.games[group] = []
         }
         // Strip carriage returns or convert them to new lines from PGN
@@ -511,7 +510,7 @@ class Chess implements ChessCore {
         if (reset || !this.parsedPgnGames[this.active.group]?.length) {
             this.parsedPgnGames[this.active.group] = this.parseFullPgn(pgn)
         }
-        let pgnGameCount = this.parsedPgnGames[this.active.group].length
+        const pgnGameCount = this.parsedPgnGames[this.active.group].length
         let counter = 0
         if (pgnGameCount) { // At least one game was found
             if (pgnGameCount > (options.batchSize as number)) {
@@ -572,7 +571,7 @@ class Chess implements ChessCore {
      */
     newGame (fen=Fen.DEFAULT_STARTING_STATE, group=this.active.group, replace=false): GameEntry {
         // Check that group exists
-        if (!this.games.hasOwnProperty(group)) {
+        if (!Object.prototype.hasOwnProperty.call(this.games, group)) {
             this.games[group] = []
         }
         if (this.active.group !== group) {
@@ -581,7 +580,7 @@ class Chess implements ChessCore {
             this.games[group].push(newGame)
             return { game: newGame, group: group, index: this.games[group].length - 1 }
         } else {
-            if (this.active.index === null || (this.activeGame?.shouldPreserve && !replace)) {
+            if (this.active.index === -1 || (this.activeGame?.shouldPreserve && !replace)) {
                 // Add a new game and activate it
                 const newGame = new Game(fen)
                 this.games[group].push(newGame)
@@ -602,7 +601,7 @@ class Chess implements ChessCore {
      * @return array containing games parsed to headers and moves [{ headers, moves }]
      */
     parseFullPgn (pgn: string) {
-        let parsed = []
+        const parsed = []
         // Change all new lines to \n
         pgn = pgn.replace(/\r\n|[\n\x0B\x0C\r\u0085\u2028\u2029]/g, '\n')
         // Remove lines that start with %.
@@ -664,19 +663,19 @@ class Chess implements ChessCore {
             return cleanedData.join('')
         }
         // Some variables
-        let headerFormat = /\s*(\[\s*\w+\s*"[^"]*"\s*\]\s*)+/ // Matches multi-line headers
+        const headerFormat = /\s*(\[\s*\w+\s*"[^"]*"\s*\]\s*)+/ // Matches multi-line headers
         let lHeader = null // Latest matching header
         let moveData = ""
         // Check that the PGN has at least one valid header
         if (headerFormat.exec(pgn)) {
             // Retrieve all games
-            let match
-            while (match = headerFormat.exec(pgn)) {
+            let match: RegExpMatchArray | null = null
+            while ((match = headerFormat.exec(pgn)) !== null) {
                 // Store the matching header
-                let nHeader = match[0]
+                const nHeader = match[0]
                 // Set starting and ending position of the match
-                let mStart = pgn.indexOf(nHeader)
-                let mEnd = mStart + nHeader.length
+                const mStart = pgn.indexOf(nHeader)
+                const mEnd = mStart + nHeader.length
                 if (lHeader !== null) {
                     // Retrieve the remaining move data before next header
                     moveData += pgn.slice(0, mStart)
@@ -750,10 +749,10 @@ class Chess implements ChessCore {
      * @param index defaults to currently active game
      */
     removeGame (group=this.active.group, index=this.active.index) {
-        if (index === null) {
+        if (index === -1) {
             return
         }
-        if (this.games.hasOwnProperty(group) && this.games[group][index] !== undefined) {
+        if (Object.prototype.hasOwnProperty.call(this.games, group) && this.games[group][index] !== undefined) {
             // Save removed game for possible undo
             this.lastRemoved = {
                 group: group,
@@ -780,10 +779,10 @@ class Chess implements ChessCore {
      * @param index defaults to currently active game
      */
     resetGame (group=this.active.group, index=this.active.index) {
-        if (index === null) {
+        if (index === -1) {
             return
         }
-        if (this.games.hasOwnProperty(group) && this.games[group][index] !== undefined) {
+        if (Object.prototype.hasOwnProperty.call(this.games, group) && this.games[group][index] !== undefined) {
             this.games[group][index] = new Game(Fen.DEFAULT_STARTING_STATE)
         }
     }
@@ -792,7 +791,7 @@ class Chess implements ChessCore {
      * Unset active game, but keep the group.
      */
     unsetActiveGame () {
-        this.active.index = null
+        this.active.index = -1
         this.active.game = null
     }
 
@@ -933,7 +932,7 @@ class Chess implements ChessCore {
     setTimeControlFromPgn (tc: string) {
         this.activeGame?.setTimeControlFromPgn(tc)
     }
-    setTimeControlReportFunction (f: any) {
+    setTimeControlReportFunction (f: ((timers: TCTimers) => void) | null) {
         this.activeGame?.setTimeControlReportFunction(f)
     }
     enterContinuation (i?: number) {
@@ -965,6 +964,7 @@ class Chess implements ChessCore {
     }
 }
 
+// eslint-disable-next-line
 (window as any).ChessTs = Chess
 export default Chess
 export { Board, Color, Fen, Flags, Game, Log, Move, Nag, Piece, TimeControl }

@@ -6,7 +6,7 @@ import { GameHeaders } from "./headers"
 import { ChessMove, MoveError } from "./move"
 import { MethodOptions } from "./options"
 import { ChessPiece } from "./piece"
-import { TCFieldModel } from "./time_control"
+import { TCFieldModel, TCTimers } from "./time_control"
 import { ChessTurn } from "./turn"
 
 /**
@@ -15,7 +15,7 @@ import { ChessTurn } from "./turn"
  * and list index within that group. In the case of an undesignated
  * game, the game and index properties will be null.
  */
-type GameEntry = { game: ChessGame | null, group: string, index: number | null }
+type GameEntry = { game: ChessGame | null, group: string, index: number }
 
 interface ChessCore {
     /**
@@ -28,6 +28,10 @@ interface ChessCore {
      * @param group group identifier
      */
     activeGroup :string
+    /**
+     * List of groups and contained games.
+     */
+    games: { [group: string]: ChessGame[] }
     /**
     * Add a game to loaded games.
     * @param game the game to add
@@ -46,9 +50,10 @@ interface ChessCore {
     /**
      * Parser for single PGN game entries, already divided into { headers, moves }
      * @param pgn { headers, moves }
+     * @param group the group to assign this game to
      * @return Game
      */
-    createGameFromPgn: (pgn: { headers: string[][], moves: string }) => GameEntry
+    createGameFromPgn: (pgn: { headers: string[][], moves: string }, group?: string) => GameEntry
     /**
      * Load a game that has already been parsed from PGN
      * @param index index of the parsed game in group list
@@ -98,7 +103,7 @@ interface ChessCore {
      * @param replace Force replace the currently selected game: (default false)
      * @return newly added game position { group, index }
      */
-    newGame: (fen?: string, group?: string, replace?: boolean) => { group: string, index: number | null }
+    newGame: (fen?: string, group?: string, replace?: boolean) => GameEntry
     /**
      * Parse a PGN file containing one or more game records
      * @param pgn
@@ -371,7 +376,7 @@ interface ChessCore {
      * Set the function used to report time control progress.
      * @param f report function will return { elapsed: { w, b }, remaining: { w, b } }
      */
-    setTimeControlReportFunction: (f: any) => void
+    setTimeControlReportFunction: (f: ((timers: TCTimers) => void) | null) => void
     /**
      * Start the game, saving the current timestamp as game start time and starting the clock for white.
      * @return true on success, false on failure
@@ -380,12 +385,12 @@ interface ChessCore {
     /**
      * Get the FEN representation of this game.
      */
-    toFen: (options: MethodOptions.Board.toFen) => string
+    toFen: (options?: MethodOptions.Board.toFen) => string
     /**
      * Get the PGN representation of the game.
      * @param options MethodOptions.Game.toPgn
      */
-    toPgn: (options: MethodOptions.Game.toPgn) => string
+    toPgn: (options?: MethodOptions.Game.toPgn) => string
     /**
      * Update game setup header to match the starting state. Only usable before the game has started!
      */

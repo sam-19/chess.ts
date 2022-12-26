@@ -5,6 +5,7 @@
   "license": "MIT",
   "scripts": {
     "build": "node node_modules/webpack/bin/webpack.js --progress --mode=production --config webpack.config.js",
+    "lint": "eslint . --ext .ts",
     "test": "jest --coverage --verbose --runInBand"
   },
   "devDependencies": {
@@ -12,7 +13,10 @@
     "@babel/preset-env": "^7.14.9",
     "@types/jest": "^27.5.2",
     "@types/node": "^16.4.10",
+    "@typescript-eslint/eslint-plugin": "^5.47.0",
+    "@typescript-eslint/parser": "^5.47.0",
     "babel-jest": "^27.0.6",
+    "eslint": "^8.30.0",
     "jest": "^27.0.6",
     "ts-jest": "^27.0.4",
     "ts-loader": "^9.2.6",

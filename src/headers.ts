@@ -46,7 +46,7 @@ class Headers implements GameHeaders {
     }
     // Instance properties
     keys: string[] = []
-    headers: Map<string,string> = new Map()
+    headers = new Map<string,string>()
     /**
      * Create a new game headers object with the given key-value pairs.
      * @param headers [key: string, value: string][]
@@ -130,11 +130,14 @@ class Headers implements GameHeaders {
     }
 
     standardized (): { [key: string]: string } {
-        const headers = {} as any
+        const headers = {} as { [key: string]: string }
         for (const k of this.keys) {
             // At this point the user submitted headers have been checked twice against the
             // list of supported values and there is no second level property (at least not yet).
-            headers.get[Headers.KEYS[k as keyof typeof Headers.KEYS]] = this.headers.get(k)
+            const h = this.headers.get(k)
+            if (h) {
+                headers[Headers.KEYS[k as keyof typeof Headers.KEYS]] = h
+            }
         }
         return headers
     }

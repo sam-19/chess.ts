@@ -13,6 +13,7 @@ import { ChessGame } from '../types/game'
 import { MethodOptions } from '../types/options'
 import { PlayerColor } from '../types/color'
 import { ChessTurn } from '../types/turn'
+import { TCTimers } from '../types/time_control'
 
 class Game implements ChessGame {
     /**
@@ -143,10 +144,9 @@ class Game implements ChessGame {
         ) {
             // This move is a variation, so return the parent turn's variations
             const vars = this.currentBoard.parentBoard
-                .history[this.currentBoard.parentBranchTurnIndex as number].variations.map
-            (
-                board => { return { move: board.history[0].move, continuation: this.currentBoard.continuation } }
-            )
+                .history[this.currentBoard.parentBranchTurnIndex as number].variations.map(
+                    board => { return { move: board.history[0].move, continuation: this.currentBoard.continuation } }
+                )
             // Add parent move in front of the list
             vars.unshift(
                 { move: this.currentBoard.parentBoard
@@ -237,7 +237,7 @@ class Game implements ChessGame {
         this.currentBoard.history[this.currentBoard.selectedTurnIndex].variations.push(newBoard)
         this.currentBoard = newBoard
         const move = Move.generateFromSan(san, this.currentBoard)
-        if (!move.hasOwnProperty('error')) {
+        if (!Object.prototype.hasOwnProperty.call(move, 'error')) {
             // Check that we can make this move
             if (this.currentBoard.makeMove(move as Move)) {
                 if (continuation) {
@@ -377,7 +377,7 @@ class Game implements ChessGame {
     }
 
     getMoveHistory (filter?: string) {
-        let moveHist = [] as (ChessTurn | string)[]
+        const moveHist = [] as (ChessTurn | string)[]
         let tmpBoard = this.currentBoard
         // Traverse back in current variation's turn history
         for (let i=tmpBoard.selectedTurnIndex; i>=0; i--) {
@@ -397,8 +397,8 @@ class Game implements ChessGame {
         if (tmpBoard.parentBoard !== null) {
             do {
                 // Next parent variation
-                let parentBranchTurnIndex = tmpBoard.parentBranchTurnIndex
-                let continuation = tmpBoard.continuation
+                const parentBranchTurnIndex = tmpBoard.parentBranchTurnIndex
+                const continuation = tmpBoard.continuation
                 tmpBoard = tmpBoard.parentBoard
                 // Start from the parent variation's last move
                 let i = parentBranchTurnIndex as number
@@ -439,7 +439,7 @@ class Game implements ChessGame {
     makeMove (move: Move, opts: MethodOptions.Game.makeMove = {}) {
         const options = Options.Game.makeMove().assign(opts) as MethodOptions.Game.makeMove
         // Update time controls if need be
-        if (this.timeControl !== null) {
+        if (this.timeControl) {
             this.timeControl.moveMade(this.currentBoard.plyNum, options.takeback)
         }
         if (!options.branchVariation) {
@@ -449,7 +449,7 @@ class Game implements ChessGame {
                 const newVar = this.moveHistoryToNewVariation()
                 if (newVar) {
                     const newMove = this.currentBoard.makeMove(move, options)
-                    if (!newMove.hasOwnProperty('error')) {
+                    if (!Object.prototype.hasOwnProperty.call(newMove, 'error')) {
                         (newMove as Turn).variations.push(newVar)
                     }
                     return newMove
@@ -506,7 +506,7 @@ class Game implements ChessGame {
 
     makeMoveFromSan (san: string, options: MethodOptions.Game.makeMove = {}) {
         const move = Move.generateFromSan(san, this.currentBoard)
-        if (move.hasOwnProperty('error')) {
+        if (Object.prototype.hasOwnProperty.call(move, 'error')) {
             Log.error(`Cound not make move from SAN (${san}): ${move.error}`, 'Chess')
             return move as { error: string }
         }
@@ -650,13 +650,13 @@ class Game implements ChessGame {
                 return this.currentBoard.selectTurn(index)
             }
             // Search for brach-off points on the route to the target variation
-            let targetVarBranchOffs = []
+            const targetVarBranchOffs = [] as number[][]
             for (let i=0; i<this.variations.length; i++) {
                 if (this.variations[i].id === boardVar) {
                     if (this.variations[i].id) {
                         let targetVar = this.variations[i]
                         while (targetVar.parentBoard !== null) {
-                            targetVarBranchOffs.push([targetVar.parentBoard.id, targetVar.parentBranchTurnIndex])
+                            targetVarBranchOffs.push([targetVar.parentBoard.id, targetVar.parentBranchTurnIndex as number])
                             targetVar = targetVar.parentBoard
                         }
                     }
@@ -715,7 +715,7 @@ class Game implements ChessGame {
         }
     }
 
-    setTimeControlReportFunction (f: any) {
+    setTimeControlReportFunction (f: ((timers: TCTimers) => void) | null) {
         if (!this.hasStarted) {
             this.timeControl.setReportFunction(f)
         }
@@ -746,7 +746,7 @@ class Game implements ChessGame {
 
     toPgn (options={} as MethodOptions.Game.toPgn) {
         options = Options.Game.toPgn().assign(options) as MethodOptions.Game.toPgn
-        let pgnHeaders = []
+        const pgnHeaders = []
         // Start by adding headers
         if (options.showHeaders) {
             for (let i=0; i<this.headers.length(); i++) {
@@ -756,11 +756,11 @@ class Game implements ChessGame {
             if (this.headers.length())
                 pgnHeaders.push("")
         }
-        let rootVar = this.variations[0]
+        const rootVar = this.variations[0]
         const pgnMoves = processVariation(rootVar, 1, this.currentBoard)
         // Auxiliary function to process the variations
         function processVariation (variation: Board, moveNum: number, currentBoard: Board) {
-            let varMoves = [] as string[]
+            const varMoves = [] as string[]
             let varMoveStr = ""
             let firstMove = true
             let lastMove = false
@@ -792,8 +792,8 @@ class Game implements ChessGame {
                 if (variation.history[i].variations.length) {
                     // Add possible annotation at the start of child variation
                     for (let j=0; j<variation.history[i].variations.length; j++) {
-                        let childVar = variation.history[i].variations[j]
-                        let childVarMoves = processVariation(childVar, moveNum - (childVar.continuation ? 0 : 1), currentBoard)
+                        const childVar = variation.history[i].variations[j]
+                        const childVarMoves = processVariation(childVar, moveNum - (childVar.continuation ? 0 : 1), currentBoard)
                         if (!childVarMoves.length)
                             varMoves.push("()") // This variation had no moves
                         else {
@@ -831,7 +831,7 @@ class Game implements ChessGame {
             result += pgnMoves.join(' ')
         } else {
             // We'll wrap the lines to desired length
-            let wrappedLines = [""]
+            const wrappedLines = [""]
             let curMove = ""
             let moveCount = 0
             // Sanity check, at least one complete move should fit on a line!
@@ -926,13 +926,13 @@ class Game implements ChessGame {
 
     toString () {
         // Retrieve PGN move data
-        let pgn = this.toPgn({ showHeaders: false })
+        const pgn = this.toPgn({ showHeaders: false })
         // PGN moves should fit on 4 lines beside the ASCII board representation
-        let lineWidth = Math.max(80, Math.floor(pgn.length / 4))
-        let pgnLines = []
+        const lineWidth = Math.max(80, Math.floor(pgn.length / 4))
+        const pgnLines = []
         // Cut PGN move data to fit into line size
         for (let i=0; i<pgn.length;) {
-            let start = i
+            const start = i
             i += lineWidth
             while (pgn.charAt(i) !== ' ' && i > start) {
                 i++
@@ -941,8 +941,8 @@ class Game implements ChessGame {
             i++ // Jump over the white space
         }
         let result = ""
-        let asciiLines = this.currentBoard.toString().split('\n')
-        let meta = ` : (variations: ${this.variations.length}, current move: ${this.currentBoard.selectedTurnIndex}/${this.currentBoard.history.length})`
+        const asciiLines = this.currentBoard.toString().split('\n')
+        const meta = ` : (variations: ${this.variations.length}, current move: ${this.currentBoard.selectedTurnIndex}/${this.currentBoard.history.length})`
         // generate ascii board graph
         for (let i=0; i<asciiLines.length; i++) {
             result += asciiLines[i]

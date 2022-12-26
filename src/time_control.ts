@@ -31,15 +31,15 @@ class TimeControl implements ChessTimeControl {
     // Instance properties
     autoTimeout: boolean = Options.TimeControl.autoTimeout
     fields: (typeof TimeControl.FieldModel)[] = []
-    start: number = 0
-    lastMove: number = 0
+    start = 0
+    lastMove = 0
     pauses: [number, number | null][] = []
-    end: number = 0
+    end = 0
     activePlayer: PlayerColor = Color.WHITE
-    plyNum: number = 0
+    plyNum = 0
     time: Timers = new Timers()
     reportTimer: number | undefined = undefined
-    turnFirst: boolean = true
+    turnFirst = true
     reportFunction: ((timers: Timers) => void) | null = null
 
     // TODO: Capped Fischer timing and Bronstein timing?
@@ -57,28 +57,28 @@ class TimeControl implements ChessTimeControl {
     }
 
     addField (params: typeof TimeControl.FieldModel) {
-        let errors = []
-        let field = {...TimeControl.FieldModel} // Copy base mode
+        const errors = []
+        const field = {...TimeControl.FieldModel} // Copy base mode
         // Start field is mandatory
-        if (!params.hasOwnProperty('start') || isNaN(params.start) || Math.round(params.start) !== params.start || params.start <= 0) {
+        if (!Object.prototype.hasOwnProperty.call(params, 'start') || isNaN(params.start) || Math.round(params.start) !== params.start || params.start <= 0) {
             errors.push("Time control field must have a parameter start and its value must be a positive integer!")
         } else {
             field.start = Math.round(params.start)
         }
         // Rest of the fields are optional
-        if (params.hasOwnProperty('end') && params.end && !isNaN(params.end)) {
+        if (Object.prototype.hasOwnProperty.call(params, 'end') && params.end && !isNaN(params.end)) {
             field.end = Math.round(params.end)
         }
-        if (params.hasOwnProperty('limit') && !isNaN(params.limit)) {
+        if (Object.prototype.hasOwnProperty.call(params, 'limit') && !isNaN(params.limit)) {
             field.limit = Math.round(params.limit)
         }
-        if (params.hasOwnProperty('delay') && !isNaN(params.delay)) {
+        if (Object.prototype.hasOwnProperty.call(params, 'delay') && !isNaN(params.delay)) {
             field.delay = Math.round(params.delay)
         }
-        if (params.hasOwnProperty('increment') && !isNaN(params.increment)) {
+        if (Object.prototype.hasOwnProperty.call(params, 'increment') && !isNaN(params.increment)) {
             field.increment = Math.round(params.increment)
         }
-        if (params.hasOwnProperty('hourglass')) {
+        if (Object.prototype.hasOwnProperty.call(params, 'hourglass')) {
             field.hourglass = params.hourglass ? true : false
         }
         // Check that all of the existing fields have an end property
@@ -240,25 +240,25 @@ class TimeControl implements ChessTimeControl {
         // TODO: Way to append controls from additional fields?
         this.fields = []
         // Descriptor has its fields separated by colons
-        let fields = descriptor.split(':')
+        const fields = descriptor.split(':')
+        const errors: string[] = []
+        const warnings: string[] = []
         let turn = 1
-        let errors: string[] = []
-        let warnings: string[] = []
         for (const params of fields) {
-            let field = {...TimeControl.FieldModel} // Copy base mode
+            const field = {...TimeControl.FieldModel} // Copy base mode
             field.start = turn
             if (/^\d+$/.test(params)) {
                 // This is a simple time limit (aka sudden death) field
                 field.limit = parseInt(params)
             } else {
-                let turns = params.match(/^(\d*)\//)
+                const turns = params.match(/^(\d*)\//)
                 // Time limit can either be at the start of the field or follow turn count.
                 // Using limit = (params.match(/\/(\d+)/) || params.match(/^(\d+)/)) may result in
                 // errors in some sloppy descriptors (e.g. 20/+30) which the following way still
                 // parses correctly.
-                let limit = turns === null ? params.match(/^(\*?\d+)/) : params.match(/\/(\*?\d+)/)
-                let delay = params.match(/d(\d*)/)
-                let increment = params.match(/\+(\d*)/)
+                const limit = turns === null ? params.match(/^(\*?\d+)/) : params.match(/\/(\*?\d+)/)
+                const delay = params.match(/d(\d*)/)
+                const increment = params.match(/\+(\d*)/)
                 // None of these separators should have more than one match
                 if ((params.match(/\//g) || []).length > 1 || (params.match(/\+/g) || []).length > 1 ||
                     (params.match(/d/g) || []).length > 1 || (params.match(/\*/g) || []).length > 1
@@ -270,7 +270,7 @@ class TimeControl implements ChessTimeControl {
                 }
                 if (turns !== null) {
                     // Field has fixed time per number of turns
-                    let turnCount = parseInt(turns[1])
+                    const turnCount = parseInt(turns[1])
                     if (turnCount) {
                         field.end = turnCount + turn - 1
                         turn += turnCount // Increment turns for possible next field start

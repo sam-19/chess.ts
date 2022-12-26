@@ -1,4 +1,4 @@
-import { ChessOptions, MethodOptions } from '../types/options'
+import { ChessOptions, MethodOptions, ValidOptions } from '../types/options'
 
 class Options implements ChessOptions {
     // Static properties
@@ -160,9 +160,9 @@ class Options implements ChessOptions {
         autoTimeout: false,
     }
     // Instance properties
-    protected _initial: any
+    protected _initial: ValidOptions
 
-    constructor (params: any) {
+    constructor (params: ValidOptions) {
         // Save initial options
         this._initial = {...params}
         this.assign(params)
@@ -172,10 +172,10 @@ class Options implements ChessOptions {
      * @param params new options as { [key: string]: value }
      * @returns updated options
      */
-    assign (params: any) {
-        let keys = Object.keys(params)
+    assign (params: ValidOptions) {
+        const keys = Object.keys(params)
         for (const k of keys) {
-            (this as any)[k] = params[k]
+            (this as unknown as Options & ValidOptions)[k] = params[k]
         }
         return this
     }

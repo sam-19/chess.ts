@@ -63,15 +63,15 @@ class Fen implements ChessFen {
      */
     validate (onlyPosition=false, rules='traditional') {
         // Set up some variables for error checking
-        let pieces = {
+        const pieces = {
             [Color.WHITE]: 0,
             [Color.BLACK]: 0
         }
-        let kings = {
+        const kings = {
             [Color.WHITE]: 0,
             [Color.BLACK]: 0
         }
-        let pawns = {
+        const pawns = {
             [Color.WHITE]: 0,
             [Color.BLACK]: 0
         }

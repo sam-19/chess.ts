@@ -63,7 +63,7 @@ class Piece implements ChessPiece {
     unicode: string
     html: string
 
-    constructor (options: any) {
+    constructor (options: { color: string, unicode: string, html: string, type: string }) {
         this.type = options.type
         this.color = options.color
         this.symbol = this.color === Color.WHITE ? this.type.toUpperCase() : this.type

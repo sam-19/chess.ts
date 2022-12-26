@@ -9,7 +9,7 @@ import Nag from './nag'
 const SCOPE = 'annotation'
 
 class Annotation implements MoveAnnotation {
-    cleanText: string = ''
+    cleanText = ''
     fullText: string
     nag: Nag | null = null
     symbol: string | null = null
@@ -50,7 +50,7 @@ class Annotation implements MoveAnnotation {
             let cleanAnn = text
             let curPos = 0
             for (let i=0; i<tags.length; i++) {
-                let cmd = tags[i].substring(2, tags[i].length - 1).trim().split(/\s+/)
+                const cmd = tags[i].substring(2, tags[i].length - 1).trim().split(/\s+/)
                 let label = ''
                 if (cmd.length < 2) {
                     Log.error(`Annotation command ${tags[i]} is malformed!`, SCOPE)

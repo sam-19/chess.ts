@@ -4,7 +4,7 @@ import { GameHeaders } from "./headers"
 import { ChessMove, MoveError } from "./move"
 import { MethodOptions } from "./options"
 import { ChessPiece } from "./piece"
-import { ChessTimeControl, TCFieldModel } from "./time_control"
+import { ChessTimeControl, TCFieldModel, TCTimers } from "./time_control"
 import { ChessTurn } from "./turn"
 
 interface ChessGame {
@@ -221,7 +221,7 @@ interface ChessGame {
      * Set the function used to report time control progress.
      * @param f report function will return { elapsed: { w, b }, remaining: { w, b } }
      */
-    setTimeControlReportFunction: (f: any) => void
+    setTimeControlReportFunction: (f: ((timers: TCTimers) => void) | null) => void
 
     /**
      * Start the game, saving the current timestamp as game start time and starting the clock for white.
@@ -233,7 +233,7 @@ interface ChessGame {
      * Get the PGN representation of the game.
      * @param options MethodOptions.Game.toPgn
      */
-    toPgn: (options: MethodOptions.Game.toPgn) => string
+    toPgn: (options?: MethodOptions.Game.toPgn) => string
 
     /**
      * Update game setup header to match the starting state. Only usable before the game has started!
@@ -350,7 +350,7 @@ interface ChessGame {
     /**
      * Get the FEN representation of this game.
      */
-    toFen: (options: MethodOptions.Board.toFen) => string
+    toFen: (options?: MethodOptions.Board.toFen) => string
 }
 
 export { ChessGame }

@@ -1,7 +1,8 @@
 import Piece from "../src/piece"
 
+type ValidOptions = { [key: string]: string | number | boolean | ((headers: string[][][]) => void) | ((progress: number[]) => void) | null | undefined }
 interface ChessOptions {
-    assign: (options: any) => void
+    assign: (options: ValidOptions) => void
 }
 
 declare namespace MethodOptions {
@@ -86,4 +87,4 @@ declare namespace MethodOptions {
         flags: number[]
     }
 }
-export { ChessOptions, MethodOptions }
+export { ChessOptions, MethodOptions, ValidOptions }

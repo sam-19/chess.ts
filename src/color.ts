@@ -24,7 +24,6 @@ class Color implements PieceColor {
             : Color.WHITE
         )
     }
-    constructor () {}
 }
 
 export default Color

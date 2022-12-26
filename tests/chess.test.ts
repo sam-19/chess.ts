@@ -2,8 +2,7 @@
  * @jest-environment jsdom
  */
 
-// @ts-ignore: this name mapping is defined in jest config
-import Chess from '@/chess'
+import Chess from '../src/chess'
 
 // From https://en.wikipedia.org/wiki/Portable_Game_Notation
 const testPGN = `[Event "F/S Return Match"]
@@ -86,12 +85,19 @@ describe('Loading games from PGN', () => {
     test('loaded game result', () => {
         const active = chess.activeGame
         expect(active).toBeTruthy()
+        if (!active) {
+            return
+        }
+        console.log(active.isInStalemate)
         expect(active.result[Chess.Color.WHITE]).toStrictEqual(Chess.Game.RESULT.DRAW)
         expect(active.result[Chess.Color.BLACK]).toStrictEqual(Chess.Game.RESULT.DRAW)
     })
     test('loaded game navigation', () => {
         const active = chess.activeGame
         expect(active).toBeTruthy()
+        if (!active) {
+            return
+        }
         active.selectTurn(5)
         expect(active.getMoveHistory('san')).toStrictEqual([ 'e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6' ])
         active.prevTurn()
@@ -105,6 +111,9 @@ describe('Loading games from PGN', () => {
     test('print board state', () => {
         const active = chess.activeGame
         expect(active).toBeTruthy()
+        if (!active) {
+            return
+        }
         active.selectTurn(84)
         expect(active.toFen()).toStrictEqual('8/8/4R1p1/2k3p1/1p4P1/1P1b1P2/3K1n2/8 b - - 2 43')
         expect(active.currentBoard.toString()).toStrictEqual(boardAtEnd)
@@ -112,6 +121,9 @@ describe('Loading games from PGN', () => {
     test('export PGN file', () => {
         const active = chess.activeGame
         expect(active).toBeTruthy()
+        if (!active) {
+            return
+        }
         const pgnParts = active.toPgn().split(/\r?\n\r?\n/)
         const crtlParts = testPGN.split(/\r?\n\r?\n/)
         expect(pgnParts.length).toStrictEqual(2)
@@ -131,6 +143,9 @@ describe('Loading games from PGN', () => {
         expect(headers[0].length).toStrictEqual(4)
         const active = chess.activeGame
         expect(active).toBeTruthy()
+        if (!active) {
+            return
+        }
         expect(active.currentBoard.history[1].variations.length).toStrictEqual(1)
         const variation = active.currentBoard.history[1].variations[0]
         expect(variation.continuation).toStrictEqual(false)
@@ -170,15 +185,15 @@ describe('Game creation', () => {
         expect(moves.blocked.length).toStrictEqual(69)
         expect(moves.illegal.length).toStrictEqual(0)
         expect(moves.legal.length).toStrictEqual(22)
-        const legalMoves = moves.legal.map((move: any) => move.san)
+        const legalMoves = moves.legal.map(move => move.san)
         expect(legalMoves).toContain('Qa5')
         active.makeMoveFromSan('Qa5')
         moves = active.getMoves({ notation: 'san' })
-        expect(moves.illegal.map((move: any) => move.san)).toContain('d3')
-        expect(moves.legal.map((move: any) => move.san)).toContain('Bb5')
+        expect(moves.illegal.map(move => move.san)).toContain('d3')
+        expect(moves.legal.map(move => move.san)).toContain('Bb5')
         active.makeMoveFromSan('Bb5')
         moves = active.getMoves({ notation: 'san', filter: 'legal' })
-        expect(moves.legal.map((move: any) => move.san)).toContain('Qxd2+')
+        expect(moves.legal.map(move => move.san)).toContain('Qxd2+')
         active.makeMoveFromSan('Qxd2')
     })
 })
@@ -188,6 +203,9 @@ describe('Variation creation', () => {
     // Test variation creation
     test('create new branch variation', () => {
         expect(game).toBeTruthy()
+        if (!game) {
+            return
+        }
         expect(group).toStrictEqual('variation')
         expect(index).toStrictEqual(0)
         expect(game.variations.length).toStrictEqual(1)
@@ -196,29 +214,29 @@ describe('Variation creation', () => {
         game.makeMoveFromSan('Qxd2')
         game.prevTurn()
         let moves = game.getMoves({ notation: 'san', filter: 'legal' })
-        expect(moves.legal.map((move: any) => move.san)).toContain('Qxb5')
+        expect(moves.legal.map(move => move.san)).toContain('Qxb5')
         game.makeMoveFromSan('Qxb5')
         // New variation board id should be 1
         expect(game.currentBoard.id).toStrictEqual(1)
-        const selTurn = game.currentBoard.parentBoard.selectedTurnIndex
+        const selTurn = game.currentBoard.parentBoard?.selectedTurnIndex
         const branchTurn = game.currentBoard.parentBranchTurnIndex
         expect(selTurn).toStrictEqual(branchTurn)
-        expect(game.currentBoard.parentBoard.selectedTurn.variations.length).toStrictEqual(1)
+        expect(game.currentBoard.parentBoard?.selectedTurn.variations.length).toStrictEqual(1)
         expect(game.currentBoard.continuation).toBeFalsy()
         moves = game.getMoves({ notation: 'san', filter: 'legal' })
-        expect(moves.legal.map((move: any) => move.san)).toContain('Qe2')
+        expect(moves.legal.map(move => move.san)).toContain('Qe2')
         game.makeMoveFromSan('Qe2')
         moves = game.getMoves({ notation: 'san', filter: 'legal' })
-        expect(moves.legal.map((move: any) => move.san)).toContain('c4')
+        expect(moves.legal.map(move => move.san)).toContain('c4')
         game.makeMoveFromSan('c4')
         moves = game.getMoves({ notation: 'san', filter: 'legal' })
-        expect(moves.legal.map((move: any) => move.san)).toContain('Qxc4')
+        expect(moves.legal.map(move => move.san)).toContain('Qxc4')
         game.makeMoveFromSan('Qxc4')
         moves = game.getMoves({ notation: 'san', filter: 'legal' })
-        expect(moves.legal.map((move: any) => move.san)).toContain('Qa6')
+        expect(moves.legal.map(move => move.san)).toContain('Qa6')
         game.makeMoveFromSan('Qa6')
         moves = game.getMoves({ notation: 'san', filter: 'legal' })
-        expect(moves.legal.map((move: any) => move.san)).toContain('Qxc8#')
+        expect(moves.legal.map(move => move.san)).toContain('Qxc8#')
         game.makeMoveFromSan('Qxc8#')
         moves = game.getMoves({ notation: 'san', filter: 'legal' })
         expect(moves.legal.length).toStrictEqual(0)
@@ -232,6 +250,9 @@ describe('Continuation creation', () => {
     // Test continuation creation
     test('create new branch continuation', () => {
         expect(game).toBeTruthy()
+        if (!game) {
+            return
+        }
         expect(group).toStrictEqual('continuation')
         expect(index).toStrictEqual(0)
         expect(game.variations.length).toStrictEqual(1)
@@ -252,15 +273,15 @@ describe('Continuation creation', () => {
         const branchTurn = game.currentBoard.parentBranchTurnIndex
         expect(prevTurn).toStrictEqual(branchTurn)
         expect(initialBoard.history[prevTurn].variations.length).toStrictEqual(1)
-        expect(game.currentBoard.parentBoard.selectedTurn.variations.length).toStrictEqual(1)
+        expect(game.currentBoard.parentBoard?.selectedTurn.variations.length).toStrictEqual(1)
         expect(game.currentBoard.continuation).toBeTruthy()
         expect(game.variations.length).toStrictEqual(2)
         expect(game.currentBoard.id).toStrictEqual(1)
         let moves = game.getMoves({ notation: 'san', filter: 'legal' })
-        expect(moves.legal.map((move: any) => move.san)).toContain('e5')
+        expect(moves.legal.map(move => move.san)).toContain('e5')
         game.makeMoveFromSan('e5')
         moves = game.getMoves({ notation: 'san', filter: 'legal' })
-        expect(moves.legal.map((move: any) => move.san)).toContain('O-O')
+        expect(moves.legal.map(move => move.san)).toContain('O-O')
         game.makeMoveFromSan('O-O')
         expect(game.getMoveHistory('san')).toStrictEqual(['Qa5', 'Bb5', 'Qxb5', 'Qe2', 'c4', 'b4', 'e5', 'O-O'])
     })

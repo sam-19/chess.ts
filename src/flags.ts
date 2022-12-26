@@ -96,7 +96,7 @@ class Flags implements MoveFlags {
         return new Flags(this.flags)
     }
 
-    remove (flag: number, silent: boolean = false) {
+    remove (flag: number, silent = false) {
         for (let i=0; i<this.flags.length; i++) {
             if (this.flags[i] === flag) {
                 this.flags.splice(i, 1)
@@ -108,7 +108,7 @@ class Flags implements MoveFlags {
         }
     }
 
-    replace (old: number, flag: number, silent: boolean = false) {
+    replace (old: number, flag: number, silent = false) {
         for (let i=0; i<this.flags.length; i++) {
             if (this.flags[i] === old) {
                 this.flags.splice(i, 1)

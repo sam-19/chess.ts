@@ -1,6 +1,6 @@
 interface GameHeaders {
     keys: string[]
-    headers: any
+    headers: Map<string,string>
     /**
      * Add all headers from the given array of key-value pairs.
      * @param headers [key: string, value: string][]
