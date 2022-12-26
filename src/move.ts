@@ -10,6 +10,8 @@ import { ChessPiece } from '../types/piece'
 import { MoveFlags } from '../types/flags'
 import { MethodOptions } from '../types/options'
 
+const SCOPE = 'Move'
+
 class Move implements ChessMove {
     // Static properties
     // From original Chess.js
@@ -104,7 +106,7 @@ class Move implements ChessMove {
         this.movedPiece = movedPiece
         // Check that origin and destination squares are valid
         if (!Board.isValidSquareIndex(orig) || !Board.isValidSquareIndex(dest)) {
-            Log.error("Invalid origin and/or destination square give to move generator: " + orig + ", " + dest + ".", 'Move')
+            Log.error("Invalid origin and/or destination square give to move generator: " + orig + ", " + dest + ".", SCOPE)
             this.orig = -1
             this.dest = -1
         } else {

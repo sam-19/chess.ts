@@ -1,6 +1,8 @@
 import { MoveNag, NagEntry } from '../types/nag'
 import Log from 'scoped-ts-log'
 
+const SCOPE = 'Nag'
+
 class Nag implements MoveNag {
     // Static properties
     static readonly LIST = [
@@ -175,7 +177,7 @@ class Nag implements MoveNag {
                 return this
             }
         }
-        Log.error(`Could not find mathich NAG for code ${code}.`, 'Nag')
+        Log.error(`Could not find mathich NAG for code ${code}.`, SCOPE)
     }
 
     get value () {

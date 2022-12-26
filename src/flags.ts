@@ -3,7 +3,7 @@
 import Log from 'scoped-ts-log'
 import { MoveFlags } from '../types/flags'
 
-const SCOPE = 'flags'
+const SCOPE = 'Flags'
 
 /**
  * A collection of flags that describe a given move.

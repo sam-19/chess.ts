@@ -22,6 +22,8 @@ import { PlayerColor } from '../types/color'
 import { MoveError } from '../types/move'
 import { TCTimers } from '../types/time_control'
 
+const SCOPE = 'Chess'
+
 class Chess implements ChessCore {
     // Static properties
     static readonly RESULT = Game.RESULT
@@ -517,7 +519,7 @@ class Chess implements ChessCore {
                 if (options.reportProgress) {
                     options.reportProgress([0, pgnGameCount])
                 } else {
-                    Log.info(`Total number of games is ${pgnGameCount}, parsing in batches`, 'Chess')
+                    Log.info(`Total number of games is ${pgnGameCount}, parsing in batches`, SCOPE)
                 }
             }
 
@@ -538,7 +540,7 @@ class Chess implements ChessCore {
                         if (options.reportProgress) {
                             options.reportProgress([curGame, pgnGameCount])
                         } else {
-                            Log.info(`Parsed ${curGame} games`, 'Chess')
+                            Log.info(`Parsed ${curGame} games`, SCOPE)
                         }
                         // Wait a short moment mefore starting next batch to avoid WebSocket timeout
                         window.setTimeout(parseGames, 100)
@@ -546,14 +548,14 @@ class Chess implements ChessCore {
                         if (options.reportProgress) {
                             options.reportProgress([pgnGameCount, pgnGameCount])
                         }
-                        Log.info("Finished parsing games", 'Chess')
+                        Log.info("Finished parsing games", SCOPE)
                         // Purge cache, all games have been processed
                         this.parsedPgnGames[this.active.group] = []
                     } else if (counter >= (options.maxAmount as number)) {
                         if (options.reportProgress) {
                             options.reportProgress([pgnGameCount, pgnGameCount])
                         } else {
-                            Log.info("Finished parsing games", 'Chess')
+                            Log.info("Finished parsing games", SCOPE)
                         }
                     }
                 })
