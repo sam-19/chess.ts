@@ -105,7 +105,7 @@ class Board implements ChessBoard {
         this.parentBoard = null
         this.parentBranchTurnIndex = null
         this.plyNum = 0
-        this.posCount = new Map()
+        this.posCount = new Map<string, number>()
         this.selectedTurnIndex = -1 // -1 means no move is selected; selecting next move returns the first move
         // Create a 0x88 board presentation and populate it with NONE pieces
         this.squares = (new Array(128)).fill(Piece.NONE)
@@ -1046,6 +1046,17 @@ class Board implements ChessBoard {
             Log.error(`Cannot create variation from FEN: ${fenError.errorMessage} (${fen}).`, SCOPE)
             return false
         }
+        // Reset properties
+        this.enPassantSqr = null
+        this.history = []
+        this.kingPos = {
+            [Color.WHITE]: null,
+            [Color.BLACK]: null
+        }
+        this.posCount = new Map<string, number>()
+        this.squares = (new Array(128)).fill(Piece.NONE)
+        this.resetMoveCache()
+        // Assign pieces
         const params = fen.split(/\s+/)
         const pos = params[0]
         let sqr = 0

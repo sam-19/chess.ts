@@ -7,6 +7,8 @@ import Game from '../src/game'
 import Log from 'scoped-ts-log'
 import Flags from '../src/flags'
 import Turn from '../src/turn'
+import Piece from '../src/piece'
+import Fen from '../src/fen'
 
 // Only log warnings and errors
 Log.setPrintThreshold("WARN")
@@ -49,6 +51,11 @@ describe('Board creation', () => {
         expect(board.turnIndexPosition).toStrictEqual([-1, 0])
         expect(board.turnNum).toStrictEqual(1)
     })
+    test('basic methods', () => {
+        const piece = board.removePiece('g2') as Piece
+        board.placePiece(piece, 'g3')
+        expect(board.pieceAt('g3').symbol).toStrictEqual(Piece.WHITE_PAWN.symbol)
+    })
     test('make moves', () => {
         board.makeMoveFromAlgebraic('e2', 'e4')
         expect(board.enPassantSqr).toStrictEqual(84)
@@ -62,7 +69,7 @@ describe('Board creation', () => {
         board.makeMoveFromSAN('exd5')
         const lastMove = (board.undoMoves() as Turn[])[0]
         expect(lastMove.move.flags.contains(Flags.CAPTURE)).toStrictEqual(true)
-        expect(board.toFen()).toStrictEqual('rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 2')
+        expect(board.toFen()).toStrictEqual('rnbqkbnr/ppp1pppp/8/3p4/4P3/6P1/PPPP1P1P/RNBQKBNR w KQkq d6 0 2')
     })
     test('move variations', () => {
         board.makeMoveFromSAN('d4')
@@ -71,7 +78,7 @@ describe('Board creation', () => {
         board.makeMoveFromSAN('dxe4')
         board.prevTurn()
         board.makeMoveFromSAN('d4')
-        expect(board.toFen()).toStrictEqual('rnbqkbnr/ppp2ppp/8/4P3/4p3/8/PPP2PPP/RNBQKBNR w KQkq - 0 4')
+        expect(board.toFen()).toStrictEqual('rnbqkbnr/ppp2ppp/8/4P3/4p3/6P1/PPP2P1P/RNBQKBNR w KQkq - 0 4')
         //expect(board.parentBoard?.id).toStrictEqual(0)
         expect(board.history[board.history.length - 1].variations.length).toStrictEqual(1)
         expect(board.history[board.history.length - 1].variations[0].parentBranchTurnIndex).toStrictEqual(5)
@@ -88,15 +95,39 @@ describe('Board creation', () => {
         game.makeMoveFromSan('exf6')
         expect(game.getMoveHistory('san').join(',')).toStrictEqual('e4,d5,d4,e5,dxe5,d4,b3,f5,exf6')
     })
-    test('move continuations', () => {
+    test('move continuation', () => {
         const curBoard = game.currentBoard
         curBoard.prevTurn()
         const curId = curBoard.id
         // This should not branch a new variation but select the pre-existing move
-        const move = game.makeMoveFromAlgebraic('e5', 'f6')
+        game.makeMoveFromAlgebraic('e5', 'f6')
         expect(game.currentBoard.id).toStrictEqual(curId)
         curBoard.prevTurn()
         game.createContinuationFromSan('e6')
         expect(game.getMoveHistory('san').join(',')).toStrictEqual('e4,d5,d4,e5,dxe5,d4,b3,f5,e6')
+    })
+    test('board validation', () => {
+        const valBoard = new Board(game)
+        const setup1 = valBoard.validate()
+        expect(setup1.isValid).toStrictEqual(false)
+        expect(setup1.errors.length).toStrictEqual(8)
+        valBoard.placePiece(Piece.BLACK_KING, 'e8')
+        const setup2 = valBoard.validate()
+        expect(setup2.errors.length).toStrictEqual(6)
+        valBoard.placePiece(Piece.WHITE_KING, 'e1')
+        const setup3 = valBoard.validate()
+        expect(setup3.errors.length).toStrictEqual(4)
+        valBoard.placePiece(Piece.WHITE_ROOK, 'a1')
+        valBoard.placePiece(Piece.WHITE_ROOK, 'h1')
+        const setup4 = valBoard.validate()
+        expect(setup4.errors.length).toStrictEqual(2)
+        const setup5 = valBoard.validate(false, true)
+        expect(setup5.errors.length).toStrictEqual(0)
+        expect(valBoard.castlingRights.b.length).toStrictEqual(0)
+        expect(valBoard.castlingRights.w.length).toStrictEqual(2)
+        valBoard.loadFen(Fen.DEFAULT_STARTING_STATE)
+        valBoard.placePiece(Piece.WHITE_PAWN, 'a4')
+        const setup6 = valBoard.validate()
+        expect(setup6.errors.length).toStrictEqual(2)
     })
 })
