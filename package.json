@@ -4,8 +4,9 @@
   "repository": "https://github.com/sam-19/chess.ts.git",
   "main": "dist/chess.js",
   "files": [
-    "index.js",
+    "index.ts",
     "dist/*",
+    "src/*",
     "types/*"
   ],
   "license": "MIT",
