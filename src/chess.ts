@@ -104,6 +104,13 @@ class Chess implements ChessCore {
         }
     }
 
+    /**
+     * Set the index of the active game within currently active group.
+     */
+    set activeIndex (index: number) {
+        this.selectGame(index)
+    }
+
     /*
      * ======================================================================
      *                             METHODS
@@ -787,6 +794,27 @@ class Chess implements ChessCore {
         if (Object.prototype.hasOwnProperty.call(this.games, group) && this.games[group][index] !== undefined) {
             this.games[group][index] = new Game(Fen.DEFAULT_STARTING_STATE)
         }
+    }
+
+    /**
+     * Select the game at the given `index` as the active game.
+     * @param index - Index of the game within the group.
+     * @param group - Group of the game (defaults to currently active group).
+     * @returns The selected Game or null if it doesn't exist.
+     */
+    selectGame (index: number, group=this.active.group) {
+        if (!group) {
+            return null
+        }
+        if (group.length <= index) {
+            return null
+        }
+        if (index < 0) {
+            return null
+        }
+        this.active.index = index
+        this.active.game = this.games[group][index]
+        return this.games[group][index]
     }
 
     /**

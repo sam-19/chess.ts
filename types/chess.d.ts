@@ -123,7 +123,13 @@ interface ChessCore {
      * @param group defaults to currently active group
      * @param index defaults to currently active game
      */
-    resetGame: (group?: string, index?: number) => void
+    resetGame: (group?: string, index?: number) => void/**
+    * Select the game at the given `index` as the active game.
+    * @param index - Index of the game within the group.
+    * @param group - Group of the game (defaults to currently active group).
+    * @returns The selected Game or null if it doesn't exist.
+    */
+   selectGame: (index: number, group?: string) => ChessGame | null
     /**
      * Unset active game, but keep the group
      */
