@@ -433,7 +433,7 @@ class Chess implements ChessCore {
      *     maxItems: number (int),       // maximum number of games to load (default 10), will parse only header information beyond this
      *     loadFirst: boolean,           // automatically load the first game (default true)
      *     returnHeaders: () => string,  // return headers using this function, otherwise return them when function finishes
-     *     resetGames: boolean,          // reset currently cached games (default true) or append newly parsed games to the list
+     *     resetGroup: boolean,          // reset currently cached games (default true) or append newly parsed games to the list
      * }>
      * ```
      * @return gameHeaders
@@ -447,7 +447,7 @@ class Chess implements ChessCore {
         // Strip carriage returns or convert them to new lines from PGN
         pgn = pgn.replace(/\r\n?/g, '\n')
         // Load individual games from the PGN, cache them for later loading
-        if (options.resetGames) {
+        if (options.resetGroup) {
             this.parsedPgnGames[group] = []
             this.games[group] = []
             if (this.active.group === group) {

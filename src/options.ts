@@ -79,13 +79,13 @@ class Options implements ChessOptions {
          * @param maxItems - maximum items to load from the file (default 10)
          * @param activateFirst - should the first item be automatically activated (default true)
          * @param returnHeaders - function that takes loaded game headers as an argument (default null)
-         * @param resetGames - should currently loaded games be reset or new games appended to them (default true)
+         * @param resetGroup - should currently loaded games be reset or new games appended to them (default true)
          */
         loadPgn: () => new Options({
             maxItems: 10,
             activateFirst: true,
             returnHeaders: undefined,
-            resetGames: true,
+            resetGroup: true,
         } as MethodOptions.Chess.loadPgn),
         /**
          * Default options for PGN batch loader
@@ -131,14 +131,14 @@ class Options implements ChessOptions {
         /**
          * Default options for PGN generator
          * @param lengthMeasure how to measure the maximum line length rule (width|moves, default width)
-         * @param maxLength maximum line length units (in characters for width measure, move count for moves measure, default 60)
+         * @param maxLength maximum line length units (in characters for width measure, move count for moves measure, default 80)
          * @param newLine new line character (default Unix new line \n)
          * @param showMoveCursor print the location of the move cursor if a move in the history is selected (default false)
          * @param wrapMoves allow wrapping to new line inside moves (ignored if lengthMeasure is moves, default true)
          */
         toPgn: () => new Options({
             lengthMeasure: 'width',
-            maxLength: 60,
+            maxLength: 80,
             newLine: '\n',
             showHeaders: true,
             showMoveCursor: false,

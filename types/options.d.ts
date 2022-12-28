@@ -44,7 +44,7 @@ declare namespace MethodOptions {
         type loadPgn = {
             activateFirst?: boolean,
             maxItems?: number,
-            resetGames?: boolean,
+            resetGroup?: boolean,
             returnHeaders?: ((headers: string[][][]) => void) | null,
         }
         type loadPgnInBatches = {
