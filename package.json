@@ -1,5 +1,5 @@
 {
-  "name": "ts-chess",
+  "name": "@sam-19/chess.ts",
   "version": "0.2.0",
   "repository": "https://github.com/sam-19/chess.ts.git",
   "main": "dist/index.js",
