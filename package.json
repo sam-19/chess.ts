@@ -1,7 +1,11 @@
 {
-  "name": "chess.ts",
+  "name": "ts-chess",
   "version": "0.2.0",
   "repository": "https://github.com/sam-19/chess.ts.git",
+  "main": "dist/index.js",
+  "files": [
+    "dist/*"
+  ],
   "license": "MIT",
   "scripts": {
     "build": "node node_modules/webpack/bin/webpack.js --progress --mode=production --config webpack.config.js",
