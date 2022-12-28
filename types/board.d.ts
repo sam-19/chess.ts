@@ -56,7 +56,7 @@ interface ChessBoard {
     turn: PlayerColor
     /** Turn number or full move number (starting from 1, for PGN game log) */
     turnNum: number
-    /**
+    /*
      * ======================================================================
      *                             GETTERS
      * ======================================================================
@@ -137,7 +137,7 @@ interface ChessBoard {
      */
     turnIndexPosition: number[]
 
-    /**
+    /*
      * ======================================================================
      *                             METHODS
      * ======================================================================

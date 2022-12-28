@@ -242,7 +242,7 @@ class Board implements ChessBoard {
         return Board.SQUARE_NAMES[square as keyof typeof Board.SQUARE_NAMES]
     }
 
-    /**
+    /*
      * ======================================================================
      *                             GETTERS
      * ======================================================================
@@ -403,7 +403,7 @@ class Board implements ChessBoard {
         return [this.selectedTurnIndex, this.history.length]
     }
 
-    /**
+    /*
      * ======================================================================
      *                             METHODS
      * ======================================================================
