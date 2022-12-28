@@ -6,11 +6,11 @@ module.exports = (env, argv) => {
     return {
         context: __dirname,
         entry: {
-            index: { import: path.join(__dirname, 'src', 'chess.ts') },
+            chess: { import: path.join(__dirname, 'src', 'chess.ts') },
         },
         output: {
             path: path.join(__dirname, './', 'dist'),
-            filename: "[name].min.js"
+            filename: "[name].js"
         },
         module: {
             rules: [

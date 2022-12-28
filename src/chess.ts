@@ -965,8 +965,5 @@ class Chess implements ChessCore {
         return new Fen(fen).validate(onlyPosition, rules)
     }
 }
-
-// eslint-disable-next-line
-(window as any).ChessTs = Chess
 export default Chess
 export { Board, Color, Fen, Flags, Game, Log, Move, Nag, Piece, TimeControl }
