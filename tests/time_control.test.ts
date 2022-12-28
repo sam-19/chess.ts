@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 
-import TimeControl from '../src/time_control'
+import TimeControl, { Timers } from '../src/time_control'
 import Log from 'scoped-ts-log'
 
 Log.setPrintThreshold("WARN")
@@ -158,7 +158,7 @@ describe('Time control', () => {
         })
         fncTc.updateReportTimer()
         fncTc.setReportFunction(null)
-        const rem = fncTc.moveMade(0) as any
+        const rem = fncTc.moveMade(0) as Timers
         expect(rem.elapsed?.b).toStrictEqual(0)
         expect(rem.elapsed?.w).toStrictEqual(0)
         expect(rem.remaining?.b).toStrictEqual(2000)

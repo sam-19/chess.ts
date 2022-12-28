@@ -4,7 +4,6 @@
 
 import Piece from '../src/piece'
 import Log from 'scoped-ts-log'
-import Color from '../src/color'
 
 Log.setPrintThreshold("WARN")
 

@@ -561,3 +561,4 @@ class Timers implements TCTimers {
 }
 
 export default TimeControl
+export { Timers }

@@ -533,7 +533,6 @@ class Board implements ChessBoard {
         moves.reverse()
         // Undo the moves in turn history
         for (let i=0; i<moves.length; i++) {
-            const active = this.turn
             const move = moves[i].move
             // Undo capture and en passant
             if (move.flags.contains(Flags.CAPTURE) || move.flags.contains(Flags.EN_PASSANT)) {
