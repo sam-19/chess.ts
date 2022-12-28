@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 
-import Chess from '../src/chess'
+import Chess, { Color } from '../src/chess'
 
 // From https://en.wikipedia.org/wiki/Portable_Game_Notation
 const testPGN = `[Event "F/S Return Match"]
@@ -55,7 +55,37 @@ describe('Chess class', () => {
         expect(chess).toBeDefined()
     })
 })
-describe('Loading games from PGN', () => {
+describe('Game creation', () => {
+    // Test FEN loader
+    chess.activeGroup = 'game'
+    const { game, group, index } = chess.newGame('rnbqkbnr/pp1ppppp/8/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2', 'game')
+    const active = chess.games[group][index]
+    test('create a new game from FEN', () => {
+        expect(active).toBeTruthy()
+        expect(game).toBeTruthy()
+        expect(active).toBe(game)
+    })
+    test('make move in game', () => {
+        expect(active).toBeTruthy()
+        expect(group).toStrictEqual('game')
+        expect(index).toStrictEqual(0)
+        let moves = active.getMoves({ notation: 'san' })
+        expect(moves.blocked.length).toStrictEqual(69)
+        expect(moves.illegal.length).toStrictEqual(0)
+        expect(moves.legal.length).toStrictEqual(22)
+        const legalMoves = moves.legal.map(move => move.san)
+        expect(legalMoves).toContain('Qa5')
+        active.makeMoveFromSan('Qa5')
+        moves = active.getMoves({ notation: 'san' })
+        expect(moves.illegal.map(move => move.san)).toContain('d3')
+        expect(moves.legal.map(move => move.san)).toContain('Bb5')
+        active.makeMoveFromSan('Bb5')
+        moves = active.getMoves({ notation: 'san', filter: 'legal' })
+        expect(moves.legal.map(move => move.san)).toContain('Qxd2+')
+        active.makeMoveFromSan('Qxd2')
+    })
+})
+describe('Loading and exporting PGN', () => {
     /* Test PGN parser */
     test('parse single PGN', () => {
         chess.activeGroup = 'parse'
@@ -88,7 +118,6 @@ describe('Loading games from PGN', () => {
         if (!active) {
             return
         }
-        console.log(active.isInStalemate)
         expect(active.result[Chess.Color.WHITE]).toStrictEqual(Chess.Game.RESULT.DRAW)
         expect(active.result[Chess.Color.BLACK]).toStrictEqual(Chess.Game.RESULT.DRAW)
     })
@@ -118,7 +147,7 @@ describe('Loading games from PGN', () => {
         expect(active.toFen()).toStrictEqual('8/8/4R1p1/2k3p1/1p4P1/1P1b1P2/3K1n2/8 b - - 2 43')
         expect(active.currentBoard.toString()).toStrictEqual(boardAtEnd)
     })
-    test('export PGN file', () => {
+    test('export game as PGN', () => {
         const active = chess.activeGame
         expect(active).toBeTruthy()
         if (!active) {
@@ -167,36 +196,6 @@ describe('Loading games from PGN', () => {
         chess.removeGame()
     })
 })
-describe('Game creation', () => {
-    // Test FEN loader
-    chess.activeGroup = 'game'
-    const { game, group, index } = chess.newGame('rnbqkbnr/pp1ppppp/8/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2', 'game')
-    const active = chess.games[group][index]
-    test('create a new game from FEN', () => {
-        expect(active).toBeTruthy()
-        expect(game).toBeTruthy()
-        expect(active).toBe(game)
-    })
-    test('make move in game', () => {
-        expect(active).toBeTruthy()
-        expect(group).toStrictEqual('game')
-        expect(index).toStrictEqual(0)
-        let moves = active.getMoves({ notation: 'san' })
-        expect(moves.blocked.length).toStrictEqual(69)
-        expect(moves.illegal.length).toStrictEqual(0)
-        expect(moves.legal.length).toStrictEqual(22)
-        const legalMoves = moves.legal.map(move => move.san)
-        expect(legalMoves).toContain('Qa5')
-        active.makeMoveFromSan('Qa5')
-        moves = active.getMoves({ notation: 'san' })
-        expect(moves.illegal.map(move => move.san)).toContain('d3')
-        expect(moves.legal.map(move => move.san)).toContain('Bb5')
-        active.makeMoveFromSan('Bb5')
-        moves = active.getMoves({ notation: 'san', filter: 'legal' })
-        expect(moves.legal.map(move => move.san)).toContain('Qxd2+')
-        active.makeMoveFromSan('Qxd2')
-    })
-})
 describe('Variation creation', () => {
     chess.activeGroup = 'variation'
     const { game, group, index } = chess.newGame('rnbqkbnr/pp1ppppp/8/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2', 'variation')
@@ -243,7 +242,6 @@ describe('Variation creation', () => {
         expect(game.isFinished).toBeTruthy()
     })
 })
-
 describe('Continuation creation', () => {
     chess.activeGroup = 'continuation'
     const { game, group, index } = chess.newGame('rnbqkbnr/pp1ppppp/8/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2', 'continuation')
@@ -286,30 +284,65 @@ describe('Continuation creation', () => {
         expect(game.getMoveHistory('san')).toStrictEqual(['Qa5', 'Bb5', 'Qxb5', 'Qe2', 'c4', 'b4', 'e5', 'O-O'])
     })
 })
-/* These tests fail on some perplexing error, so they are disabled for now
-describe('Headers manipulation', () => {
-    const game = chess.activeGame
-    expect(game).not.toBeNull()
-    game.addHeaders([
-        // From https://en.wikipedia.org/wiki/Portable_Game_Notation
-        ['Event', 'F/S Return Match'],
-        ['Site', 'Belgrade, Serbia JUG'],
-        ['Date', '1992.11.04'],
-        ['Round', '29'],
-        ['White', 'Fischer, Robert J.'],
-        ['Black', 'Spassky, Boris V.'],
-        ['Result', '1/2-1/2'],
-        // Malicious header
-        ['__proto__', 'doSomethingEvil()']
-    ])
-    let headers = game.headers.getAll()
-    expect(headers.length).toStrictEqual(7)
-    expect(Object.keys(headers)).not.toContain('__proto__')
-    game.headers.remove('ROUND')
-    headers = game.headers.getAll()
-    expect(headers.length).toStrictEqual(6)
-    game.headers.set('Event', 'Chess.ts test game')
-    expect(game.headers.get('event')).toStrictEqual('Chess.ts test game')
-    console.log(game.headers.standardized())
+describe('Pass-through properties', () => {
+    test('game setup', () => {
+        chess.activeGroup = 'properties'
+        expect(chess.newGame()).toBeTruthy()
+        expect(chess.makeMoveFromSan).toBeDefined()
+        chess.makeMoveFromSan('e4')
+    })
+    test('get properties', () => {
+        expect(chess.breaks50MoveRule).toStrictEqual(false)
+        expect(chess.breaks75MoveRule).toStrictEqual(false)
+        expect(chess.currentMoveVariations).toStrictEqual([])
+        expect(chess.endResult).toStrictEqual(null)
+        expect(chess.hasEnded).toStrictEqual(false)
+        expect(chess.hasInsufficientMaterial).toStrictEqual(false)
+        expect(chess.hasRepeatedFivefold).toStrictEqual(false)
+        expect(chess.hasRepeatedThreefold).toStrictEqual(false)
+        expect(chess.isDraw).toStrictEqual(false)
+        expect(chess.isFinished).toStrictEqual(false)
+        expect(chess.isInCheck).toStrictEqual(false)
+        expect(chess.isInCheckmate).toStrictEqual(false)
+        expect(chess.isInStalemate).toStrictEqual(false)
+        expect(chess.isPaused).toStrictEqual(false)
+        expect(chess.playerToMove).toStrictEqual(Color.BLACK)
+        expect(chess.turnIndexPosition).toStrictEqual([0, 1])
+    })
+    test ('methods', () => {
+        expect(chess.addHeaders).toBeDefined()
+        expect(chess.addTimeControl).toBeDefined()
+        expect(chess.continue).toBeDefined()
+        expect(chess.createContinuationFromSan).toBeDefined()
+        expect(chess.createVariationFromSan).toBeDefined()
+        expect(chess.end).toBeDefined()
+        expect(chess.enterContinuation).toBeDefined()
+        expect(chess.enterVariation).toBeDefined()
+        expect(chess.getCapturedPieces).toBeDefined()
+        expect(chess.getMoves).toBeDefined()
+        expect(chess.getMoveHistory).toBeDefined()
+        expect(chess.goToStart).toBeDefined()
+        expect(chess.loadFen).toBeDefined()
+        expect(chess.makeMove).toBeDefined()
+        expect(chess.makeMoveFromAlgebraic).toBeDefined()
+        expect(chess.moveHistoryToNewContinuation).toBeDefined()
+        expect(chess.moveHistoryToNewVariation).toBeDefined()
+        expect(chess.nextTurn).toBeDefined()
+        expect(chess.pause).toBeDefined()
+        expect(chess.pieceAt).toBeDefined()
+        expect(chess.placePiece).toBeDefined()
+        expect(chess.prevTurn).toBeDefined()
+        expect(chess.removePiece).toBeDefined()
+        expect(chess.returnFromContinuation).toBeDefined()
+        expect(chess.returnFromVariation).toBeDefined()
+        expect(chess.selectTurn).toBeDefined()
+        expect(chess.setTimeControlFromPgn).toBeDefined()
+        expect(chess.setTimeControlReportFunction).toBeDefined()
+        expect(chess.start).toBeDefined()
+        expect(chess.toFen).toBeDefined()
+        expect(chess.toPgn).toBeDefined()
+        expect(chess.toString).toBeDefined()
+        expect(chess.updateSetup).toBeDefined()
+        expect(chess.validateFen).toBeDefined()
+    })
 })
-*/

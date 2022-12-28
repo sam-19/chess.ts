@@ -20,7 +20,7 @@ class Fen implements ChessFen {
         7: '5th field (half move counter) must be a non-negative integer.',
         8: '4th field (en-passant square) is invalid.',
         9: '3rd field (castling availability) is invalid.',
-       10: '2nd field (side to move) is invalid.',
+       10: '2nd field (player to move) is invalid.',
        11: 'White has more than 16 pieces on the board.',
        12: 'Black has more than 16 pieces on the board.',
        13: 'White has more than 8 pawns on the board.',
@@ -91,7 +91,7 @@ class Fen implements ChessFen {
         // First token must have 8 slash-separated row elements
         const rows = tokens[0].split('/')
         if (rows.length !== 8) {
-            return { isValid: false, errorCode: 7, errorMessage: Fen.ERRORS[2] }
+            return { isValid: false, errorCode: 2, errorMessage: Fen.ERRORS[2] }
         }
         // All rows must validate to board positions
         for (let i=0; i<rows.length; i++) {
@@ -105,7 +105,7 @@ class Fen implements ChessFen {
             for (let k=0; k<rows[i].length; k++) {
                 if (!isNaN(parseInt(rows[i][k], 10))) {
                     if (previousWasNumber) {
-                        return { isValid: false, errorCode: 8, errorMessage: Fen.ERRORS[3] }
+                        return { isValid: false, errorCode: 3, errorMessage: Fen.ERRORS[3] }
                     }
                     sumSquares += parseInt(rows[i][k], 10)
                     previousWasNumber = true
@@ -115,7 +115,7 @@ class Fen implements ChessFen {
                     else if (/^[prnbqk]$/.test(rows[i][k]))
                         pieces[Color.BLACK] += 1
                     else
-                        return { isValid: false, errorCode: 9, errorMessage: Fen.ERRORS[4] }
+                        return { isValid: false, errorCode: 4, errorMessage: Fen.ERRORS[4] }
                     if (rows[i][k] === Piece.WHITE_KING.symbol)
                         kings[Color.WHITE] += 1
                     else if (rows[i][k] === Piece.BLACK_KING.symbol)
@@ -129,7 +129,7 @@ class Fen implements ChessFen {
                 }
             }
             if (sumSquares !== 8)
-                return { isValid: false, errorCode: 10, errorMessage: Fen.ERRORS[5] }
+                return { isValid: false, errorCode: 5, errorMessage: Fen.ERRORS[5] }
         }
         if (rules === 'traditional') {
             if (pieces[Color.WHITE] > 16)
@@ -151,25 +151,25 @@ class Fen implements ChessFen {
         }
         // Move number must be 1 or higher
         if (isNaN(parseInt(tokens[5])) || (parseInt(tokens[5], 10) <= 0)) {
-            return { isValid: false, errorCode: 2, errorMessage: Fen.ERRORS[6] }
+            return { isValid: false, errorCode: 6, errorMessage: Fen.ERRORS[6] }
         }
         // Half move counter must be 0 or higher number
         if (isNaN(parseInt(tokens[4])) || (parseInt(tokens[4], 10) < 0)) {
-            return { isValid: false, errorCode: 3, errorMessage: Fen.ERRORS[7] }
+            return { isValid: false, errorCode: 7, errorMessage: Fen.ERRORS[7] }
         }
         // Player to move must be either w (white) or b (black)
         if (!/^(w|b)$/.test(tokens[1])) {
-            return { isValid: false, errorCode: 6, errorMessage: Fen.ERRORS[10] }
+            return { isValid: false, errorCode: 10, errorMessage: Fen.ERRORS[10] }
         }
         // Validate en passant token (had to move this down here to have turn checked first)
         if (tokens[1] === 'w' && !/^(-|[abcdefgh]6)$/.test(tokens[3])
             || tokens[1] === 'b' && !/^(-|[abcdefgh]3)$/.test(tokens[3]))
         {
-            return { isValid: false, errorCode: 4, errorMessage: Fen.ERRORS[8] }
+            return { isValid: false, errorCode: 8, errorMessage: Fen.ERRORS[8] }
         }
         // Validate castling rights token
         if( !/^(KQ?k?q?|Qk?q?|kq?|q|-)$/.test(tokens[2])) {
-            return { isValid: false, errorCode: 5, errorMessage: Fen.ERRORS[9] }
+            return { isValid: false, errorCode: 9, errorMessage: Fen.ERRORS[9] }
         }
         // this.fen is valid
         return { isValid: true, errorCode: 0, errorMessage: Fen.ERRORS[0] }

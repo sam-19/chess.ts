@@ -716,7 +716,7 @@ class Game implements ChessGame {
             if (this.timeControl === null) {
                 this.timeControl = new TimeControl()
             }
-            this.timeControl.parsePGNTimeControl(tc)
+            this.timeControl.parseTimeControlString(tc)
         }
     }
 

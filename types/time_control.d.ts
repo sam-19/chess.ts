@@ -86,7 +86,7 @@ interface ChessTimeControl {
      * @param descriptor
      * @return { errors, warnings } from the parse
      */
-    parsePGNTimeControl: (descriptor: string) => { errors: string[], warnings: string[] }
+    parseTimeControlString: (descriptor: string) => { errors: string[], warnings: string[] }
 
     /**
      * Pause the timer.

@@ -139,7 +139,7 @@ class Move implements ChessMove {
                    + Board.SQUARE_NAMES[this.dest as keyof typeof Board.SQUARE_NAMES]
     }
     // Copy from another Move object
-    static copyFrom (move: ChessMove) {
+    static copyFrom (move: ChessMove): Move {
         const copy = Object.create(Move.prototype)
         copy.orig = move.orig
         copy.dest = move.dest

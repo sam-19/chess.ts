@@ -49,7 +49,7 @@ class TimeControl implements ChessTimeControl {
           * where start and end are turn numbers, all the rest are time in seconds
           */
         if (descriptor !== undefined) {
-            this.parsePGNTimeControl(descriptor)
+            this.parseTimeControlString(descriptor)
         }
         if (reportFunction !== undefined) {
             this.reportFunction = reportFunction
@@ -65,7 +65,7 @@ class TimeControl implements ChessTimeControl {
         } else {
             field.start = Math.round(params.start)
         }
-        // Rest of the fields are optional
+        // Rest of the fields are optional. Limit must be full seconds, delay and increment may be frational.
         if (Object.prototype.hasOwnProperty.call(params, 'end') && params.end && !isNaN(params.end)) {
             field.end = Math.round(params.end)
         }
@@ -73,10 +73,10 @@ class TimeControl implements ChessTimeControl {
             field.limit = Math.round(params.limit)
         }
         if (Object.prototype.hasOwnProperty.call(params, 'delay') && !isNaN(params.delay)) {
-            field.delay = Math.round(params.delay)
+            field.delay = params.delay
         }
         if (Object.prototype.hasOwnProperty.call(params, 'increment') && !isNaN(params.increment)) {
-            field.increment = Math.round(params.increment)
+            field.increment = params.increment
         }
         if (Object.prototype.hasOwnProperty.call(params, 'hourglass')) {
             field.hourglass = params.hourglass ? true : false
@@ -234,86 +234,101 @@ class TimeControl implements ChessTimeControl {
         return this.time
     }
 
-    parsePGNTimeControl (descriptor: string) {
+    parseTimeControlString (descriptor: string) {
         // Field object base model
         // Remove old time controls
         // TODO: Way to append controls from additional fields?
         this.fields = []
+        // Bullet time controls are the simplest
+        const bullet = descriptor.match(/^(\d+)\|(\d+)$/) || descriptor.match(/^(\d+)\s?min$/)
+        if (bullet) {
+            const field = {...TimeControl.FieldModel} // Copy base mode
+            field.limit = parseInt(bullet[1], 10)*60 // Bullet uses minutes for limit
+            if (bullet[2]) {
+                field.increment = parseInt(bullet[2], 10)
+            }
+            this.fields.push(field)
+            return { errors: [], warnings: [] }
+        }
         // Descriptor has its fields separated by colons
-        const fields = descriptor.split(':')
+        const fields = descriptor.toLowerCase().split(/[:\s]+/)
         const errors: string[] = []
         const warnings: string[] = []
         let turn = 1
         for (const params of fields) {
             const field = {...TimeControl.FieldModel} // Copy base mode
             field.start = turn
-            if (/^\d+$/.test(params)) {
-                // This is a simple time limit (aka sudden death) field
-                field.limit = parseInt(params)
-            } else {
-                const turns = params.match(/^(\d*)\//)
+            let turns = null
+            let limit = null
+            // Try different variations
+            limit = params.match(/^sd(\*?\d+)/)
+            if (limit === null) {
+                limit = params.match(/^g\/(\*?\d+)/)
+            }
+            if (limit === null) {
+                turns = params.match(/^(\d*)\//)
                 // Time limit can either be at the start of the field or follow turn count.
                 // Using limit = (params.match(/\/(\d+)/) || params.match(/^(\d+)/)) may result in
                 // errors in some sloppy descriptors (e.g. 20/+30) which the following way still
                 // parses correctly.
-                const limit = turns === null ? params.match(/^(\*?\d+)/) : params.match(/\/(\*?\d+)/)
-                const delay = params.match(/d(\d*)/)
-                const increment = params.match(/\+(\d*)/)
-                // None of these separators should have more than one match
-                if ((params.match(/\//g) || []).length > 1 || (params.match(/\+/g) || []).length > 1 ||
-                    (params.match(/d/g) || []).length > 1 || (params.match(/\*/g) || []).length > 1
-                ) {
-                    errors.push(`Time control field ${params} is malformed, field omitted!`)
-                    // Do not continue parsing this field, but go through the rest of the fields to catch
-                    // other possible errors.
+                limit = turns === null ? params.match(/^(\*?\d+)/) : params.match(/\/(\*?\d+)/)
+            }
+            if (limit !== null) {
+                // An asterisk before the number means that this is an hour glass time limit, catch this first
+                if (limit[1].startsWith('*')) {
+                    field.hourglass = true
+                    limit[1] = limit[1].substring(1)
+                }
+                // There is a theoretical possibility that this could be zero, for example:
+                // 20/3600:20/0+60:1800
+                // 1 hour for the first 20 turns, 60 second increment (but no time limit addition)
+                // for the next 20 turns, and a sudden death of 30min after that.
+                // Even then, this should only be possible in the second or later fields
+                // ... unless someone was sadistic enough to come up with something like 0d10.
+                // Maybe it's better not to evaluate this at all...
+                field.limit = parseInt(limit[1])
+            } else if (turns !== null) {
+                // It's not a breaking error, but turns should always be accompanied by a time limit,
+                // so give a warning if it's missing
+                warnings.push(`Time control limit value for field ${params} is missing, assumed 0`)
+            }
+            const delay = params.match(/(^|[^s])d(\d*)/)
+            const increment = params.match(/\+(\d*)/)
+            // None of these separators should have more than one match
+            if ((params.match(/\//g) || []).length > 1 || (params.match(/\+/g) || []).length > 1 ||
+                (params.match(/(^|[^s])d/g) || []).length > 1 || (params.match(/\*/g) || []).length > 1
+            ) {
+                errors.push(`Time control field ${params} is malformed, field omitted!`)
+                // Do not continue parsing this field, but go through the rest of the fields to catch
+                // other possible errors.
+                continue
+            }
+            if (turns !== null) {
+                // Field has fixed time per number of turns
+                const turnCount = parseInt(turns[1])
+                if (turnCount) {
+                    field.end = turnCount + turn - 1
+                    turn += turnCount // Increment turns for possible next field start
+                } else {
+                    // This should never be zero, it invalidates the whole field
+                    errors.push(`Turn count in time control field ${params} evaluated as zero, field omitted!`)
                     continue
                 }
-                if (turns !== null) {
-                    // Field has fixed time per number of turns
-                    const turnCount = parseInt(turns[1])
-                    if (turnCount) {
-                        field.end = turnCount + turn - 1
-                        turn += turnCount // Increment turns for possible next field start
-                    } else {
-                        // This should never be zero, it invalidates the whole field
-                        errors.push(`Turn count in time control field ${params} evaluated as zero, field omitted!`)
-                        continue
-                    }
+            }
+            if (delay !== null) {
+                // Practically, the same field should not have both increment and delay, but accounting
+                // for that possibility allows interesting experimentations like
+                // 600d30+30 or even 0d30+30
+                field.delay = parseInt(delay[2])
+                if (!field.delay) {
+                    // There is no reason for this to be zero, but it's not an actual error
+                    warnings.push(`Time delay value in time control field ${params} evaluated as zero`)
                 }
-                if (limit !== null) {
-                    // An asterisk before the number means that this is an hour glass time limit, catch this first
-                    if (limit[1].startsWith('*')) {
-                        field.hourglass = true
-                        limit[1] = limit[1].substring(1)
-                    }
-                    // There is a theoretical possibility that this could be zero, for example:
-                    // 20/3600:20/0+60:1800
-                    // 1 hour for the first 20 turns, 60 second increment (but no time limit addition)
-                    // for the next 20 turns, and a sudden death of 30min after that.
-                    // Even then, this should only be possible in the second or later fields
-                    // ... unless someone was sadistic enough to come up with something like 0d10.
-                    // Maybe it's better not to evaluate this at all...
-                    field.limit = parseInt(limit[1])
-                } else if (turns !== null) {
-                    // It's not a breaking error, but turns should always be accompanied by a time limit,
-                    // so give a warning if it's missing
-                    warnings.push(`Time control limit value for field ${params} is missing, assumed 0`)
-                }
-                if (delay !== null) {
-                    // Practically, the same field should not have both increment and delay, but accounting
-                    // for that possibility allows interesting experimentations like
-                    // 600d30+30 or even 0d30+30
-                    field.delay = parseInt(delay[1])
-                    if (!field.delay) {
-                        // There is no reason for this to be zero, but it's not an actual error
-                        warnings.push(`Time delay value in time control field ${params} evaluated as zero`)
-                    }
-                }
-                if (increment !== null) {
-                    field.increment = parseInt(increment[1])
-                    if (!field.increment) {
-                        warnings.push(`Time increment value in time control field ${params} evaluated as zero`)
-                    }
+            }
+            if (increment !== null) {
+                field.increment = parseInt(increment[1])
+                if (!field.increment) {
+                    warnings.push(`Time increment value in time control field ${params} evaluated as zero`)
                 }
             }
             this.fields.push(field)

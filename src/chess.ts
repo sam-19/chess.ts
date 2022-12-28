@@ -817,11 +817,11 @@ class Chess implements ChessCore {
     get endResult () {
         return this.activeGame?.endResult || null
     }
-    get hasInsufficientMaterial () {
-        return this.activeGame?.hasInsufficientMaterial || false
-    }
     get hasEnded () {
         return this.activeGame?.hasEnded || false
+    }
+    get hasInsufficientMaterial () {
+        return this.activeGame?.hasInsufficientMaterial || false
     }
     get hasRepeatedFivefold () {
         return this.activeGame?.hasRepeatedFivefold || false
@@ -877,6 +877,9 @@ class Chess implements ChessCore {
     end () {
         this.activeGame?.end()
     }
+    enterContinuation (i?: number) {
+        return this.activeGame?.enterContinuation(i) || false
+    }
     enterVariation (i?: number) {
         return this.activeGame?.enterVariation(i) || false
     }
@@ -928,6 +931,12 @@ class Chess implements ChessCore {
     removePiece (square: string | number) {
         return this.activeGame?.removePiece(square) || Piece.NONE
     }
+    returnFromContinuation () {
+        return this.activeGame?.returnFromContinuation() || false
+    }
+    returnFromVariation () {
+        return this.activeGame?.returnFromVariation() || false
+    }
     selectTurn (index: number, boardIdx?: number) {
         return this.activeGame?.selectTurn(index, boardIdx) || false
     }
@@ -936,15 +945,6 @@ class Chess implements ChessCore {
     }
     setTimeControlReportFunction (f: ((timers: TCTimers) => void) | null) {
         this.activeGame?.setTimeControlReportFunction(f)
-    }
-    enterContinuation (i?: number) {
-        return this.activeGame?.enterContinuation(i) || false
-    }
-    returnFromContinuation () {
-        return this.activeGame?.returnFromContinuation() || false
-    }
-    returnFromVariation () {
-        return this.activeGame?.returnFromVariation() || false
     }
     start () {
         return this.activeGame?.start() || false

@@ -1,4 +1,8 @@
+import Log from 'scoped-ts-log'
 import { GameHeaders } from '../types/headers'
+
+const SCOPE = 'Headers'
+
 /**
  * Support class for managing game headers.
  */
@@ -66,6 +70,39 @@ class Headers implements GameHeaders {
         this.headers.clear()
     }
 
+    export (reduced = false) {
+        // Check if headers meet the export criteria as per
+        // http://www.saremba.de/chessgml/standards/pgn/pgn-complete.htm#c3.2
+        const exportHdrs = new Map<string, string>()
+        const requiredKeys = ['event', 'site', 'date', 'round', 'white', 'black', 'result']
+        for (const key of requiredKeys) {
+            const hdrValue = this.headers.get(key)
+            const stdKey = Headers.KEYS[key as keyof typeof Headers.KEYS]
+            if (hdrValue === undefined) {
+                Log.error(`Headers are missing required field ${stdKey}.`, SCOPE)
+                continue
+            }
+            exportHdrs.set(stdKey, hdrValue)
+        }
+        if (exportHdrs.size < requiredKeys.length) {
+            return null
+        }
+        if (reduced) {
+            // Reduced archival format only contains the mandatory headers
+            return exportHdrs
+        }
+        // Add the rest of the headers in alphabetical order
+        for (const key of Object.keys(Headers.KEYS)) {
+            if (requiredKeys.indexOf(key) === -1) {
+                const hdrValue = this.headers.get(key)
+                if (hdrValue) {
+                    exportHdrs.set(Headers.KEYS[key as keyof typeof Headers.KEYS], hdrValue)
+                }
+            }
+        }
+        return exportHdrs
+    }
+
     get (k: string) {
         if (this.headers.get(k.toLowerCase()) !== undefined) {
             return this.headers.get(k.toLowerCase())
@@ -98,7 +135,7 @@ class Headers implements GameHeaders {
     }
 
     remove (k: string) {
-        if (k.toLowerCase() in this.headers) {
+        if (this.headers.has(k.toLowerCase())) {
             this.headers.delete(
                 this.keys.splice(this.keys.indexOf(k.toLowerCase()), 1)[0]
             )
@@ -115,6 +152,7 @@ class Headers implements GameHeaders {
         for (let i=0; i<this.keys.length; i++) {
             if (preserve.indexOf(this.keys[i]) === -1) {
                 this.headers.delete(this.keys.splice(i, 1)[0])
+                i--
             }
         }
     }

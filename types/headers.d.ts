@@ -13,6 +13,14 @@ interface GameHeaders {
     clear: () => void
 
     /**
+     * Get headers arranged in an export format sepcification
+     * or null if headers don't meet export criteria.
+     * @param reduced - Return only reduced format headers.
+     * @returns Headers as a Map or null.
+     */
+    export: (reduced?: boolean) => Map<string, string> | null
+
+    /**
      * Return header value at k.
      * @param k header key
      * @returns header value string
