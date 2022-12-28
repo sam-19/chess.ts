@@ -65,10 +65,6 @@ interface ChessTurn {
      * Algebraic representation of the move associated with this turn.
      */
     toString: () => string
-    /**
-     * Alias of toString().
-     */
-    inspect: () => string
 }
 
 /**

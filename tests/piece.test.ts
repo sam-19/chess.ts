@@ -16,8 +16,7 @@ describe('Piece', () => {
     if (!piece) {
         return
     }
-    test('inspect and to string', () => {
-        expect(piece.inspect()).toStrictEqual('P')
+    test('to string', () => {
         expect(piece.toString()).toStrictEqual('P')
     })
     test('for symbol', () => {

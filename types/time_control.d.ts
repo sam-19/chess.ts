@@ -134,12 +134,6 @@ interface ChessTimeControl {
      * Get a PGN TimeControl field compliant string representation of this TimeControl object.
      */
     toString: () => string
-
-    /**
-     * Get a string representation of these time controls for console logging.
-     * @returns time controls in string form
-     */
-    inspect: () => string
 }
 
 type TCFieldModel = {

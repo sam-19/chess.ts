@@ -537,10 +537,6 @@ class TimeControl implements ChessTimeControl {
         }
         return fields.join(':')
     }
-
-    inspect () {
-        return this.toString()
-    }
 }
 /**
  * Timers for elapsed and remaining time for White and Black.

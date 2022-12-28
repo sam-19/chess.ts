@@ -47,10 +47,6 @@ class Turn implements ChessTurn {
     toString () {
         return this.move.algebraic || ''
     }
-
-    inspect () {
-        return this.toString()
-    }
 }
 
 export default Turn

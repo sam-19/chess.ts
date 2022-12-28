@@ -11,11 +11,6 @@ interface ChessPiece {
      * @returns piece text symbol
      */
     toString: () => string
-
-    /**
-     * Alias of toString() for logging.
-     */
-    inspect: () => string
 }
 
 export { ChessPiece }

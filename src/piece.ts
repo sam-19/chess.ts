@@ -82,12 +82,6 @@ class Piece implements ChessPiece {
         return this.symbol
     }
     /**
-     * Alias of toString() for logging.
-     */
-    inspect () {
-        return this.toString()
-    }
-    /**
      * Get the chess piece for given symbol.
      * @param symbol piece symbol
      * @returns Piece
