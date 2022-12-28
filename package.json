@@ -1,20 +1,20 @@
 {
-  "name": "chess.ts",
-  "version": "0.2.1",
+  "name": "@sam-19/chess.ts",
+  "version": "0.2.3",
   "repository": "https://github.com/sam-19/chess.ts.git",
   "main": "dist/chess.js",
   "files": [
-    "index.ts",
+    "index.js",
     "dist/*",
-    "src/*",
     "types/*"
   ],
   "license": "MIT",
   "scripts": {
     "build": "node node_modules/webpack/bin/webpack.js --progress --mode=production --config webpack.config.js",
     "lint": "eslint . --ext .ts",
-    "prepack": "npm run build",
-    "test": "jest --coverage --verbose --runInBand"
+    "prepack": "npm run tsc",
+    "test": "jest --coverage --verbose --runInBand",
+    "tsc": "tsc"
   },
   "devDependencies": {
     "@babel/core": "^7.14.8",

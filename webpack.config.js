@@ -2,15 +2,14 @@ var path = require('path')
 const TerserPlugin = require('terser-webpack-plugin')
 
 module.exports = (env, argv) => {
-    const isProduction = argv.mode === 'production'
     return {
         context: __dirname,
         entry: {
-            chess: { import: path.join(__dirname, 'src', 'chess.ts') },
+            index: { import: path.join(__dirname, 'src', 'chess.ts') },
         },
         output: {
             path: path.join(__dirname, './', 'dist'),
-            filename: "[name].js"
+            filename: "[name].min.js"
         },
         module: {
             rules: [
@@ -24,7 +23,7 @@ module.exports = (env, argv) => {
             ],
         },
         optimization: {
-            minimize: isProduction,
+            minimize: true,
             minimizer: [
                 new TerserPlugin(),
             ],
