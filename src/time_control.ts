@@ -3,6 +3,7 @@ import Options from './options'
 
 import { ChessTimeControl, TCFieldModel, TCTimers } from '../types/time_control'
 import { PlayerColor } from '../types/color'
+import Log from 'scoped-ts-log'
 
 class TimeControl implements ChessTimeControl {
     // Static properties
@@ -250,10 +251,12 @@ class TimeControl implements ChessTimeControl {
             this.fields.push(field)
             return { errors: [], warnings: [] }
         }
-        // Descriptor has its fields separated by colons
-        const fields = descriptor.toLowerCase().split(/[:\s]+/)
+        // Descriptor fields can be separated by spaces, colons and/or commas
+        const fields = descriptor.toLowerCase().split(/[:\s,]+/)
         const errors: string[] = []
         const warnings: string[] = []
+        let delay = 0
+        let increment = 0
         let turn = 1
         for (const params of fields) {
             const field = {...TimeControl.FieldModel} // Copy base mode
@@ -261,7 +264,7 @@ class TimeControl implements ChessTimeControl {
             let turns = null
             let limit = null
             // Try different variations
-            limit = params.match(/^sd(\*?\d+)/)
+            limit = params.match(/^sd\/?(\*?\d+)/)
             if (limit === null) {
                 limit = params.match(/^g\/(\*?\d+)/)
             }
@@ -286,14 +289,24 @@ class TimeControl implements ChessTimeControl {
                 // Even then, this should only be possible in the second or later fields
                 // ... unless someone was sadistic enough to come up with something like 0d10.
                 // Maybe it's better not to evaluate this at all...
-                field.limit = parseInt(limit[1])
+                const numericLimit = parseInt(limit[1], 10)
+                // We can make an assumption that apart from major tournaments, anything below
+                // 10 probably means hours, from 10 to 100 minutes and above seconds.
+                field.limit = (
+                    numericLimit < 10
+                    ? numericLimit*60*60
+                    : numericLimit <= 100
+                      ? numericLimit*60
+                      :numericLimit
+                )
             } else if (turns !== null) {
                 // It's not a breaking error, but turns should always be accompanied by a time limit,
                 // so give a warning if it's missing
                 warnings.push(`Time control limit value for field ${params} is missing, assumed 0`)
             }
-            const delay = params.match(/(^|[^s])d(\d*)/)
-            const increment = params.match(/\+(\d*)/)
+            // Delay and increment terms are universal and apply to all stages
+            const fieldDelay = params.match(/(^|[^s])d(\d*)/)
+            const fieldIncrement = params.match(/\+(\d*)/)
             // None of these separators should have more than one match
             if ((params.match(/\//g) || []).length > 1 || (params.match(/\+/g) || []).length > 1 ||
                 (params.match(/(^|[^s])d/g) || []).length > 1 || (params.match(/\*/g) || []).length > 1
@@ -315,21 +328,43 @@ class TimeControl implements ChessTimeControl {
                     continue
                 }
             }
-            if (delay !== null) {
-                // Practically, the same field should not have both increment and delay, but accounting
+            if (fieldDelay !== null) {
+                // Practically, the same game should not have both increment and delay, but accounting
                 // for that possibility allows interesting experimentations like
-                // 600d30+30 or even 0d30+30
-                field.delay = parseInt(delay[2])
-                if (!field.delay) {
-                    // There is no reason for this to be zero, but it's not an actual error
-                    warnings.push(`Time delay value in time control field ${params} evaluated as zero`)
+                // 600 d30 +30 or even 0 d30 +30
+                if (delay) {
+                    // Delay and increment are universal, we should not encounter another one
+                    warnings.push(`Time control has more than one delay instruction, omitting D${fieldDelay[2]}`)
+                } else {
+                    delay = parseInt(fieldDelay[2])
                 }
+                // Apply delay to all existing fields
+                for (const prevField of this.fields) {
+                    prevField.delay = delay
+                }
+                field.delay = delay
+                if (!fieldDelay[2]) {
+                    // There is no reason to mark this as zero, so it is probably a typo in the instruction
+                    warnings.push(`Time delay value in time control field ${params} evaluated as zero.`)
+                }
+            } else if (delay) {
+                field.delay = delay
             }
-            if (increment !== null) {
-                field.increment = parseInt(increment[1])
-                if (!field.increment) {
-                    warnings.push(`Time increment value in time control field ${params} evaluated as zero`)
+            if (fieldIncrement !== null) {
+                if (increment) {
+                    warnings.push(`Time control has more than one increment instruction, omitting D${fieldIncrement[1]}`)
+                } else {
+                    increment = parseInt(fieldIncrement[1])
                 }
+                for (const prevField of this.fields) {
+                    prevField.increment = increment
+                }
+                field.increment = increment
+                if (!fieldIncrement[1]) {
+                    warnings.push(`Time increment value in time control field ${params} evaluated as zero.`)
+                }
+            } else if (increment) {
+                field.increment = increment
             }
             this.fields.push(field)
         }
