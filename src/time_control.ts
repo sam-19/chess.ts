@@ -3,7 +3,6 @@ import Options from './options'
 
 import { ChessTimeControl, TCFieldModel, TCTimers } from '../types/time_control'
 import { PlayerColor } from '../types/color'
-import Log from 'scoped-ts-log'
 
 class TimeControl implements ChessTimeControl {
     // Static properties
@@ -41,6 +40,7 @@ class TimeControl implements ChessTimeControl {
     time: Timers = new Timers()
     reportTimer: number | undefined = undefined
     turnFirst = true
+    firstMove = true
     reportFunction: ((timers: Timers) => void) | null = null
 
     // TODO: Capped Fischer timing and Bronstein timing?
@@ -142,8 +142,11 @@ class TimeControl implements ChessTimeControl {
 
     getLimitAddition (plyNum=this.plyNum) {
         for (let i=0; i<this.fields.length; i++) {
-            // First limit is added in startTimer(), don't add again
-            if (plyNum && (this.fields[i].start - 1)*2 === plyNum) {
+            if (((this.fields[i].start - 1)*2 === plyNum ||
+                  // If the game, for some reason, starts with Black's move
+                  (this.firstMove && (this.fields[i].start - 1)*2 + 1 === plyNum)
+                ) && this.fields[i].limit
+            ) {
                 return this.fields[i].limit
             }
         }
@@ -211,8 +214,9 @@ class TimeControl implements ChessTimeControl {
                 this.time.elapsed[player] += timeDelta
                 // Calculate remaining time only if there is an actual time control set
                 if (this.fields.length) {
-                    // Check for possible time limit increment
-                    const limit = this.getLimitAddition(plyNum)
+                    // Check for possible time limit increment.
+                    // First limit is added at startTimer, so don't add it again.
+                    const limit = this.firstMove ? 0 : this.getLimitAddition(plyNum)
                     if (limit) {
                         this.time.remaining[Color.WHITE] += limit*1000
                         this.time.remaining[Color.BLACK] += limit*1000
@@ -232,6 +236,9 @@ class TimeControl implements ChessTimeControl {
         this.pauses = [] // Remaining time has been saved, reset pauses
         this.turnFirst = true
         this.updateReportTimer()
+        if (this.firstMove) {
+            this.firstMove = false
+        }
         return this.time
     }
 
@@ -248,6 +255,7 @@ class TimeControl implements ChessTimeControl {
             if (bullet[2]) {
                 field.increment = parseInt(bullet[2], 10)
             }
+            field.start = 1
             this.fields.push(field)
             return { errors: [], warnings: [] }
         }
@@ -299,6 +307,7 @@ class TimeControl implements ChessTimeControl {
                       ? numericLimit*60
                       :numericLimit
                 )
+                this.fields.push(field)
             } else if (turns !== null) {
                 // It's not a breaking error, but turns should always be accompanied by a time limit,
                 // so give a warning if it's missing
@@ -334,39 +343,42 @@ class TimeControl implements ChessTimeControl {
                 // 600 d30 +30 or even 0 d30 +30
                 if (delay) {
                     // Delay and increment are universal, we should not encounter another one
-                    warnings.push(`Time control has more than one delay instruction, omitting D${fieldDelay[2]}`)
+                    warnings.push(`Time controls have more than one delay instruction, omitting D${fieldDelay[2]}`)
                 } else {
                     delay = parseInt(fieldDelay[2])
+                    // Add delay in its own field
+                    this.fields.unshift({
+                        delay: delay,
+                        end: null,
+                        hourglass: false,
+                        increment: 0,
+                        limit: 0,
+                        start: 1,
+                    })
                 }
-                // Apply delay to all existing fields
-                for (const prevField of this.fields) {
-                    prevField.delay = delay
-                }
-                field.delay = delay
                 if (!fieldDelay[2]) {
                     // There is no reason to mark this as zero, so it is probably a typo in the instruction
                     warnings.push(`Time delay value in time control field ${params} evaluated as zero.`)
                 }
-            } else if (delay) {
-                field.delay = delay
             }
             if (fieldIncrement !== null) {
                 if (increment) {
                     warnings.push(`Time control has more than one increment instruction, omitting D${fieldIncrement[1]}`)
                 } else {
                     increment = parseInt(fieldIncrement[1])
+                    this.fields.unshift({
+                        delay: 0,
+                        end: null,
+                        hourglass: false,
+                        increment: increment,
+                        limit: 0,
+                        start: 1,
+                    })
                 }
-                for (const prevField of this.fields) {
-                    prevField.increment = increment
-                }
-                field.increment = increment
                 if (!fieldIncrement[1]) {
                     warnings.push(`Time increment value in time control field ${params} evaluated as zero.`)
                 }
-            } else if (increment) {
-                field.increment = increment
             }
-            this.fields.push(field)
         }
         if (!this.fields.length) {
             // Either the descriptor was empty or all fields were invalid
@@ -406,9 +418,10 @@ class TimeControl implements ChessTimeControl {
             return { error: "Timer has already been started!" }
         }
         this.start = timestamp
-        if (this.fields[0].limit) {
-            this.time.remaining[Color.WHITE] = this.fields[0].limit*1000
-            this.time.remaining[Color.BLACK] = this.fields[0].limit*1000
+        const startLimit = this.getLimitAddition()
+        if (startLimit) {
+            this.time.remaining[Color.WHITE] = startLimit*1000
+            this.time.remaining[Color.BLACK] = startLimit*1000
         }
         this.lastMove = timestamp
         this.turnFirst = true
@@ -546,31 +559,46 @@ class TimeControl implements ChessTimeControl {
 
     toString () {
         const fields = [] as string[]
+        const suffix = [] as string[]
         for (const field of this.fields) {
             let descriptor = ''
             // Turn count
             if (field.end !== null) {
                 descriptor = (field.end - field.start + 1).toString()
             }
-            // Check and account for hourglass time control
-            const limit = field.hourglass ? `*${field.limit}` : field.limit.toString()
-            // Time limit
-            if (field.end !== null) {
-                // Print / between turn count and limit
-                descriptor += `/${limit}`
-            } else if (field.limit || field.delay || field.increment) {
-                // There are cases when we should print a limit of 0, see above
-                descriptor += field.limit.toString()
+            if (field.limit) {
+                // Check and account for hourglass time control
+                const limit = field.hourglass ? `*${field.limit}` : field.limit.toString()
+                // Time limit
+                if (field.end !== null) {
+                    // Print / between turn count and limit
+                    descriptor += `/${limit}`
+                } else if (
+                    fields.length && field.end === null &&
+                    !field.delay && !field.increment
+                ) {
+                    // Print a sudden death limit
+                    descriptor += `SD/${limit}`
+                }
+                if (field.delay) {
+                    descriptor += `d${field.delay}`
+                }
+                if (field.increment) {
+                    descriptor += `+${field.increment}`
+                }
+                fields.push(descriptor)
+            } else if (field.delay || field.increment) {
+                // Withouta limit, we should add increment/delay at the end
+                if (field.delay) {
+                    descriptor += `d${field.delay}`
+                }
+                if (field.increment) {
+                    descriptor += `+${field.increment}`
+                }
+                suffix.push(descriptor)
             }
-            if (field.delay) {
-                descriptor += `d${field.delay}`
-            }
-            if (field.increment) {
-                descriptor += `+${field.increment}`
-            }
-            fields.push(descriptor)
         }
-        return fields.join(':')
+        return fields.concat(...suffix).join(':')
     }
 }
 /**

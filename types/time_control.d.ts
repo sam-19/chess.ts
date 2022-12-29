@@ -12,6 +12,7 @@ interface ChessTimeControl {
     time: TCTimers
     reportTimer: number | undefined
     turnFirst: boolean
+    firstMove: boolean
     reportFunction: ((timers: TCTimers) => void) | null
 
     /**
