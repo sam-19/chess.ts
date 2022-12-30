@@ -60,6 +60,7 @@ class Board implements ChessBoard {
     kingPos: { [color: string]: number | null }
     mockBoard: Board | null
     moveCache = {
+        detailed: false,
         includeFen: false,
         includeSan: false,
         moves: [] as Move[]
@@ -98,6 +99,7 @@ class Board implements ChessBoard {
         }
         this.mockBoard = null
         this.moveCache = {
+            detailed: false,
             includeFen: false,
             includeSan: false,
             moves: [] as Move[]
@@ -163,6 +165,7 @@ class Board implements ChessBoard {
             [Color.BLACK]: orig.kingPos[Color.BLACK]
         }
         newBoard.moveCache = {
+            detailed: orig.moveCache.detailed,
             includeFen: orig.moveCache.includeFen,
             includeSan: orig.moveCache.includeSan,
             moves: orig.moveCache.moves.slice(0)
@@ -603,6 +606,7 @@ class Board implements ChessBoard {
         if (this.moveCache.moves.length
             && (!options.includeSan || this.moveCache.includeSan)
             && (!options.includeFen || this.moveCache.includeFen)
+            && (!options.detailed || this.moveCache.detailed)
         )  {
             if (!options.onlyLegal) {
                 return this.moveCache.moves
@@ -873,6 +877,7 @@ class Board implements ChessBoard {
         let finalMovesType: { blocked: typeof moveDataType[], illegal: typeof moveDataType[], legal: typeof moveDataType[] }
         const options = Options.Board.getMoves().assign(opts) as MethodOptions.Board.getMoves
         const moves = this.generateMoves({
+            detailed: options.detailed,
             includeSan: options.notation === 'all' || options.notation === 'san',
             includeFen: options.includeFen,
             onlyLegal: options.filter === 'legal'
@@ -1103,6 +1108,7 @@ class Board implements ChessBoard {
                 [Color.BLACK]: this.kingPos[Color.BLACK]
             }
             this.mockBoard.moveCache = {
+                detailed: false,
                 includeFen: false,
                 includeSan: false,
                 moves: [],
@@ -1330,6 +1336,7 @@ class Board implements ChessBoard {
 
     resetMoveCache () {
         this.moveCache = {
+            detailed: false,
             includeFen: false,
             includeSan: false,
             moves: [],

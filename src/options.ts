@@ -38,6 +38,7 @@ class Options implements ChessOptions {
          * @param includeFen include a FEN representation of the board state resulting from the move (default false)
          * @param onlyDestinations only return the destination squares (ignored if onlyForSquare is false, default false
          * @param onlyForSquare only generate moves for the piece on given square (default null)
+         * @param detailed return detailed information about some moves (default false)
          */
         getMoves: () => new Options({
             notation: 'all',
@@ -45,6 +46,7 @@ class Options implements ChessOptions {
             includeFen: false,
             onlyDestinations: false,
             onlyForSquare: undefined,
+            detailed: false,
         }),
         /**
          * Default options for move maker

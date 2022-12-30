@@ -70,6 +70,14 @@ describe('Board creation', () => {
         const lastMove = (board.undoMoves() as Turn[])[0]
         expect(lastMove.move.flags.contains(Flags.CAPTURE)).toStrictEqual(true)
         expect(board.toFen()).toStrictEqual('rnbqkbnr/ppp1pppp/8/3p4/4P3/6P1/PPPP1P1P/RNBQKBNR w KQkq d6 0 2')
+        game.loadFen('rnbqkbnr/pppppp1p/6p1/1B6/4P3/8/PPPP1PPP/RNBQK1NR b KQkq - 1 2')
+        const moves = game.getMoves({ detailed: true })
+        expect(moves.illegal.map(m => m.san)).toContain('d6')
+        for (const move of moves.illegal) {
+            if (move.san === 'd6') {
+                expect((move.move.detail.get('attackers') as string[])).toContain('b5')
+            }
+        }
     })
     test('move variations', () => {
         board.makeMoveFromSAN('d4')

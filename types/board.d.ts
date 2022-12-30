@@ -36,8 +36,9 @@ interface ChessBoard {
     mockBoard: ChessBoard | null
     /** Cached moves for this turn (so they don't have to be calculated multiple times) */
     moveCache: {
-        includeFen: boolean,
-        includeSan: boolean,
+        detailed: boolean
+        includeFen: boolean
+        includeSan: boolean
         moves: ChessMove[]
     }
     /** Possible parent board that this is a variation/continuation of */

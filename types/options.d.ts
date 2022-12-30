@@ -19,6 +19,7 @@ declare namespace MethodOptions {
             skipCheckmate?: boolean
         }
         type getMoves = {
+            detailed?: boolean
             notation?: 'all' | 'algebraic' | 'san' | 'uci'
             onlyDestinations?: boolean
             includeFen?: boolean
