@@ -5,6 +5,7 @@ interface ChessMove {
     algebraic: string | null
     capturedPiece: ChessPiece | null
     dest: number
+    detail: Map<string, string | string[] | number | number[]>
     fen: string | null
     flags: MoveFlags
     legal: boolean | null
@@ -23,6 +24,7 @@ type MoveError = { error?: string }
 interface MoveOptions {
     orig: number
     dest: number
+    detail: { [key: string]: string | string[] | number | number[] }
     movedPiece: ChessPiece
     capturedPiece: ChessPiece | null
     promotionPiece: ChessPiece | null

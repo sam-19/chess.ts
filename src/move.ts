@@ -81,6 +81,7 @@ class Move implements ChessMove {
     algebraic: string | null = null
     capturedPiece: ChessPiece | null = null
     dest: number
+    detail = new Map<string, string | string[] | number | number[]>()
     fen: string | null = null
     flags: MoveFlags
     legal: boolean | null = null
@@ -100,7 +101,8 @@ class Move implements ChessMove {
             movedPiece,         // Piece
             capturedPiece,      // Piece / null
             promotionPiece,     // Piece / null
-            flags               // Int[]
+            flags,               // Int[]
+            detail,
         } = options
         this.flags = new Flags(flags)
         this.movedPiece = movedPiece
@@ -115,6 +117,9 @@ class Move implements ChessMove {
         }
         if (!flags.length) {
             this.flags.add(Flags.NORMAL)
+        }
+        for (const [key, value] of Object.entries(detail)) {
+            this.detail.set(key, value)
         }
         if (promotionPiece) {
             this.flags.add(Flags.PROMOTION)
@@ -143,6 +148,7 @@ class Move implements ChessMove {
         const copy = Object.create(Move.prototype)
         copy.orig = move.orig
         copy.dest = move.dest
+        copy.detail = move.detail
         copy.movedPiece = move.movedPiece
         copy.capturedPiece = move.capturedPiece
         copy.flags = move.flags

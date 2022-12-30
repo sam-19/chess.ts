@@ -285,9 +285,9 @@ interface ChessCore {
      * @param opts { notation, onlyDestinations, includeFen, onlyForSquare, filter }
      */
     getMoves: (opts: MethodOptions.Board.getMoves) => {
-                        blocked: { move: string, fen: string, algebraic: string, san: string, uci: string }[],
-                        illegal: { move: string, fen: string, algebraic: string, san: string, uci: string }[],
-                        legal: { move: string, fen: string, algebraic: string, san: string, uci: string }[]
+                        blocked: { move: ChessMove, fen: string, algebraic: string, san: string, uci: string }[],
+                        illegal: { move: ChessMove, fen: string, algebraic: string, san: string, uci: string }[],
+                        legal: { move: ChessMove, fen: string, algebraic: string, san: string, uci: string }[]
                     }
     /**
      * Go to the start of the game (before the first move).

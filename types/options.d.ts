@@ -11,6 +11,7 @@ declare namespace MethodOptions {
             continuation?: boolean
         }
         type generateMoves = {
+            detailed?: boolean
             onlyForSquare?: string | number
             includeSan?: boolean
             includeFen?: boolean
@@ -81,6 +82,7 @@ declare namespace MethodOptions {
     type MoveOptions = {
         orig: number
         dest: number
+        detail: { [key: string]: string | string[] | number | number[] }
         movedPiece: Piece
         capturedPiece: Piece | null
         promotionPiece: Piece | null

@@ -803,10 +803,19 @@ class Board implements ChessBoard {
                 move.fen = tmpBoard.toFen()
             }
             // Check if this move would leave the active player's king exposed
-            if (tmpBoard.isAttacked(opponent, tmpBoard.kingPos[this.turn])) {
+            const kingAttacked = tmpBoard.isAttacked(opponent, tmpBoard.kingPos[this.turn], options.detailed)
+            if (kingAttacked) {
                 move.flags.add(Flags.PINNED)
                 if (options.includeSan) {
                     move.san = Move.toSan(move, this)
+                }
+                if (options.detailed) {
+                    move.detail.set(
+                        'attackers',
+                        (kingAttacked as number[]).map(
+                            num => Board.SQUARE_NAMES[num as keyof typeof Board.SQUARE_NAMES]
+                        )
+                    )
                 }
                 move.legal = false
                 continue
@@ -860,7 +869,7 @@ class Board implements ChessBoard {
     }
 
     getMoves (opts: MethodOptions.Board.getMoves = {}) {
-        let moveDataType: { move: string, fen: string, algebraic: string, san: string, uci: string }
+        let moveDataType: { move: Move, fen: string, algebraic: string, san: string, uci: string }
         let finalMovesType: { blocked: typeof moveDataType[], illegal: typeof moveDataType[], legal: typeof moveDataType[] }
         const options = Options.Board.getMoves().assign(opts) as MethodOptions.Board.getMoves
         const moves = this.generateMoves({
@@ -879,45 +888,25 @@ class Board implements ChessBoard {
             ) {
                 continue
             }
+            moveData.move = move
+            if (options.includeFen) {
+                moveData.fen = move.fen || ''
+            }
             // Populate notation fields
             if (options.onlyDestinations) {
                 // Destinations are always the same
-                moveData.move = move.algebraic?.substring(3,5) || ''
-                if (options.includeFen) {
-                    moveData.fen = move.fen || ''
-                } else {
-                    moveData.algebraic = move.algebraic?.substring(3,5) || ''
-                }
+                moveData.algebraic = move.algebraic?.substring(3,5) || ''
             } else {
                 if (options.notation == 'all') {
                     moveData.algebraic = move.algebraic || ''
-                    moveData.move = move.san || ''
                     moveData.san = move.san || ''
                     moveData.uci = move.algebraic?.substring(0,2) || '' + move.algebraic?.substring(3) || ''
-                    if (options.includeFen) {
-                        moveData.fen = move.fen || ''
-                    }
                 } else if (options.notation === 'algebraic') {
-                    moveData.move = move.algebraic || ''
-                    if (options.includeFen) {
-                        moveData.fen = move.fen || ''
-                    } else {
-                        moveData.algebraic = move.algebraic || ''
-                    }
+                    moveData.algebraic = move.algebraic || ''
                 } else if (options.notation === 'san') {
-                    moveData.move = move.san || ''
-                    if (options.includeFen) {
-                        moveData.fen = move.fen || ''
-                    } else {
-                        moveData.san = move.san || ''
-                    }
+                    moveData.san = move.san || ''
                 } else if (options.notation === 'uci') {
-                    moveData.move = move.algebraic?.substring(0,2) || '' + move.algebraic?.substring(3) || ''
-                    if (options.includeFen) {
-                        moveData.fen = move.fen || ''
-                    } else {
-                        moveData.uci = move.algebraic?.substring(0,2) || '' + move.algebraic?.substring(3) || ''
-                    }
+                    moveData.uci = move.algebraic?.substring(0,2) || '' + move.algebraic?.substring(3) || ''
                 }
             }
             // Sort by type

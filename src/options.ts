@@ -16,6 +16,7 @@ class Options implements ChessOptions {
         } as MethodOptions.Board.branchFromParent),
         /**
          * Default options for move generator
+         * @param detailed return detailed information about some moves (default false)
          * @param includeFen include a FEN representation of the board state resulting from the move (default false)
          * @param inludeSan include a SAN reporesentations for the generated moves (default false)
          * @param onlyForSquare only generate moves for the piece on given square (default null)
@@ -23,6 +24,7 @@ class Options implements ChessOptions {
          * @param skipCkeckmate do not check for checkmate (can cause an infinite loop)
          */
         generateMoves: () => new Options({
+            detailted: false,
             includeFen: false,
             includeSan: false,
             onlyForSquare: undefined,
