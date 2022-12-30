@@ -65,7 +65,7 @@ describe('Board creation', () => {
         expect(board.posCount.size).toStrictEqual(1)
         expect(board.getMoves({ notation: 'san' }).legal.map(m => m.san)).toContain('d5')
         board.makeMoveFromSAN('d5')
-        expect(board.getMoves({ notation: 'san' }).legal.map(m => m.move)).toContain('exd5')
+        expect(board.getMoves({ notation: 'san' }).legal.map(m => m.move.san)).toContain('exd5')
         board.makeMoveFromSAN('exd5')
         const lastMove = (board.undoMoves() as Turn[])[0]
         expect(lastMove.move.flags.contains(Flags.CAPTURE)).toStrictEqual(true)

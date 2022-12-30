@@ -16,6 +16,7 @@ describe('Move generator', () => {
     const move = new Move({
         orig: 0,
         dest: 16,
+        detail: {},
         movedPiece: Piece.BLACK_ROOK,
         capturedPiece: null,
         promotionPiece: null,

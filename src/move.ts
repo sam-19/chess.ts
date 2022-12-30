@@ -118,7 +118,7 @@ class Move implements ChessMove {
         if (!flags.length) {
             this.flags.add(Flags.NORMAL)
         }
-        for (const [key, value] of Object.entries(detail)) {
+        for (const [key, value] of Object.entries(detail || {})) {
             this.detail.set(key, value)
         }
         if (promotionPiece) {
