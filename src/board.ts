@@ -808,7 +808,7 @@ class Board implements ChessBoard {
             }
             // Check if this move would leave the active player's king exposed
             const kingAttacked = tmpBoard.isAttacked(opponent, tmpBoard.kingPos[this.turn], options.detailed)
-            if (kingAttacked) {
+            if (kingAttacked && (kingAttacked === true || kingAttacked.length)) {
                 move.flags.add(Flags.PINNED)
                 if (options.includeSan) {
                     move.san = Move.toSan(move, this)
