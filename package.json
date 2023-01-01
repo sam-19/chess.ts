@@ -1,6 +1,6 @@
 {
   "name": "@sam-19/chess.ts",
-  "version": "0.2.12",
+  "version": "0.2.13",
   "repository": "https://github.com/sam-19/chess.ts.git",
   "main": "dist/chess.js",
   "files": [
