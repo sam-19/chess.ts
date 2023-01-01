@@ -726,7 +726,7 @@ class Chess implements ChessCore {
         } else {
             // Return null if the file didnt' contain any valid entries
             if (pgn.length) {
-                return [{ headers: [[]], moves: cleanMoveData(pgn) }]
+                return [{ headers: [], moves: cleanMoveData(pgn) }]
             } else
                 return []
         }

@@ -86,20 +86,9 @@ describe('Game creation', () => {
     })
 })
 describe('Loading and exporting PGN', () => {
-    /* Test PGN parser */
-    test('parse single PGN', () => {
-        chess.activeGroup = 'parse'
-        const parsed = chess.parseFullPgn(testPGN)
-        const game = chess.createGameFromPgn(parsed[0], 'parse')
-        expect(parsed.length).toStrictEqual(1)
-        expect(parsed[0].headers).toBeDefined()
-        expect(parsed[0].moves).toBeDefined()
-        expect(parsed[0].headers.length).toStrictEqual(7)
-        expect(parsed[0].moves.length).toStrictEqual(558)
-        expect(game.game).toBeTruthy()
-    })
     /* Test PGN loader */
     test('load single PGN game', () => {
+        chess.activeGroup = 'parse'
         const headers = chess.loadPgn(testPGN)
         expect(headers).toBeDefined()
         expect(headers.length).toStrictEqual(1)
@@ -120,6 +109,26 @@ describe('Loading and exporting PGN', () => {
         }
         expect(active.result[Chess.Color.WHITE]).toStrictEqual(Chess.Game.RESULT.DRAW)
         expect(active.result[Chess.Color.BLACK]).toStrictEqual(Chess.Game.RESULT.DRAW)
+    })
+    test('remove loaded game', () => {
+        chess.removeGame()
+        expect(chess.activeGame).toBeNull()
+    })
+    /* Test PGN parser */
+    test('parse simple PGN', () => {
+        const parsed = chess.parseFullPgn('1. e4')
+        chess.createGameFromPgn(parsed[0], 'parse')
+        chess.removeGame()
+    })
+    test('parse full PGN', () => {
+        const parsed = chess.parseFullPgn(testPGN)
+        const game = chess.createGameFromPgn(parsed[0], 'parse')
+        expect(parsed.length).toStrictEqual(1)
+        expect(parsed[0].headers).toBeDefined()
+        expect(parsed[0].moves).toBeDefined()
+        expect(parsed[0].headers.length).toStrictEqual(7)
+        expect(parsed[0].moves.length).toStrictEqual(558)
+        expect(game.game).toBeTruthy()
     })
     test('loaded game navigation', () => {
         const active = chess.activeGame
@@ -160,8 +169,8 @@ describe('Loading and exporting PGN', () => {
         // Replace all new lines with space so line length doesn't affect the result
         expect(pgnParts[1].replace(/[\t\r\n\s]+/g, ' ')).toStrictEqual(crtlParts[1].replace(/[\t\r\n\s]+/g, ' '))
     })
-    test('remove loaded game', () => {
-        chess.removeGame()
+    test('clear all loaded games', () => {
+        chess.clearAllGames()
         expect(chess.activeGame).toBeNull()
     })
     /* Test PGN with variation */
