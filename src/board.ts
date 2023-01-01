@@ -182,6 +182,46 @@ class Board implements ChessBoard {
     }
 
     /**
+     * Get the distance between `square1` and `square2`.
+     * @param square1 - Name or index of the first square.
+     * @param square2 - Name or index of the second square.
+     * @returns Distance in moves (any direction) or -1 on error.
+     */
+    static distanceBetween (square1: number | string, square2: number | string) {
+        let file1 = 0
+        let rank1 = 0
+        let file2 = 0
+        let rank2 = 0
+        if (typeof square1 === 'string') {
+            square1 = square1.toLowerCase()
+            if (!Object.keys(Board.SQUARE_INDICES).includes(square1)) {
+                Log.error(`Square ${square1} is not a valid square name.`, SCOPE)
+                return -1
+            }
+            square1 = Board.SQUARE_INDICES[square1 as keyof typeof Board.SQUARE_INDICES]
+        } else if (!Object.values(Board.SQUARE_INDICES).includes(square1)) {
+            Log.error(`Square ${square1} is not a valid square index.`, SCOPE)
+            return -1
+        }
+        file1 = Board.fileOf(square1)
+        rank1 = Board.rankOf(square1)
+        if (typeof square2 === 'string') {
+            square2 = square2.toLowerCase()
+            if (!Object.keys(Board.SQUARE_INDICES).includes(square2)) {
+                Log.error(`Square ${square1} is not a valid square name.`, SCOPE)
+                return -1
+            }
+            square2 = Board.SQUARE_INDICES[square2 as keyof typeof Board.SQUARE_INDICES]
+        } else if (!Object.values(Board.SQUARE_INDICES).includes(square2)) {
+            Log.error(`Square ${square2} is not a valid square index.`, SCOPE)
+            return -1
+        }
+        file2 = Board.fileOf(square2)
+        rank2 = Board.rankOf(square2)
+        return Math.max(Math.abs(file2 - file1), Math.abs(rank2 - rank1))
+    }
+
+    /**
      * Get file index of a 0x88 position index
      * @param p position index
      * @return 0-7

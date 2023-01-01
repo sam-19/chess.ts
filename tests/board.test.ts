@@ -14,7 +14,7 @@ import Fen from '../src/fen'
 Log.setPrintThreshold("WARN")
 const game = new Game()
 expect(game).toBeDefined()
-describe('Board creation', () => {
+describe('Board', () => {
     const board = game.currentBoard
     test('board exists', () => {
         expect(board).toBeDefined()
@@ -137,5 +137,70 @@ describe('Board creation', () => {
         valBoard.placePiece(Piece.WHITE_PAWN, 'a4')
         const setup6 = valBoard.validate()
         expect(setup6.errors.length).toStrictEqual(2)
+    })
+    test('static properties', () => {
+        for (const [kIdx, vIdx] of Object.entries(Board.SQUARE_INDICES)) {
+            switch (kIdx[0]) {
+                case 'a':
+                    expect(Board.fileOf(vIdx)).toStrictEqual(0)
+                    break
+                case 'b':
+                    expect(Board.fileOf(vIdx)).toStrictEqual(1)
+                    break
+                case 'c':
+                    expect(Board.fileOf(vIdx)).toStrictEqual(2)
+                    break
+                case 'd':
+                    expect(Board.fileOf(vIdx)).toStrictEqual(3)
+                    break
+                case 'e':
+                    expect(Board.fileOf(vIdx)).toStrictEqual(4)
+                    break
+                case 'f':
+                    expect(Board.fileOf(vIdx)).toStrictEqual(5)
+                    break
+                case 'g':
+                    expect(Board.fileOf(vIdx)).toStrictEqual(6)
+                    break
+                case 'h':
+                    expect(Board.fileOf(vIdx)).toStrictEqual(7)
+                    break
+            }
+            switch (kIdx[1]) {
+                case '1':
+                    expect(Board.rankOf(vIdx)).toStrictEqual(7)
+                    break
+                case '2':
+                    expect(Board.rankOf(vIdx)).toStrictEqual(6)
+                    break
+                case '3':
+                    expect(Board.rankOf(vIdx)).toStrictEqual(5)
+                    break
+                case '4':
+                    expect(Board.rankOf(vIdx)).toStrictEqual(4)
+                    break
+                case '5':
+                    expect(Board.rankOf(vIdx)).toStrictEqual(3)
+                    break
+                case '6':
+                    expect(Board.rankOf(vIdx)).toStrictEqual(2)
+                    break
+                case '7':
+                    expect(Board.rankOf(vIdx)).toStrictEqual(1)
+                    break
+                case '8':
+                    expect(Board.rankOf(vIdx)).toStrictEqual(0)
+                    break
+            }
+            for (const [kName, vName] of Object.entries(Board.SQUARE_NAMES)) {
+                if (kIdx === vName) {
+                    expect(vIdx).toStrictEqual(parseInt(kName))
+                } else {
+                    const dst = Board.distanceBetween(kIdx, vName)
+                    expect(dst).toBeGreaterThan(0)
+                    expect(dst).toStrictEqual(Board.distanceBetween(parseInt(kName), vIdx))
+                }
+            }
+        }
     })
 })
