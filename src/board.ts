@@ -1051,10 +1051,12 @@ class Board implements ChessBoard {
             return { isNew: false, contIdx: -1, varIdx: -1 }
         }
         // Does any continuation of the current move match the attempted move
-        const curVars = this.history[this.selectedTurnIndex].variations
-        for (let i=0; i<curVars.length; i++) {
-            if (curVars[i].continuation && curVars[i].history[0].move.algebraic === move.algebraic) {
-                return { isNew: false, contIdx: i, varIdx: -1 }
+        if (this.selectedTurnIndex >= 0) { // index is -1 before first move
+            const curVars = this.history[this.selectedTurnIndex].variations
+            for (let i=0; i<curVars.length; i++) {
+                if (curVars[i].continuation && curVars[i].history[0].move.algebraic === move.algebraic) {
+                    return { isNew: false, contIdx: i, varIdx: -1 }
+                }
             }
         }
         // Does any variation of the next move in history match the attempted move

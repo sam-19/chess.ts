@@ -15,7 +15,7 @@ Log.setPrintThreshold("WARN")
 const game = new Game()
 expect(game).toBeDefined()
 describe('Board', () => {
-    const board = game.currentBoard
+    let board = game.currentBoard
     test('board exists', () => {
         expect(board).toBeDefined()
     })
@@ -55,6 +55,7 @@ describe('Board', () => {
         const piece = board.removePiece('g2') as Piece
         board.placePiece(piece, 'g3')
         expect(board.pieceAt('g3').symbol).toStrictEqual(Piece.WHITE_PAWN.symbol)
+        board.placePiece(board.removePiece('g3') as Piece, 'g2')
     })
     test('make moves', () => {
         board.makeMoveFromAlgebraic('e2', 'e4')
@@ -69,7 +70,7 @@ describe('Board', () => {
         board.makeMoveFromSAN('exd5')
         const lastMove = (board.undoMoves() as Turn[])[0]
         expect(lastMove.move.flags.contains(Flags.CAPTURE)).toStrictEqual(true)
-        expect(board.toFen()).toStrictEqual('rnbqkbnr/ppp1pppp/8/3p4/4P3/6P1/PPPP1P1P/RNBQKBNR w KQkq d6 0 2')
+        expect(board.toFen()).toStrictEqual('rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 2')
         game.loadFen('rnbqkbnr/pppppp1p/6p1/1B6/4P3/8/PPPP1PPP/RNBQK1NR b KQkq - 1 2')
         const moves = game.getMoves({ detailed: true })
         expect(moves.illegal.map(m => m.san)).toContain('d6')
@@ -80,39 +81,35 @@ describe('Board', () => {
         }
     })
     test('move variations', () => {
-        board.makeMoveFromSAN('d4')
-        board.makeMoveFromSAN('e5')
-        board.makeMoveFromSAN('dxe5')
-        board.makeMoveFromSAN('dxe4')
-        board.prevTurn()
-        board.makeMoveFromSAN('d4')
-        expect(board.toFen()).toStrictEqual('rnbqkbnr/ppp2ppp/8/4P3/4p3/6P1/PPP2P1P/RNBQKBNR w KQkq - 0 4')
-        //expect(board.parentBoard?.id).toStrictEqual(0)
-        expect(board.history[board.history.length - 1].variations.length).toStrictEqual(1)
-        expect(board.history[board.history.length - 1].variations[0].parentBranchTurnIndex).toStrictEqual(5)
-        // Switch to the first move of the first variation
-        game.selectTurn(0, 1)
-        const varBoard = game.currentBoard
-        expect(varBoard.parentBoard?.id).toStrictEqual(0)
-        varBoard.makeMoveFromSAN('e6')
-        varBoard.makeMoveFromSAN('fxe6')
-        varBoard.prevTurn()
-        varBoard.prevTurn()
-        game.makeMoveFromSan('b3')
-        game.makeMoveFromSan('f5')
-        game.makeMoveFromSan('exf6')
-        expect(game.getMoveHistory('san').join(',')).toStrictEqual('e4,d5,d4,e5,dxe5,d4,b3,f5,exf6')
+        game.selectTurn(-1, 0)
+        // This continue from the previous FEN setup position
+        game.makeMoveFromSan('c6')
+        game.makeMoveFromSan('Bxc6')
+        game.makeMoveFromSan('dxc6')
+        game.makeMoveFromSan('e5')
+        board = game.currentBoard
+        expect(board.toFen()).toStrictEqual('rnbqkbnr/pp2pp1p/2p3p1/4P3/8/8/PPPP1PPP/RNBQK1NR b KQkq - 0 4')
+        game.prevTurn()
+        game.makeMoveFromSan('d4')
+        board = game.currentBoard
+        expect(board.parentBoard?.history[board.parentBoard.history.length - 1].variations.length).toStrictEqual(1)
+        expect(board.parentBoard?.history[board.parentBoard.history.length - 1].variations[0].id).toStrictEqual(board.id)
+        expect(board.parentBoard?.id).toStrictEqual(1)
+        game.makeMoveFromSan('e5')
+        game.makeMoveFromSan('dxe5')
+        game.makeMoveFromSan('f6')
+        expect(game.getMoveHistory('san').join(',')).toStrictEqual('c6,Bxc6,dxc6,d4,e5,dxe5,f6')
     })
     test('move continuation', () => {
         const curBoard = game.currentBoard
         curBoard.prevTurn()
         const curId = curBoard.id
         // This should not branch a new variation but select the pre-existing move
-        game.makeMoveFromAlgebraic('e5', 'f6')
+        game.makeMoveFromAlgebraic('f7', 'f6')
         expect(game.currentBoard.id).toStrictEqual(curId)
         curBoard.prevTurn()
-        game.createContinuationFromSan('e6')
-        expect(game.getMoveHistory('san').join(',')).toStrictEqual('e4,d5,d4,e5,dxe5,d4,b3,f5,e6')
+        game.createContinuationFromSan('g5')
+        expect(game.getMoveHistory('san').join(',')).toStrictEqual('c6,Bxc6,dxc6,d4,e5,dxe5,g5')
     })
     test('board validation', () => {
         const valBoard = new Board(game)
