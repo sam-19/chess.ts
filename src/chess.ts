@@ -466,28 +466,46 @@ class Chess implements ChessCore {
         }
         this.parsedPgnGames[group] = this.parsedPgnGames[group].concat(this.parseFullPgn(pgn))
         const pgnGameCount = this.parsedPgnGames[group].length
+        const headers = [] as string[][][]
         if (pgnGameCount) { // At least one game was found
             if (pgnGameCount <= (options.maxItems as number)) {
                 for (let i=0; i<pgnGameCount; i++) {
-                    this.createGameFromPgn(this.parsedPgnGames[group][i])
+                    const game = this.createGameFromPgn(this.parsedPgnGames[group].splice(i, 1)[0]).game
                     if (this.active.group === group && this.active.index === -1 && options.activateFirst) {
                         this.active.index = 0
                     }
+                    const newHeaders = [] as string[][]
+                    for (const [key, val] of Object.entries(game.headers.standardized())) {
+                        if (key) {
+                            newHeaders.push([key, val])
+                        }
+                    }
                     if (options.returnHeaders) {
-                        options.returnHeaders(this.parsedPgnGames[group].map(game => game.headers))
+                        options.returnHeaders([newHeaders])
+                    } else {
+                        headers.push(newHeaders)
                     }
                 }
             } else if (this.active.group === group && this.active.index === -1 && options.activateFirst) {
-                this.createGameFromPgn(this.parsedPgnGames[group][0])
+                const game = this.createGameFromPgn(this.parsedPgnGames[group].splice(0, 1)[0]).game
+                const newHeaders = [] as string[][]
+                for (const [key, val] of Object.entries(game.headers.standardized())) {
+                    if (key) {
+                        newHeaders.push([key, val])
+                    }
+                }
+                headers.push(newHeaders)
                 this.active.index = 0
             }
+            // Combine loaded and parsed headers
+            headers.push(...this.parsedPgnGames[group].map(game => game.headers))
             if (options.returnHeaders) {
                 // Use the return function if one was supplied
-                options.returnHeaders(this.parsedPgnGames[group].map(game => game.headers))
+                options.returnHeaders(headers)
                 return []
             } else {
                 // Otherwise return the headers
-                return this.parsedPgnGames[group].map(game => game.headers)
+                return headers
             }
         }
         return []
