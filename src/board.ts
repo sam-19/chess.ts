@@ -945,13 +945,13 @@ class Board implements ChessBoard {
                 if (options.notation == 'all') {
                     moveData.algebraic = move.algebraic || ''
                     moveData.san = move.san || ''
-                    moveData.uci = move.algebraic?.substring(0,2) || '' + move.algebraic?.substring(3) || ''
+                    moveData.uci = (move.algebraic?.substring(0,2) || '') + (move.algebraic?.substring(3) || '')
                 } else if (options.notation === 'algebraic') {
                     moveData.algebraic = move.algebraic || ''
                 } else if (options.notation === 'san') {
                     moveData.san = move.san || ''
                 } else if (options.notation === 'uci') {
-                    moveData.uci = move.algebraic?.substring(0,2) || '' + move.algebraic?.substring(3) || ''
+                    moveData.uci = (move.algebraic?.substring(0,2) || '') + (move.algebraic?.substring(3) || '')
                 }
             }
             // Sort by type

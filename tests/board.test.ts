@@ -57,6 +57,18 @@ describe('Board', () => {
         expect(board.pieceAt('g3').symbol).toStrictEqual(Piece.WHITE_PAWN.symbol)
         board.placePiece(board.removePiece('g3') as Piece, 'g2')
     })
+    test('move generator', () => {
+        const moves = board.getMoves()
+        expect(moves.blocked.length).toStrictEqual(72)
+        expect(moves.illegal.length).toStrictEqual(0)
+        expect(moves.legal.length).toStrictEqual(20)
+        expect(moves.blocked[0].algebraic).toStrictEqual('a1-a2')
+        expect(moves.blocked[0].san).toStrictEqual('Ra2')
+        expect(moves.blocked[0].uci).toStrictEqual('a1a2')
+        expect(moves.legal[0].algebraic).toStrictEqual('a2-a3')
+        expect(moves.legal[0].san).toStrictEqual('a3')
+        expect(moves.legal[0].uci).toStrictEqual('a2a3')
+    }),
     test('make moves', () => {
         board.makeMoveFromAlgebraic('e2', 'e4')
         expect(board.enPassantSqr).toStrictEqual(84)
