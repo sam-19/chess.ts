@@ -1,6 +1,6 @@
 {
   "name": "chess-ts",
-  "version": "0.1",
+  "version": "0.1.0",
   "repository": "https://github.com/sam-19/chess.ts.git",
   "main": "dist/chess.js",
   "files": [
