@@ -6,14 +6,14 @@ Chess.ts is a Javascript chess library, written in TypeScript. It includes a FEN
 
 ## Installation
 
-`npm install -S @sam-19/chess.ts`
+`npm install -S chess-ts`
 
 ## Usage
 
 You may need to create a declaration file for the package. Just create `.d.ts` file (such as `chess.d.ts`) to your types folder with the content:
 ```javascript
-declare module '@sam-19/chess.ts' {
-    import Chess from '@sam-19/chess.ts/dist/chess'
+declare module 'chess-ts' {
+    import Chess from 'chess-ts/dist/chess'
     export default Chess
 }
 ```
@@ -22,7 +22,7 @@ declare module '@sam-19/chess.ts' {
 
 You need a `Chess` instance to start creating games. You can create the instance with:
 ```javascript
-import Chess from '@sam-19/chess.ts'
+import Chess from 'chess-ts'
 const chess = new Chess()
 ```
 
