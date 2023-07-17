@@ -6,14 +6,14 @@ import Headers from './headers'
 import Move from './move'
 import Options from './options'
 import Piece from './piece'
-import TimeControl from './time_control'
+import ChessTimer from './timers'
 import Turn from './turn'
 
 import { ChessGame } from '../types/game'
 import { MethodOptions } from '../types/options'
 import { PlayerColor } from '../types/color'
 import { ChessTurn } from '../types/turn'
-import { TCTimers } from '../types/time_control'
+import { TCTimeValues } from '../types/timers'
 
 const SCOPE = 'Game'
 
@@ -81,7 +81,7 @@ class Game implements ChessGame {
     }
     shouldPreserve: boolean
     startTime: Date | null
-    timeControl: TimeControl
+    timeControl: ChessTimer
     useStrictRules: boolean
     variations: Board[]
 
@@ -96,7 +96,7 @@ class Game implements ChessGame {
         this.pauseTimes = []
         this.shouldPreserve = false
         this.startTime = null
-        this.timeControl = new TimeControl()
+        this.timeControl = new ChessTimer()
         this.useStrictRules = false
         this.variations = []
         // Create the first board variation, i.e. the actual game
@@ -186,10 +186,10 @@ class Game implements ChessGame {
      * ======================================================================
      */
 
-    addTimeControl (tc: typeof TimeControl.FieldModel) {
+    addTimeControl (tc: typeof ChessTimer.FieldModel) {
         if (!this.hasStarted) {
             if (this.timeControl === null) {
-                this.timeControl = new TimeControl()
+                this.timeControl = new ChessTimer()
             }
             this.timeControl.addField(tc)
         }
@@ -714,13 +714,13 @@ class Game implements ChessGame {
     setTimeControlFromPgn (tc: string) {
         if (!this.hasStarted) {
             if (this.timeControl === null) {
-                this.timeControl = new TimeControl()
+                this.timeControl = new ChessTimer()
             }
             this.timeControl.parseTimeControlString(tc)
         }
     }
 
-    setTimeControlReportFunction (f: ((timers: TCTimers) => void) | null) {
+    setTimerReportFunction (f: ((timers: TCTimeValues) => void) | null) {
         if (!this.hasStarted) {
             this.timeControl.setReportFunction(f)
         }

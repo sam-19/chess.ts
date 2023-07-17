@@ -157,7 +157,7 @@ class Options implements ChessOptions {
         sloppySAN: true,
     }
     ///// TIME CONTROL /////
-    static readonly TimeControl = {
+    static readonly ChessTimer = {
         /**
          * Automatically lose to timeout when the timer reaches zero
          */

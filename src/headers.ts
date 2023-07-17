@@ -37,7 +37,7 @@ class Headers implements GameHeaders {
         subvariation: 'SubVariation',
         termination: 'Termination',
         time: 'Time',
-        timecontrol: 'TimeControl',
+        timecontrol: 'ChessTimer',
         utcdate: 'UTCDate',
         utctime: 'UTCTime',
         variation: 'Variation',

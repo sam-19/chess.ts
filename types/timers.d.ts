@@ -1,6 +1,6 @@
 import { PlayerColor } from "./color"
 
-interface ChessTimeControl {
+interface TimeControlTimers {
     autoTimeout: boolean
     fields: TCFieldModel[]
     start: number
@@ -9,11 +9,11 @@ interface ChessTimeControl {
     end: number
     activePlayer: PlayerColor
     plyNum: number
-    time: TCTimers
+    time: TCTimeValues
     reportTimer: number | undefined
     turnFirst: boolean
     firstMove: boolean
-    reportFunction: ((timers: TCTimers) => void) | null
+    reportFunction: ((timers: TCTimeValues) => void) | null
 
     /**
      * Add a new field to time controls
@@ -32,7 +32,7 @@ interface ChessTimeControl {
      * Get a copy of elapsed and remaining timers (in milliseconds)
      * @return { elapsed: { w, b }, remaining: { w, b } }
      */
-    copyTimers: () => TCTimers
+    copyTimers: () => TCTimeValues
 
     /**
      * Get time delay in seconds for the given ply.
@@ -58,7 +58,7 @@ interface ChessTimeControl {
     /**
      * Get the time control report function.
      */
-    getReportFunction: () => ((timers: TCTimers) => void) | null
+    getReportFunction: () => ((timers: TCTimeValues) => void) | null
 
     /**
      * Get the time delta (time passed) from last move (in milliseconds), taking into account timer delay and pauses.
@@ -80,7 +80,7 @@ interface ChessTimeControl {
      * @param takeback is this a takeback move (default false)
      * @return times elapsed and remaining for both player (in milliseconds): { elapsed: { w, b }, remaining: { w, b } }
      */
-    moveMade: (plyNum: number, takeback?: boolean) => TCTimers | { error: string }
+    moveMade: (plyNum: number, takeback?: boolean) => TCTimeValues | { error: string }
 
     /**
      * Parse a given PGN TimeControl field descriptor
@@ -111,7 +111,7 @@ interface ChessTimeControl {
      * Set a function that will be used to report the remaining time on regulard intervals.
      * @param reportFunction
      */
-    setReportFunction: (reportFunction: ((timers: TCTimers) => void) | null) => void
+    setReportFunction: (reportFunction: ((timers: TCTimeValues) => void) | null) => void
 
     /**
      * Start the timer.
@@ -146,9 +146,9 @@ type TCFieldModel = {
     hourglass: boolean
 }
 
-interface TCTimers {
+interface TCTimeValues {
     elapsed: { w: number, b: number }
     remaining: { w: number, b: number }
 }
 
-export { ChessTimeControl, TCFieldModel, TCTimers }
+export { TimeControlTimers, TCFieldModel, TCTimeValues }

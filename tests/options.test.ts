@@ -35,6 +35,6 @@ describe('Options', () => {
         expect(Options.Move.sloppySAN).toBeDefined()
     })
     test('time control defaults', () => {
-        expect(Options.TimeControl.autoTimeout).toBeDefined()
+        expect(Options.ChessTimer.autoTimeout).toBeDefined()
     })
 })

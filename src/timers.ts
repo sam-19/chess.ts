@@ -1,10 +1,10 @@
 import Color from './color'
 import Options from './options'
 
-import { ChessTimeControl, TCFieldModel, TCTimers } from '../types/time_control'
+import { TimeControlTimers, TCFieldModel, TCTimeValues } from '../types/timers'
 import { PlayerColor } from '../types/color'
 
-class TimeControl implements ChessTimeControl {
+class ChessTimer implements TimeControlTimers {
     // Static properties
     /**
      * Default properties of a time control field. All time units are in seconds.
@@ -29,8 +29,8 @@ class TimeControl implements ChessTimeControl {
     static readonly MarginOfError = 5
 
     // Instance properties
-    autoTimeout: boolean = Options.TimeControl.autoTimeout
-    fields: (typeof TimeControl.FieldModel)[] = []
+    autoTimeout: boolean = Options.ChessTimer.autoTimeout
+    fields: (typeof ChessTimer.FieldModel)[] = []
     start = 0
     lastMove = 0
     pauses: [number, number | null][] = []
@@ -57,9 +57,9 @@ class TimeControl implements ChessTimeControl {
         }
     }
 
-    addField (params: typeof TimeControl.FieldModel) {
+    addField (params: typeof ChessTimer.FieldModel) {
         const errors = []
-        const field = {...TimeControl.FieldModel} // Copy base mode
+        const field = {...ChessTimer.FieldModel} // Copy base mode
         // Start field is mandatory
         if (!Object.prototype.hasOwnProperty.call(params, 'start') || isNaN(params.start) || Math.round(params.start) !== params.start || params.start <= 0) {
             errors.push("Time control field must have a parameter start and its value must be a positive integer!")
@@ -126,7 +126,7 @@ class TimeControl implements ChessTimeControl {
                 return this.fields[i].delay
             }
         }
-        return TimeControl.FieldModel.delay
+        return ChessTimer.FieldModel.delay
     }
 
     getIncrement (plyNum=this.plyNum) {
@@ -137,7 +137,7 @@ class TimeControl implements ChessTimeControl {
                 return this.fields[i].increment
             }
         }
-        return TimeControl.FieldModel.increment
+        return ChessTimer.FieldModel.increment
     }
 
     getLimitAddition (plyNum=this.plyNum) {
@@ -150,7 +150,7 @@ class TimeControl implements ChessTimeControl {
                 return this.fields[i].limit
             }
         }
-        return TimeControl.FieldModel.limit
+        return ChessTimer.FieldModel.limit
     }
 
     getReportFunction () {
@@ -183,7 +183,7 @@ class TimeControl implements ChessTimeControl {
                 return this.fields[i].hourglass
             }
         }
-        return TimeControl.FieldModel.hourglass
+        return ChessTimer.FieldModel.hourglass
     }
 
     moveMade (plyNum: number, takeback=false) {
@@ -250,7 +250,7 @@ class TimeControl implements ChessTimeControl {
         // Bullet time controls are the simplest
         const bullet = descriptor.match(/^(\d+)\|(\d+)$/) || descriptor.match(/^(\d+)\s?min$/)
         if (bullet) {
-            const field = {...TimeControl.FieldModel} // Copy base mode
+            const field = {...ChessTimer.FieldModel} // Copy base mode
             field.limit = parseInt(bullet[1], 10)*60 // Bullet uses minutes for limit
             if (bullet[2]) {
                 field.increment = parseInt(bullet[2], 10)
@@ -267,7 +267,7 @@ class TimeControl implements ChessTimeControl {
         let increment = 0
         let turn = 1
         for (const params of fields) {
-            const field = {...TimeControl.FieldModel} // Copy base mode
+            const field = {...ChessTimer.FieldModel} // Copy base mode
             field.start = turn
             let turns = null
             let limit = null
@@ -461,8 +461,8 @@ class TimeControl implements ChessTimeControl {
             const timeSurplus = remTime > 0 ? remTime%interval : remTime%interval + interval
             // Always set an individual timeout when turn changes and if the current player doesn't have full
             // seconds remaining (with a small tolerance for error)
-            if (this.turnFirst || (timeSurplus > TimeControl.MarginOfError &&
-                interval - timeSurplus > TimeControl.MarginOfError)
+            if (this.turnFirst || (timeSurplus > ChessTimer.MarginOfError &&
+                interval - timeSurplus > ChessTimer.MarginOfError)
             ) {
                 // Not a full second, set a timeout for the remaining fraction first
                 this.reportTimer = window.setTimeout(() => {
@@ -517,8 +517,8 @@ class TimeControl implements ChessTimeControl {
             const timeSurplus = interval - (this.time.elapsed[this.activePlayer] + this.getTimeDelta())%interval
             // Always set an individual timeout when turn changes and if the current player doesn't have full
             // seconds elapsed (with a small tolerance for error)
-            if (timeSurplus > TimeControl.MarginOfError &&
-                interval - timeSurplus > TimeControl.MarginOfError
+            if (timeSurplus > ChessTimer.MarginOfError &&
+                interval - timeSurplus > ChessTimer.MarginOfError
             ) {
                 // Not a full second, set a timeout for the remaining fraction first
                 this.reportTimer = window.setTimeout(() => {
@@ -604,7 +604,7 @@ class TimeControl implements ChessTimeControl {
 /**
  * Timers for elapsed and remaining time for White and Black.
  */
-class Timers implements TCTimers {
+class Timers implements TCTimeValues {
     elapsed = {
         [Color.WHITE]: 0,
         [Color.BLACK]: 0,
@@ -623,5 +623,5 @@ class Timers implements TCTimers {
     }
 }
 
-export default TimeControl
+export default ChessTimer
 export { Timers }

@@ -4,7 +4,7 @@ import { GameHeaders } from "./headers"
 import { ChessMove, MoveError } from "./move"
 import { MethodOptions } from "./options"
 import { ChessPiece } from "./piece"
-import { ChessTimeControl, TCFieldModel, TCTimers } from "./time_control"
+import { TimeControlTimers, TCFieldModel, TCTimeValues } from "./timers"
 import { ChessTurn } from "./turn"
 
 interface ChessGame {
@@ -31,7 +31,7 @@ interface ChessGame {
      */
     shouldPreserve: boolean
     startTime: Date | null
-    timeControl: ChessTimeControl
+    timeControl: TimeControlTimers
     /**
      * Should strict rules (50 move and three-fold repetition) be used
      * when determining draws.
@@ -82,7 +82,7 @@ interface ChessGame {
 
     /**
      * Add a field to the game's time controls
-     * @param tc TimeControl.FieldModel
+     * @param tc ChessTimer.FieldModel
      */
     addTimeControl: (tc: TCFieldModel) => void
 
@@ -212,8 +212,8 @@ interface ChessGame {
     selectTurn: (index: number, boardVar?: number) => boolean
 
     /**
-     * Set the game's time control from a PGN TimeControl field value.
-     * @param tc PGN TimeControl field value
+     * Set the game's time control from a PGN ChessTimer field value.
+     * @param tc PGN ChessTimer field value
      */
     setTimeControlFromPgn: (tc: string) => void
 
@@ -221,7 +221,7 @@ interface ChessGame {
      * Set the function used to report time control progress.
      * @param f report function will return { elapsed: { w, b }, remaining: { w, b } }
      */
-    setTimeControlReportFunction: (f: ((timers: TCTimers) => void) | null) => void
+    setTimerReportFunction: (f: ((timers: TCTimeValues) => void) | null) => void
 
     /**
      * Start the game, saving the current timestamp as game start time and starting the clock for white.

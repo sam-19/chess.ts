@@ -346,7 +346,7 @@ describe('Pass-through properties', () => {
         expect(chess.returnFromVariation).toBeDefined()
         expect(chess.selectTurn).toBeDefined()
         expect(chess.setTimeControlFromPgn).toBeDefined()
-        expect(chess.setTimeControlReportFunction).toBeDefined()
+        expect(chess.setTimerReportFunction).toBeDefined()
         expect(chess.start).toBeDefined()
         expect(chess.toFen).toBeDefined()
         expect(chess.toPgn).toBeDefined()

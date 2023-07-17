@@ -13,14 +13,14 @@ import Move from './move'
 import Nag from './nag'
 import Options from './options'
 import Piece from './piece'
-import TimeControl from './time_control'
+import ChessTimer from './timers'
 
 import { ChessCore, GameEntry } from '../types/chess'
 import { MethodOptions } from '../types/options'
 import Turn from './turn'
 import { PlayerColor } from '../types/color'
 import { MoveError } from '../types/move'
-import { TCTimers } from '../types/time_control'
+import { TCTimeValues } from '../types/timers'
 
 const SCOPE = 'Chess'
 
@@ -37,7 +37,7 @@ class Chess implements ChessCore {
     static readonly Move = Move
     static readonly Nag = Nag
     static readonly Piece = Piece
-    static readonly TimeControl = TimeControl
+    static readonly ChessTimer = ChessTimer
 
     // Instance properties
     active: GameEntry
@@ -908,7 +908,7 @@ class Chess implements ChessCore {
     addHeaders (headers: string[][]) {
         this.activeGame?.addHeaders(headers)
     }
-    addTimeControl (tc: typeof TimeControl.FieldModel) {
+    addTimeControl (tc: typeof ChessTimer.FieldModel) {
         this.activeGame?.addTimeControl(tc)
     }
     continue () {
@@ -989,8 +989,8 @@ class Chess implements ChessCore {
     setTimeControlFromPgn (tc: string) {
         this.activeGame?.setTimeControlFromPgn(tc)
     }
-    setTimeControlReportFunction (f: ((timers: TCTimers) => void) | null) {
-        this.activeGame?.setTimeControlReportFunction(f)
+    setTimerReportFunction (f: ((timers: TCTimeValues) => void) | null) {
+        this.activeGame?.setTimerReportFunction(f)
     }
     start () {
         return this.activeGame?.start() || false
@@ -1012,4 +1012,4 @@ class Chess implements ChessCore {
     }
 }
 export default Chess
-export { Board, Color, Fen, Flags, Game, Log, Move, Nag, Piece, TimeControl }
+export { Board, Color, Fen, Flags, Game, Log, Move, Nag, Piece, ChessTimer }
