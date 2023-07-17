@@ -8,7 +8,7 @@
     "dist/*",
     "types/*"
   ],
-  "license": "MIT",
+  "license": "GPL-3.0",
   "scripts": {
     "build": "node node_modules/webpack/bin/webpack.js --progress --mode=production --config webpack.config.js",
     "lint": "eslint . --ext .ts",
