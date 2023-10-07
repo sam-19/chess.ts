@@ -1,4 +1,4 @@
-import Piece from "../src/piece"
+import { ChessPiece } from "./piece"
 
 type ValidOptions = { [key: string]: string | number | boolean | ((headers: string[][][]) => void) | ((progress: number[]) => void) | null | undefined }
 interface ChessOptions {
@@ -84,9 +84,9 @@ declare namespace MethodOptions {
         orig: number
         dest: number
         detail: { [key: string]: string | string[] | number | number[] }
-        movedPiece: Piece
-        capturedPiece: Piece | null
-        promotionPiece: Piece | null
+        movedPiece: ChessPiece
+        capturedPiece: ChessPiece | null
+        promotionPiece: ChessPiece | null
         flags: number[]
     }
 }

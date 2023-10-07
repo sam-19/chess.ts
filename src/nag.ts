@@ -1,9 +1,9 @@
-import { MoveNag, NagEntry } from '../types/nag'
+import { MoveNag, NagEntry } from './types/nag'
 import Log from 'scoped-ts-log'
 
-const SCOPE = 'Nag'
+const SCOPE = 'nag'
 
-class Nag implements MoveNag {
+export default class Nag implements MoveNag {
     // Static properties
     static readonly LIST = [
         { code: 0, symbol: [], description: ''},
@@ -184,5 +184,3 @@ class Nag implements MoveNag {
         return this.nag
     }
 }
-
-export default Nag

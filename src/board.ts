@@ -1,3 +1,4 @@
+import Annotation from './annotation'
 import Color from './color'
 import Fen from './fen'
 import Flags from './flags'
@@ -8,20 +9,19 @@ import Turn from './turn'
 import Options from './options'
 import Piece from './piece'
 
-import { ChessBoard } from '../types/board'
-import { MethodOptions } from '../types/options'
-import { PlayerColor } from '../types/color'
-import Annotation from './annotation'
-import { MoveError } from '../types/move'
+import { ChessBoard } from './types/board'
+import { MethodOptions } from './types/options'
+import { PlayerColor } from './types/color'
+import { MoveError } from './types/move'
 
-const SCOPE = 'Board'
+const SCOPE = 'board'
 
 /**
  * The board object keeps track of game state and history in this particular line
  * of moves. Variations and continuations branch off new boards that inherit their
  * parent's state and history, building on top of it.
  */
-class Board implements ChessBoard {
+export default class Board implements ChessBoard {
     // Static properties
     // From original Chess.js
     static readonly SQUARE_INDICES = {
@@ -1663,4 +1663,3 @@ class Board implements ChessBoard {
         return { isValid: isValid, errors: errors }
     }
 }
-export default Board

@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 
-import Chess, { Color } from '../src/chess'
+import Chess, { Color } from '../src'
 
 // From https://en.wikipedia.org/wiki/Portable_Game_Notation
 const testPGN = `[Event "F/S Return Match"]

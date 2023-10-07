@@ -3,10 +3,10 @@ import Board from './board'
 import Color from './color'
 import Flags from './flags'
 import Move from './move'
-import { ChessTurn, TurnMeta, TurnProperties } from '../types/turn'
-import { PlayerColor } from '../types/color'
+import { ChessTurn, TurnMeta, TurnProperties } from './types/turn'
+import { PlayerColor } from './types/color'
 
-class Turn implements ChessTurn {
+export default class Turn implements ChessTurn {
     // Instance properties
     annotations: Annotation[]
     id: string
@@ -48,5 +48,3 @@ class Turn implements ChessTurn {
         return this.move.algebraic || ''
     }
 }
-
-export default Turn

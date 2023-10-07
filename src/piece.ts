@@ -1,7 +1,7 @@
 import Color from './color'
-import { ChessPiece } from '../types/piece'
+import { ChessPiece } from './types/piece'
 
-class Piece implements ChessPiece {
+export default class Piece implements ChessPiece {
     // Static properties
     static readonly TYPE_NONE   = '.'
     static readonly TYPE_PAWN   = 'p'
@@ -90,5 +90,3 @@ class Piece implements ChessPiece {
         return Piece.PIECES[symbol as keyof typeof Piece.PIECES]
     }
 }
-
-export default Piece

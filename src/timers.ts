@@ -1,10 +1,10 @@
 import Color from './color'
 import Options from './options'
 
-import { TimeControlTimers, TCFieldModel, TCTimeValues } from '../types/timers'
-import { PlayerColor } from '../types/color'
+import { TimeControlTimers, TCFieldModel, TCTimeValues } from './types/timers'
+import { PlayerColor } from './types/color'
 
-class ChessTimer implements TimeControlTimers {
+export default class ChessTimer implements TimeControlTimers {
     // Static properties
     /**
      * Default properties of a time control field. All time units are in seconds.
@@ -604,7 +604,7 @@ class ChessTimer implements TimeControlTimers {
 /**
  * Timers for elapsed and remaining time for White and Black.
  */
-class Timers implements TCTimeValues {
+export class Timers implements TCTimeValues {
     elapsed = {
         [Color.WHITE]: 0,
         [Color.BLACK]: 0,
@@ -622,6 +622,3 @@ class Timers implements TCTimeValues {
         }
     }
 }
-
-export default ChessTimer
-export { Timers }

@@ -1,14 +1,14 @@
 // This class name is an exception to the rule of otherwise singular class names, because one Flags is in fact
 // a collection of all the flags of a particular context.
 import Log from 'scoped-ts-log'
-import { MoveFlags } from '../types/flags'
+import { MoveFlags } from './types/flags'
 
-const SCOPE = 'Flags'
+const SCOPE = 'flags'
 
 /**
  * A collection of flags that describe a given move.
  */
-class Flags implements MoveFlags {
+export default class Flags implements MoveFlags {
     // Static properties
     // I'm leaving these to binary values in case I have to change the checks back to bit-wise comparisons later
     static readonly NORMAL = 1
@@ -123,5 +123,3 @@ class Flags implements MoveFlags {
         this.add(flag)
     }
 }
-
-export default Flags

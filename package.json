@@ -10,11 +10,11 @@
   ],
   "license": "GPL-3.0",
   "scripts": {
-    "build": "node node_modules/webpack/bin/webpack.js --progress --mode=production --config webpack.config.js",
+    "build": "node node_modules/typescript/bin/tsc",
+    "build:webpack": "node node_modules/webpack/bin/webpack.js --progress --mode=production --config webpack.config.js",
     "lint": "eslint . --ext .ts",
     "prepack": "npm run tsc",
-    "test": "jest --coverage --verbose --runInBand",
-    "tsc": "tsc"
+    "test": "jest --coverage --verbose --runInBand"
   },
   "devDependencies": {
     "@babel/core": "^7.14.8",

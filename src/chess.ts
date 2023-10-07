@@ -14,17 +14,17 @@ import Nag from './nag'
 import Options from './options'
 import Piece from './piece'
 import ChessTimer from './timers'
-
-import { ChessCore, GameEntry } from '../types/chess'
-import { MethodOptions } from '../types/options'
 import Turn from './turn'
-import { PlayerColor } from '../types/color'
-import { MoveError } from '../types/move'
-import { TCTimeValues } from '../types/timers'
 
-const SCOPE = 'Chess'
+import { ChessCore, GameEntry } from './types/chess'
+import { MethodOptions } from './types/options'
+import { PlayerColor } from './types/color'
+import { MoveError } from './types/move'
+import { TCTimeValues } from './types/timers'
 
-class Chess implements ChessCore {
+const SCOPE = 'chess'
+
+export default class Chess implements ChessCore {
     // Static properties
     static readonly RESULT = Game.RESULT
     // Subclasses
@@ -1011,5 +1011,3 @@ class Chess implements ChessCore {
         return new Fen(fen).validate(onlyPosition, rules)
     }
 }
-export default Chess
-export { Board, Color, Fen, Flags, Game, Log, Move, Nag, Piece, ChessTimer }

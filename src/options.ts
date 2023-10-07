@@ -1,6 +1,6 @@
-import { ChessOptions, MethodOptions, ValidOptions } from '../types/options'
+import { ChessOptions, MethodOptions, ValidOptions } from './types/options'
 
-class Options implements ChessOptions {
+export default class Options implements ChessOptions {
     // Static properties
     /*
         DEFAULT OPTIONS
@@ -198,5 +198,3 @@ class Options implements ChessOptions {
         return new Options(this._initial)
     }
 }
-
-export default Options

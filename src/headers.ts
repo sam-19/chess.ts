@@ -1,12 +1,12 @@
 import Log from 'scoped-ts-log'
-import { GameHeaders } from '../types/headers'
+import { GameHeaders } from './types/headers'
 
-const SCOPE = 'Headers'
+const SCOPE = 'headers'
 
 /**
  * Support class for managing game headers.
  */
-class Headers implements GameHeaders {
+export default class ChessHeaders implements GameHeaders {
     // Static properties
     // List of valid headers with correct capitalization
     static readonly KEYS = {
@@ -77,7 +77,7 @@ class Headers implements GameHeaders {
         const requiredKeys = ['event', 'site', 'date', 'round', 'white', 'black', 'result']
         for (const key of requiredKeys) {
             const hdrValue = this.headers.get(key)
-            const stdKey = Headers.KEYS[key as keyof typeof Headers.KEYS]
+            const stdKey = ChessHeaders.KEYS[key as keyof typeof ChessHeaders.KEYS]
             if (hdrValue === undefined) {
                 Log.error(`Headers are missing required field ${stdKey}.`, SCOPE)
                 continue
@@ -92,11 +92,11 @@ class Headers implements GameHeaders {
             return exportHdrs
         }
         // Add the rest of the headers in alphabetical order
-        for (const key of Object.keys(Headers.KEYS)) {
+        for (const key of Object.keys(ChessHeaders.KEYS)) {
             if (requiredKeys.indexOf(key) === -1) {
                 const hdrValue = this.headers.get(key)
                 if (hdrValue) {
-                    exportHdrs.set(Headers.KEYS[key as keyof typeof Headers.KEYS], hdrValue)
+                    exportHdrs.set(ChessHeaders.KEYS[key as keyof typeof ChessHeaders.KEYS], hdrValue)
                 }
             }
         }
@@ -116,8 +116,8 @@ class Headers implements GameHeaders {
     }
 
     getKey (i: number) {
-        if (this.keys[i] !== undefined && Headers.KEYS[this.keys[i] as keyof typeof Headers.KEYS] !== undefined) {
-            return Headers.KEYS[this.keys[i] as keyof typeof Headers.KEYS]
+        if (this.keys[i] !== undefined && ChessHeaders.KEYS[this.keys[i] as keyof typeof ChessHeaders.KEYS] !== undefined) {
+            return ChessHeaders.KEYS[this.keys[i] as keyof typeof ChessHeaders.KEYS]
         } else {
             return undefined
         }
@@ -158,7 +158,7 @@ class Headers implements GameHeaders {
     }
 
     set (key: string, value: string) {
-        if (Object.keys(Headers.KEYS).indexOf(key.toLowerCase()) === -1) {
+        if (Object.keys(ChessHeaders.KEYS).indexOf(key.toLowerCase()) === -1) {
             return
         }
         if (this.keys.indexOf(key.toLowerCase()) === -1) {
@@ -174,7 +174,7 @@ class Headers implements GameHeaders {
             // list of supported values and there is no second level property (at least not yet).
             const h = this.headers.get(k)
             if (h) {
-                headers[Headers.KEYS[k as keyof typeof Headers.KEYS]] = h
+                headers[ChessHeaders.KEYS[k as keyof typeof ChessHeaders.KEYS]] = h
             }
         }
         return headers
@@ -185,8 +185,6 @@ class Headers implements GameHeaders {
     }
 
     toString () {
-        return "{ " + this.keys.map(key => `${Headers.KEYS[key as keyof typeof Headers.KEYS]}: ${this.headers.get(key)}`).join('; ') + " }"
+        return "{ " + this.keys.map(key => `${ChessHeaders.KEYS[key as keyof typeof ChessHeaders.KEYS]}: ${this.headers.get(key)}`).join('; ') + " }"
     }
 }
-
-export default Headers

@@ -1,11 +1,11 @@
 // Aaronfi did a lot of testing with color handling, and this simple approach was the most performance efficient
 
-import { PieceColor, PlayerColor } from '../types/color'
+import { PieceColor, PlayerColor } from './types/color'
 
 /**
  * Chess piece color class to enfoce standard notation.
  */
-class Color implements PieceColor {
+export default class Color implements PieceColor {
     static readonly WHITE = 'w'
     static readonly BLACK = 'b'
     static readonly NONE = '~'
@@ -25,5 +25,3 @@ class Color implements PieceColor {
         )
     }
 }
-
-export default Color

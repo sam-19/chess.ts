@@ -3,12 +3,12 @@
  */
 
 import Log from 'scoped-ts-log'
-import { MoveAnnotation, AnnotationTextPart } from '../types/annotation'
+import { MoveAnnotation, AnnotationTextPart } from './types/annotation'
 import Nag from './nag'
 
 const SCOPE = 'annotation'
 
-class Annotation implements MoveAnnotation {
+export default class Annotation implements MoveAnnotation {
     cleanText = ''
     fullText: string
     nag: Nag | null = null
@@ -109,5 +109,3 @@ class Annotation implements MoveAnnotation {
         }
     }
 }
-
-export default Annotation

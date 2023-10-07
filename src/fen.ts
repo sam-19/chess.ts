@@ -1,10 +1,10 @@
 import Color from './color'
 import Piece from './piece'
-import { ChessFen } from '../types/fen'
+import { ChessFen } from './types/fen'
 /**
  * A Forsynth-Edwards Notation string describing a chess game state.
  */
-class Fen implements ChessFen {
+export default class Fen implements ChessFen {
     // Static properties
     static readonly DEFAULT_STARTING_STATE = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
     static readonly DEFAULT_STARTING_POSITION = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR'
@@ -181,5 +181,3 @@ class Fen implements ChessFen {
         return this.fen
     }
 }
-
-export default Fen

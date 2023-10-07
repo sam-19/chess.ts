@@ -5,14 +5,14 @@ import Log from 'scoped-ts-log'
 import Options from './options'
 import Piece from './piece'
 
-import { ChessMove } from '../types/move'
-import { ChessPiece } from '../types/piece'
-import { MoveFlags } from '../types/flags'
-import { MethodOptions } from '../types/options'
+import { ChessMove } from './types/move'
+import { ChessPiece } from './types/piece'
+import { MoveFlags } from './types/flags'
+import { MethodOptions } from './types/options'
 
-const SCOPE = 'Move'
+const SCOPE = 'move'
 
-class Move implements ChessMove {
+export default class Move implements ChessMove {
     // Static properties
     // From original Chess.js
     static readonly ATTACKS = [
@@ -313,9 +313,8 @@ class Move implements ChessMove {
         return Board.SQUARE_NAMES[i as keyof typeof Board.SQUARE_NAMES]
     }
 }
-export default Move
 /* ===============================================================
-   0x88 chessboard cheat sheet fron aaronfi's original source code
+   0x88 chessboard cheat sheet from aaronfi's original source code
    ===============================================================
    https://chessprogramming.wikispaces.com/0x88
    Note:  The values we use are flipped from the documented convention.

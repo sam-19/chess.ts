@@ -9,15 +9,15 @@ import Piece from './piece'
 import ChessTimer from './timers'
 import Turn from './turn'
 
-import { ChessGame } from '../types/game'
-import { MethodOptions } from '../types/options'
-import { PlayerColor } from '../types/color'
-import { ChessTurn } from '../types/turn'
-import { TCTimeValues } from '../types/timers'
+import { ChessGame } from './types/game'
+import { MethodOptions } from './types/options'
+import { PlayerColor } from './types/color'
+import { ChessTurn } from './types/turn'
+import { TCTimeValues } from './types/timers'
 
-const SCOPE = 'Game'
+const SCOPE = 'game'
 
-class Game implements ChessGame {
+export default class Game implements ChessGame {
     /**
      * Each player gets their own result code.
      * For example, if white runs out of time but black does not have enough material to deliver a checkmate
@@ -1038,5 +1038,3 @@ class Game implements ChessGame {
         return this.currentBoard.toFen(options)
     }
 }
-
-export default Game
