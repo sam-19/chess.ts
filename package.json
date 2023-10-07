@@ -5,8 +5,7 @@
   "main": "dist/chess.js",
   "files": [
     "index.js",
-    "dist/*",
-    "types/*"
+    "dist/*"
   ],
   "license": "GPL-3.0",
   "scripts": {
