@@ -12,7 +12,7 @@
     "build": "node node_modules/typescript/bin/tsc",
     "build:webpack": "node node_modules/webpack/bin/webpack.js --progress --mode=production --config webpack.config.js",
     "lint": "eslint . --ext .ts",
-    "prepack": "npm run tsc",
+    "prepack": "npm run build",
     "test": "jest --coverage --verbose --runInBand"
   },
   "devDependencies": {
