@@ -9,10 +9,12 @@
   ],
   "license": "GPL-3.0",
   "scripts": {
-    "build": "node node_modules/typescript/bin/tsc",
-    "build:webpack": "node node_modules/webpack/bin/webpack.js --progress --mode=production --config webpack.config.js",
+    "build": "npm run build:umd && npm run build:tsc",
+    "build:tsc": "node node_modules/typescript/bin/tsc",
+    "build:umd": "node node_modules/webpack/bin/webpack.js --progress --config webpack.config.js",
     "lint": "eslint . --ext .ts",
     "prepack": "npm run build",
+    "release": "npm publish --access=public",
     "test": "jest --coverage --verbose --runInBand"
   },
   "devDependencies": {

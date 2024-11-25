@@ -3,13 +3,16 @@ const TerserPlugin = require('terser-webpack-plugin')
 
 module.exports = (env, argv) => {
     return {
+        mode: 'production',
         context: __dirname,
         entry: {
             index: { import: path.join(__dirname, 'src', 'chess.ts') },
         },
         output: {
-            path: path.join(__dirname, './', 'dist'),
-            filename: "[name].min.js"
+            path: path.join(__dirname, './', 'umd'),
+            filename: "chess.js",
+            library: 'Chess',
+            libraryTarget: 'umd',
         },
         module: {
             rules: [
@@ -27,6 +30,7 @@ module.exports = (env, argv) => {
             minimizer: [
                 new TerserPlugin(),
             ],
+            splitChunks: false,
         },
         resolve: {
             extensions: ['.ts', '.js', '.json'],
