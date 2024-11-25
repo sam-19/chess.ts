@@ -175,6 +175,24 @@ export default class Game implements ChessGame {
         return (this.pauseTimes.length > 0 && this.pauseTimes[this.pauseTimes.length - 1][1] === null)
     }
 
+    get players () {
+        return {
+            b: {
+                // ELO can't really be 0, so that is the same as unavailable.
+                elo: parseInt(this.headers.get('BlackElo') || '0') || null,
+                name: this.headers.get('Black') || null,
+                title: this.headers.get('BlackTitle') || null,
+                type: this.headers.get('BlackType') || null,
+            },
+            w: {
+                elo: parseInt(this.headers.get('WhiteElo') || '0') || null,
+                name: this.headers.get('White') || null,
+                title: this.headers.get('WhiteTitle') || null,
+                type: this.headers.get('WhiteType') || null,
+            },
+        }
+    }
+
     get turnIndexPosition () {
         return this.currentBoard.turnIndexPosition
     }

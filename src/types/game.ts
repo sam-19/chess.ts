@@ -9,6 +9,9 @@ import { ChessTurn } from "./turn"
 
 interface ChessGame {
     // Instance properties
+    /**
+     * Is this the active game.
+     */
     active: boolean
     currentBoard: ChessBoard
     endTime: Date | null
@@ -20,6 +23,43 @@ interface ChessGame {
      * ```
      */
     pauseTimes: [Date, Date | null][]
+    /**
+     * Players in this game. Null is used for unavailable properties.
+     * ```
+     * {
+     *  [b|w]: {
+     *      elo: number | null
+     *      name: string | null
+     *      title: string | null
+     *      type: string ("human" | "program") | null
+     *  }
+     * }
+     */
+    players: {
+        b: {
+            /** ELO rating of the black player. */
+            elo: number | null
+            /** Name of the black player. */
+            name: string | null
+            /** Possible title of the black player. */
+            title: string | null
+            /** Type of the black player (usually "human" or "program"). */
+            type: string | null
+        }
+        w: {
+            /** ELO rating of the white player. */
+            elo: number | null
+            /** Name of the white player. */
+            name: string | null
+            /** Possible title of the white player. */
+            title: string | null
+            /** Type of the white player (usually "human" or "program"). */
+            type: string | null
+        }
+    }
+    /**
+     * Game result for each player.
+     */
     result: {
         w: string,
         b: string,
