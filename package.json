@@ -5,7 +5,10 @@
   "main": "dist/chess.js",
   "files": [
     "index.js",
-    "dist/*"
+    "dist/*",
+    "umd/*",
+    "LICENSE",
+    "README.md"
   ],
   "license": "GPL-3.0",
   "scripts": {
