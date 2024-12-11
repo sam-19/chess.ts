@@ -1,5 +1,5 @@
-import Log from 'scoped-ts-log'
-import { GameHeaders } from './types/headers'
+import { Log } from 'scoped-event-log'
+import { AnyHeader, GameHeaders } from './types/headers'
 
 const SCOPE = 'headers'
 
@@ -48,14 +48,78 @@ export default class ChessHeaders implements GameHeaders {
         whitetype: 'WhiteType',
         whiteuscf: 'WhiteUSCF',
     }
+
+    /**
+     * Check if a header `value` is valid for a given header `key`.
+     * @param key - Header key.
+     * @param value - Header value to validate.
+     * @returns True if value is valid for the key, false otherwise.
+     */
+    static readonly ValidateValue = (key: AnyHeader, value: string) => {
+        const validationMap = new Map<AnyHeader, { allowed: (string | RegExp)[], error: string }>([
+            ['blackelo', {
+                allowed: [/^\d\d?\d?\d?$/],
+                error: `'${value}' must be a positive integer with up to four digits.`
+            }],
+            ['date', {
+                allowed: [/^\d\d\d\d\.\d\d\.\d\d$/],
+                error: `'${value}' does not match allowed pattern 'YYYY.MM.DD'.`
+            }],
+            ['eco', {
+                allowed: [/^[A-E]\d\d(\/\d\d)$/],
+                error: `'${value}' does not match allowed pattern '(A-E)##', with optional suffix '/##'.`
+            }],
+            ['plycount', {
+                allowed: [/^\d\d?\d?\d?$/],
+                error: `'${value}' must be a positive integer with up to four digits.`
+            }],
+            ['setup', {
+                allowed: [/^[01]$/],
+                error: `'${value}' must be either 0 or 1.`
+            }],
+            ['termination', {
+                allowed: [
+                    "abandoned", "adjudication", "death", "emergency", "normal",
+                    "rules infraction", "time forfeit", "unterminated"
+                ],
+                error: `'${value}' is not an allowed value.`
+            }],
+            ['time', {
+                allowed: [/^\d\d:\d\d:\d\d$/],
+                error: `'${value}' does not match allowed pattern 'HH:MM:SS'.`
+            }],
+            ['utcdate', {
+                allowed: [/^\d\d\d\d\.\d\d\.\d\d$/],
+                error: `'${value}' does not match allowed pattern 'YYYY.MM.DD'.`
+            }],
+            ['utctime', {
+                allowed: [/^\d\d:\d\d:\d\d$/],
+                error: `'${value}' does not match allowed pattern 'HH:MM:SS'.`
+            }],
+            ['whiteelo', {
+                allowed: [/^\d\d?\d?\d?$/],
+                error: `'${value}' must be a positive integer with up to four digits.`
+            }],
+        ])
+        const validation = validationMap.get(key.toLowerCase())
+        if (!validation ||
+            validation.allowed.includes(value) ||
+            validation.allowed.filter(v => typeof v !== 'string').some(r => value.match(r))
+        ) {
+            return true
+        }
+        Log.error(`Cannot set header, ` + validation.error, SCOPE)
+        return false
+    }
+
     // Instance properties
-    keys: string[] = []
-    headers = new Map<string,string>()
+    protected _keys: AnyHeader[] = []
+    protected _headers = new Map<AnyHeader, string>()
     /**
      * Create a new game headers object with the given key-value pairs.
      * @param headers [key: string, value: string][]
      */
-    constructor (headers: string[][] = []) {
+    constructor (headers: [AnyHeader, string][] = []) {
         this.add(headers)
     }
 
@@ -66,8 +130,8 @@ export default class ChessHeaders implements GameHeaders {
     }
 
     clear () {
-        this.keys = []
-        this.headers.clear()
+        this._keys = []
+        this._headers.clear()
     }
 
     export (reduced = false) {
@@ -76,7 +140,7 @@ export default class ChessHeaders implements GameHeaders {
         const exportHdrs = new Map<string, string>()
         const requiredKeys = ['event', 'site', 'date', 'round', 'white', 'black', 'result']
         for (const key of requiredKeys) {
-            const hdrValue = this.headers.get(key)
+            const hdrValue = this._headers.get(key)
             const stdKey = ChessHeaders.KEYS[key as keyof typeof ChessHeaders.KEYS]
             if (hdrValue === undefined) {
                 Log.error(`Headers are missing required field ${stdKey}.`, SCOPE)
@@ -94,7 +158,7 @@ export default class ChessHeaders implements GameHeaders {
         // Add the rest of the headers in alphabetical order
         for (const key of Object.keys(ChessHeaders.KEYS)) {
             if (requiredKeys.indexOf(key) === -1) {
-                const hdrValue = this.headers.get(key)
+                const hdrValue = this._headers.get(key)
                 if (hdrValue) {
                     exportHdrs.set(ChessHeaders.KEYS[key as keyof typeof ChessHeaders.KEYS], hdrValue)
                 }
@@ -103,9 +167,9 @@ export default class ChessHeaders implements GameHeaders {
         return exportHdrs
     }
 
-    get (k: string) {
-        if (this.headers.get(k.toLowerCase()) !== undefined) {
-            return this.headers.get(k.toLowerCase())
+    get (key: AnyHeader) {
+        if (this._headers.get(key.toLowerCase()) !== undefined) {
+            return this._headers.get(key.toLowerCase())
         } else {
             return undefined
         }
@@ -116,63 +180,66 @@ export default class ChessHeaders implements GameHeaders {
     }
 
     getKey (i: number) {
-        if (this.keys[i] !== undefined && ChessHeaders.KEYS[this.keys[i] as keyof typeof ChessHeaders.KEYS] !== undefined) {
-            return ChessHeaders.KEYS[this.keys[i] as keyof typeof ChessHeaders.KEYS]
+        if (this._keys[i] !== undefined && ChessHeaders.KEYS[this._keys[i] as keyof typeof ChessHeaders.KEYS] !== undefined) {
+            return ChessHeaders.KEYS[this._keys[i] as keyof typeof ChessHeaders.KEYS]
         } else {
             return undefined
         }
     }
 
     getValue (i: number) {
-        if (this.headers.get(this.keys[i]) !== undefined)
-            return this.headers.get(this.keys[i])
+        if (this._headers.get(this._keys[i]) !== undefined)
+            return this._headers.get(this._keys[i])
         else
             return undefined
     }
 
     length () {
-        return this.keys.length
+        return this._keys.length
     }
 
-    remove (k: string) {
-        if (this.headers.has(k.toLowerCase())) {
-            this.headers.delete(
-                this.keys.splice(this.keys.indexOf(k.toLowerCase()), 1)[0]
+    remove (key: AnyHeader) {
+        if (this._headers.has(key.toLowerCase())) {
+            this._headers.delete(
+                this._keys.splice(this._keys.indexOf(key.toLowerCase()), 1)[0]
             )
         }
     }
 
-    removeAllExcept (preserve: string | string[]) {
+    removeAllExcept (preserve: AnyHeader | AnyHeader[]) {
         // Convert to array if single string
         if (typeof preserve === 'string') {
             preserve = [preserve]
         }
         // Convert all to lower case to match with header keys
         preserve = preserve.map(key => key.toLowerCase())
-        for (let i=0; i<this.keys.length; i++) {
-            if (preserve.indexOf(this.keys[i]) === -1) {
-                this.headers.delete(this.keys.splice(i, 1)[0])
+        for (let i=0; i<this._keys.length; i++) {
+            if (preserve.indexOf(this._keys[i]) === -1) {
+                this._headers.delete(this._keys.splice(i, 1)[0])
                 i--
             }
         }
     }
 
-    set (key: string, value: string) {
-        if (Object.keys(ChessHeaders.KEYS).indexOf(key.toLowerCase()) === -1) {
+    set (key: AnyHeader, value: string) {
+        if (
+            Object.keys(ChessHeaders.KEYS).indexOf(key.toLowerCase()) === -1 ||
+            !ChessHeaders.ValidateValue(key, value)
+        ) {
             return
         }
-        if (this.keys.indexOf(key.toLowerCase()) === -1) {
-            this.keys.push(key.toLowerCase())
+        if (this._keys.indexOf(key.toLowerCase()) === -1) {
+            this._keys.push(key.toLowerCase())
         }
-        this.headers.set(key.toLowerCase(), value)
+        this._headers.set(key.toLowerCase(), value)
     }
 
-    standardized (): { [key: string]: string } {
+    standardized (): { [key: AnyHeader]: string } {
         const headers = {} as { [key: string]: string }
-        for (const k of this.keys) {
+        for (const k of this._keys) {
             // At this point the user submitted headers have been checked twice against the
             // list of supported values and there is no second level property (at least not yet).
-            const h = this.headers.get(k)
+            const h = this._headers.get(k)
             if (h) {
                 headers[ChessHeaders.KEYS[k as keyof typeof ChessHeaders.KEYS]] = h
             }
@@ -185,6 +252,6 @@ export default class ChessHeaders implements GameHeaders {
     }
 
     toString () {
-        return "{ " + this.keys.map(key => `${ChessHeaders.KEYS[key as keyof typeof ChessHeaders.KEYS]}: ${this.headers.get(key)}`).join('; ') + " }"
+        return "{ " + this._keys.map(key => `${ChessHeaders.KEYS[key as keyof typeof ChessHeaders.KEYS]}: ${this._headers.get(key)}`).join('; ') + " }"
     }
 }

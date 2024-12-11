@@ -8,7 +8,7 @@ import Color from './color'
 import Fen from './fen'
 import Flags from './flags'
 import Game from './game'
-import Log from 'scoped-ts-log'
+import { Log } from 'scoped-event-log'
 import Move from './move'
 import Nag from './nag'
 import Options from './options'
@@ -21,6 +21,7 @@ import { MethodOptions } from './types/options'
 import { PlayerColor } from './types/color'
 import { MoveError } from './types/move'
 import { TCTimeValues } from './types/timers'
+import { AnyHeader } from './types/headers'
 
 const SCOPE = 'chess'
 
@@ -44,7 +45,7 @@ export default class Chess implements ChessCore {
     games: { [group: string]: Game[] }
     lastActive: { [group: string]: number }
     lastRemoved: GameEntry | null
-    parsedPgnGames: { [group: string]: { headers: string[][], moves: string }[] }
+    parsedPgnGames: { [group: string]: { headers: [AnyHeader, string][], moves: string }[] }
 
     // Default starting FEN
     constructor () {
@@ -159,7 +160,7 @@ export default class Chess implements ChessCore {
      * return { game: Game, group: string, index: number }
      * ```
      */
-    createGameFromPgn (pgn: { headers: string[][], moves: string }, group=this.active.group) {
+    createGameFromParsed (pgn: { headers: [AnyHeader, string][], moves: string }, group=this.active.group) {
         // I found aaronfi's approach to this much more convenient than the original chess.js method
         const VALID_RESULTS = ['1-0', '1/2-1/2', '0-1', '0-0', '*', '+/-', '-/+', '-/-']
         let fen = Fen.DEFAULT_STARTING_STATE
@@ -345,60 +346,61 @@ export default class Chess implements ChessCore {
         const result = pgn.moves.substring(pgn.moves.length - 3)
         if (result === '1-0') {
             if (game.currentBoard.isInCheckmate) {
-                game.result = {
+                game.currentBoard.endState.result = {
                     [Chess.Color.WHITE]: Game.RESULT.WIN_BY.CHECKMATE,
                     [Chess.Color.BLACK]: Game.RESULT.LOSS_BY.CHECKMATE,
                 }
             } else {
-                game.result = {
+                game.currentBoard.endState.result = {
                     [Chess.Color.WHITE]: Game.RESULT.WIN,
                     [Chess.Color.BLACK]: Game.RESULT.LOSS,
                 }
             }
         } else if (result === '0-1') {
             if (game.currentBoard.isInCheckmate) {
-                game.result = {
+                game.currentBoard.endState.result = {
                     [Chess.Color.WHITE]: Game.RESULT.LOSS_BY.CHECKMATE,
                     [Chess.Color.BLACK]: Game.RESULT.WIN_BY.CHECKMATE,
                 }
             } else {
-                game.result = {
+                game.currentBoard.endState.result = {
                     [Chess.Color.WHITE]: Game.RESULT.LOSS,
                     [Chess.Color.BLACK]: Game.RESULT.WIN,
                 }
             }
-        } else if (pgn.moves.substring(pgn.moves.length - 7) == '1/2-1/2') {
+        } else if (pgn.moves.substring(pgn.moves.length - 7) === '1/2-1/2') {
             if (game.currentBoard.isInStalemate) {
-                game.result = {
+                game.currentBoard.endState.result = {
                     [Chess.Color.WHITE]: Game.RESULT.DRAW_BY.STALEMATE,
                     [Chess.Color.BLACK]: Game.RESULT.DRAW_BY.STALEMATE,
                 }
             } else if (game.currentBoard.breaks75MoveRule) {
-                game.result = {
+                game.currentBoard.endState.result = {
                     [Chess.Color.WHITE]: Game.RESULT.DRAW_BY.SEVENTYFIVE_MOVE_RULE,
                     [Chess.Color.BLACK]: Game.RESULT.DRAW_BY.SEVENTYFIVE_MOVE_RULE,
                 }
             } else if (game.currentBoard.breaks50MoveRule) {
-                game.result = {
+                game.currentBoard.endState.result = {
                     [Chess.Color.WHITE]: Game.RESULT.DRAW_BY.FIFTY_MOVE_RULE,
                     [Chess.Color.BLACK]: Game.RESULT.DRAW_BY.FIFTY_MOVE_RULE,
                 }
             } else if (game.currentBoard.hasRepeatedFivefold) {
-                game.result = {
+                game.currentBoard.endState.result = {
                     [Chess.Color.WHITE]: Game.RESULT.DRAW_BY.FIVEFOLD_REPETITION,
                     [Chess.Color.BLACK]: Game.RESULT.DRAW_BY.FIVEFOLD_REPETITION,
                 }
             } else if (game.currentBoard.hasRepeatedThreefold) {
-                game.result = {
+                game.currentBoard.endState.result = {
                     [Chess.Color.WHITE]: Game.RESULT.DRAW_BY.THREEFOLD_REPETITION,
                     [Chess.Color.BLACK]: Game.RESULT.DRAW_BY.THREEFOLD_REPETITION,
                 }
             } else {
-                game.result = {
+                game.currentBoard.endState.result = {
                     [Chess.Color.WHITE]: Game.RESULT.DRAW,
                     [Chess.Color.BLACK]: Game.RESULT.DRAW,
                 }
             }
+            game.currentBoard.endState.headers = result
         }
         return this.addGame(game, group)
     }
@@ -428,7 +430,7 @@ export default class Chess implements ChessCore {
         if (!Object.prototype.hasOwnProperty.call(this.parsedPgnGames, group) || this.parsedPgnGames[group][index] === undefined) {
             return null
         }
-        return this.createGameFromPgn(this.parsedPgnGames[group][index])
+        return this.createGameFromParsed(this.parsedPgnGames[group][index])
     }
 
     /**
@@ -470,7 +472,7 @@ export default class Chess implements ChessCore {
         if (pgnGameCount) { // At least one game was found
             if (pgnGameCount <= (options.maxItems as number)) {
                 for (let i=0; i<pgnGameCount; i++) {
-                    const game = this.createGameFromPgn(this.parsedPgnGames[group].splice(i, 1)[0]).game
+                    const game = this.createGameFromParsed(this.parsedPgnGames[group].splice(i, 1)[0]).game
                     if (this.active.group === group && this.active.index === -1 && options.activateFirst) {
                         this.active.index = 0
                     }
@@ -487,7 +489,7 @@ export default class Chess implements ChessCore {
                     }
                 }
             } else if (this.active.group === group && this.active.index === -1 && options.activateFirst) {
-                const game = this.createGameFromPgn(this.parsedPgnGames[group].splice(0, 1)[0]).game
+                const game = this.createGameFromParsed(this.parsedPgnGames[group].splice(0, 1)[0]).game
                 const newHeaders = [] as string[][]
                 for (const [key, val] of Object.entries(game.headers.standardized())) {
                     if (key) {
@@ -555,7 +557,7 @@ export default class Chess implements ChessCore {
                         if (i===pgnGameCount) {
                             resolve(true)
                         }
-                        this.createGameFromPgn(this.parsedPgnGames[this.active.group][i])
+                        this.createGameFromParsed(this.parsedPgnGames[this.active.group][i])
                         counter++
                     }
                     resolve(true)
@@ -628,7 +630,7 @@ export default class Chess implements ChessCore {
      * @return array containing games parsed to headers and moves [{ headers, moves }]
      */
     parseFullPgn (pgn: string) {
-        const parsed = []
+        const parsed = [] as { headers: [AnyHeader, string][], moves: string }[]
         // Change all new lines to \n
         pgn = pgn.replace(/\r\n|[\n\x0B\x0C\r\u0085\u2028\u2029]/g, '\n')
         // Remove lines that start with %.
@@ -714,7 +716,7 @@ export default class Chess implements ChessCore {
                     ) {
                         // Split header into parts
                         const headers = lHeader.split('\n')
-                        const meta = []
+                        const meta = [] as [AnyHeader, string][]
                         for (let i=0; i<headers.length; i++) {
                             const header = headers[i].trim()
                             // Retrieve header key and value
@@ -751,7 +753,7 @@ export default class Chess implements ChessCore {
         if (lHeader) {
             // Process last headers
             const headers = lHeader.split('\n')
-            const meta = []
+            const meta = [] as [AnyHeader, string][]
             for (let i=0; i<headers.length; i++) {
                 const header = headers[i].trim()
                 // Retrieve header key and value
@@ -860,8 +862,8 @@ export default class Chess implements ChessCore {
     get currentMoveVariations () {
         return this.activeGame?.currentMoveVariations || []
     }
-    get endResult () {
-        return this.activeGame?.endResult || null
+    get endState () {
+        return this.activeGame?.endState || null
     }
     get hasEnded () {
         return this.activeGame?.hasEnded || false

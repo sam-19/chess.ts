@@ -4,14 +4,25 @@
 
 import Board from '../src/board'
 import Game from '../src/game'
-import Log from 'scoped-ts-log'
+import { Log } from 'scoped-event-log'
 import Flags from '../src/flags'
-import Turn from '../src/turn'
 import Piece from '../src/piece'
 import Fen from '../src/fen'
 
 // Only log warnings and errors
 Log.setPrintThreshold("WARN")
+// Printed board state at the end of the variation
+const boardAtEnd = `  +------------------------+  Spassky, Boris V.
+8 | .  .  .  .  .  .  .  . |  Move 43, game over
+7 | .  .  .  .  .  .  .  . |
+6 | .  .  .  .  R  .  p  . |
+5 | .  .  k  .  .  .  p  . |  Result:
+4 | .  p  .  .  .  .  P  . |  1/2-1/2
+3 | .  P  .  b  .  P  .  . |
+2 | .  .  .  K  .  n  .  . |
+1 | .  .  .  .  .  .  .  . |
+  +------------------------+  Fischer, Robert J.
+    a  b  c  d  e  f  g  h`
 const game = new Game()
 expect(game).toBeDefined()
 describe('Board', () => {
@@ -31,7 +42,7 @@ describe('Board', () => {
         expect(board.castlingRights.w.contains(Flags.QSIDE_CASTLING)).toStrictEqual(true)
         expect(board.continuation).toStrictEqual(false)
         expect(board.enPassantSqr).toStrictEqual(null)
-        expect(board.endResult).toStrictEqual(null)
+        expect(board.endState.headers).toStrictEqual('*')
         expect(board.halfMoveCount).toStrictEqual(0)
         expect(board.hasInsufficientMaterial).toStrictEqual(false)
         expect(board.hasRepeatedFivefold).toStrictEqual(false)
@@ -72,7 +83,7 @@ describe('Board', () => {
     test('make moves', () => {
         board.makeMoveFromAlgebraic('e2', 'e4')
         expect(board.enPassantSqr).toStrictEqual(84)
-        expect(Board.squareToAlgebraic(board.enPassantSqr as number)).toStrictEqual('e3')
+        expect(Board.squareToAlgebraic(board.enPassantSqr!)).toStrictEqual('e3')
         expect(board.history.length).toStrictEqual(1)
         expect(board.plyNum).toStrictEqual(1)
         expect(board.posCount.size).toStrictEqual(1)
@@ -80,7 +91,7 @@ describe('Board', () => {
         board.makeMoveFromSAN('d5')
         expect(board.getMoves({ notation: 'san' }).legal.map(m => m.move.san)).toContain('exd5')
         board.makeMoveFromSAN('exd5')
-        const lastMove = (board.undoMoves() as Turn[])[0]
+        const lastMove = (board.undoMoves()!)[0]
         expect(lastMove.move.flags.contains(Flags.CAPTURE)).toStrictEqual(true)
         expect(board.toFen()).toStrictEqual('rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 2')
         game.loadFen('rnbqkbnr/pppppp1p/6p1/1B6/4P3/8/PPPP1PPP/RNBQK1NR b KQkq - 1 2')

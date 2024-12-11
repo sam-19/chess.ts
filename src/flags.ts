@@ -1,6 +1,6 @@
 // This class name is an exception to the rule of otherwise singular class names, because one Flags is in fact
 // a collection of all the flags of a particular context.
-import Log from 'scoped-ts-log'
+import { Log } from 'scoped-event-log'
 import { MoveFlags } from './types/flags'
 
 const SCOPE = 'flags'

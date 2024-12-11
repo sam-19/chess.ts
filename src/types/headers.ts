@@ -1,6 +1,4 @@
-interface GameHeaders {
-    keys: string[]
-    headers: Map<string,string>
+export interface GameHeaders {
     /**
      * Add all headers from the given array of key-value pairs.
      * @param headers [key: string, value: string][]
@@ -25,13 +23,13 @@ interface GameHeaders {
      * @param k header key
      * @returns header value string
      */
-    get: (k: string) => string | undefined
+    get: (k: AnyHeader) => string | undefined
 
     /**
      * Return all headers with standardized key capitalization.
      * @returns headers
      */
-    getAll: () => { [key: string]: string }
+    getAll: () => { [key: AnyHeader]: string }
 
     /**
      * Get key at index i.
@@ -57,25 +55,25 @@ interface GameHeaders {
      * Remove a header by key.
      * @param k
      */
-    remove: (k: string) => void
+    remove: (k: AnyHeader) => void
 
     /**
      * Remove all headers except the given keys (array).
      * @param preserve key or array of keys to preserve (case-insensitive)
      */
-    removeAllExcept: (preserve: string | string[]) => void
+    removeAllExcept: (preserve: AnyHeader | AnyHeader[]) => void
 
     /**
      * Update header value at key or add it to headers.
      * @param key header key
      * @param value header value
      */
-    set: (key: string, value: string) => void
+    set: (key: AnyHeader, value: string) => void
 
     /**
      * Return headers with standardized keys.
      */
-    standardized: () => { [key: string]: string }
+    standardized: () => { [key: AnyHeader]: string }
 
     /**
      * Convert these game headers into a JSON string.
@@ -90,4 +88,19 @@ interface GameHeaders {
     toString: () => string
 }
 
-export { GameHeaders }
+export type RequiredHeaders =
+    'Black' | 'Date' | 'Event' | 'Result' | 'Round' | 'Site' | 'White'
+    
+export type OptionalHeaders =
+    'Annotator' | 'FEN' | 'Mode' | 'PlyCount' | 'Termination' | 'Time' | 'TimeControl'
+
+export type AdditionalHeaders =
+    'BlackElo' | 'BlackTitle' | 'BlackType' | 'WhiteElo' | 'WhiteTitle' | 'WhiteType'
+
+export type KnownHeaders = AdditionalHeaders | OptionalHeaders | RequiredHeaders
+
+export type AnyHeader = KnownHeaders | string
+
+export type TerminationReason =
+    "abandoned" | "adjudication" | "death" | "emergency" | "normal" |
+    "rules infraction" | "time forfeit" | "unterminated"

@@ -4,6 +4,7 @@ const unsupported = [].join('|')
 
 module.exports = {
     rootDir: path.resolve(__dirname, './'),
+    preset: 'ts-jest',
     coverageDirectory: "<rootDir>/tests/coverage/",
     globals: {
     },
@@ -25,11 +26,19 @@ module.exports = {
     ],
     transform: {
         "^.+\\.js$": "babel-jest",
-        "^.+\\.ts$": "ts-jest",
+        "^.+\\.ts$": ["ts-jest", { isolatedModules: true }],
     },
     transformIgnorePatterns: [
         "node_modules/(?!{unsupported})",
     ],
     testRegex: "(test/.*|(\\.|/)(test|spec))\\.(tsx?)$",
-    testURL: "http://localhost/",
+    testEnvironment: "jsdom",
+    testEnvironmentOptions: {
+        browsers: [
+            "chrome",
+            "firefox",
+            "safari"
+        ],
+        url: "http://localhost/"
+    }
 }

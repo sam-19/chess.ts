@@ -3,7 +3,7 @@
  */
 
 import ChessTimer, { Timers } from '../src/timers'
-import Log from 'scoped-ts-log'
+import { Log } from 'scoped-event-log'
 
 Log.setPrintThreshold("WARN")
 

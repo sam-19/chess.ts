@@ -28,30 +28,11 @@ export default class Fen implements ChessFen {
        15: 'White doesn\'t have the right number of kings on the board.',
        16: 'Black doesn\'t have the right number of kings on the board.'
     }
-    // Instance properties
-    fen: string
-
-    constructor (fen: string = Fen.DEFAULT_STARTING_STATE) {
-        this.fen = fen
-    }
-
-    // Methods
-
-    /**
-     * Invert (or flip) the board position, changing the sides of white and black.
-     */
-    invert (): string {
-        // Process only the position part
-        const pos = this.fen.indexOf(' ') !== -1 ? this.fen.split(' ')[0] : this.fen
-        const items = pos.split('')
-        items.reverse()
-        const invPos = items.join('')
-        return this.fen.replace(pos, invPos)
-    }
     /**
      * Validate this FEN string.
-     * @param onlyPosition only validate the position, ignoring the game state (default is false)
-     * @param rules ruleset to apply (default is traditional)
+     * @param fen - The FEN string to validate.
+     * @param onlyPosition - Only validate the position, ignoring the game state (default is false).
+     * @param rules - Ruleset to apply (default is traditional).
      * @return
      * ```
      * {
@@ -61,7 +42,7 @@ export default class Fen implements ChessFen {
      * }
      * ```
      */
-    validate (onlyPosition=false, rules='traditional') {
+    static readonly Validate = (fen: string, onlyPosition=false, rules='traditional') => {
         // Set up some variables for error checking
         const pieces = {
             [Color.WHITE]: 0,
@@ -75,14 +56,15 @@ export default class Fen implements ChessFen {
             [Color.WHITE]: 0,
             [Color.BLACK]: 0
         }
+        const trimmed = fen.trim()
         // Since the default starting position is the most common one, first check for that
-        if (!onlyPosition && this.fen.trim() === Fen.DEFAULT_STARTING_STATE ||
-            onlyPosition && this.fen.trim() === Fen.DEFAULT_STARTING_POSITION
+        if (!onlyPosition && trimmed === Fen.DEFAULT_STARTING_STATE ||
+            onlyPosition && trimmed === Fen.DEFAULT_STARTING_POSITION
         ) {
             return { isValid: true, errorCode: 0, errorMessage: Fen.ERRORS[0] }
         }
         // Must have 6 space-separated tokens
-        const tokens = this.fen.trim().split(/\s+/)
+        const tokens = trimmed.split(/\s+/)
         if (!onlyPosition && tokens.length !== 6) {
             return { isValid: false, errorCode: 1, errorMessage: Fen.ERRORS[1][0] }
         } else if (onlyPosition && tokens.length !== 1) {
@@ -173,6 +155,42 @@ export default class Fen implements ChessFen {
         }
         // this.fen is valid
         return { isValid: true, errorCode: 0, errorMessage: Fen.ERRORS[0] }
+    }
+    // Instance properties
+    fen: string
+
+    constructor (fen: string = Fen.DEFAULT_STARTING_STATE) {
+        this.fen = fen
+    }
+
+    // Methods
+
+    /**
+     * Invert (or flip) the board position, changing the sides of white and black.
+     */
+    invert (): string {
+        // Process only the position part
+        const pos = this.fen.indexOf(' ') !== -1 ? this.fen.split(' ')[0] : this.fen
+        const items = pos.split('')
+        items.reverse()
+        const invPos = items.join('')
+        return this.fen.replace(pos, invPos)
+    }
+    /**
+     * Validate this FEN string.
+     * @param onlyPosition only validate the position, ignoring the game state (default is false)
+     * @param rules ruleset to apply (default is traditional)
+     * @return
+     * ```
+     * {
+     *     isValid: boolean      // Whether the fen is valid or not
+     *     errorCode: number     // Possible error code, 0 means no error
+     *     errorMessage: string  // Possible error string
+     * }
+     * ```
+     */
+    validate (onlyPosition=false, rules='traditional') {
+        return Fen.Validate(this.fen, onlyPosition, rules)
     }
     /**
      * Return the FEN string.

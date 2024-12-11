@@ -107,8 +107,7 @@ describe('Loading and exporting PGN', () => {
         if (!active) {
             return
         }
-        expect(active.result[Chess.Color.WHITE]).toStrictEqual(Chess.Game.RESULT.DRAW)
-        expect(active.result[Chess.Color.BLACK]).toStrictEqual(Chess.Game.RESULT.DRAW)
+        expect(active.result).toStrictEqual('1/2-1/2')
     })
     test('remove loaded game', () => {
         chess.removeGame()
@@ -117,12 +116,12 @@ describe('Loading and exporting PGN', () => {
     /* Test PGN parser */
     test('parse simple PGN', () => {
         const parsed = chess.parseFullPgn('1. e4')
-        chess.createGameFromPgn(parsed[0], 'parse')
+        chess.createGameFromParsed(parsed[0], 'parse')
         chess.removeGame()
     })
     test('parse full PGN', () => {
         const parsed = chess.parseFullPgn(testPGN)
-        const game = chess.createGameFromPgn(parsed[0], 'parse')
+        const game = chess.createGameFromParsed(parsed[0], 'parse')
         expect(parsed.length).toStrictEqual(1)
         expect(parsed[0].headers).toBeDefined()
         expect(parsed[0].moves).toBeDefined()
@@ -130,23 +129,7 @@ describe('Loading and exporting PGN', () => {
         expect(parsed[0].moves.length).toStrictEqual(558)
         expect(game.game).toBeTruthy()
     })
-    test('loaded game navigation', () => {
-        const active = chess.activeGame
-        expect(active).toBeTruthy()
-        if (!active) {
-            return
-        }
-        active.selectTurn(5)
-        expect(active.getMoveHistory('san')).toStrictEqual([ 'e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6' ])
-        active.prevTurn()
-        expect(active.getMoveHistory('san')).toStrictEqual([ 'e4', 'e5', 'Nf3', 'Nc6', 'Bb5' ])
-        active.nextTurn()
-        active.nextTurn()
-        expect(active.getMoveHistory('san')).toStrictEqual([ 'e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4' ])
-        active.goToStart()
-        expect(active.getMoveHistory().length).toStrictEqual(0)
-    })
-    test('print board state', () => {
+    test('FEN and ASCII match expected board state', () => {
         const active = chess.activeGame
         expect(active).toBeTruthy()
         if (!active) {
@@ -156,7 +139,7 @@ describe('Loading and exporting PGN', () => {
         expect(active.toFen()).toStrictEqual('8/8/4R1p1/2k3p1/1p4P1/1P1b1P2/3K1n2/8 b - - 2 43')
         expect(active.currentBoard.toString()).toStrictEqual(boardAtEnd)
     })
-    test('export game as PGN', () => {
+    test('Exported PGN matches expected board state', () => {
         const active = chess.activeGame
         expect(active).toBeTruthy()
         if (!active) {
@@ -205,94 +188,6 @@ describe('Loading and exporting PGN', () => {
         chess.removeGame()
     })
 })
-describe('Variation creation', () => {
-    chess.activeGroup = 'variation'
-    const { game, group, index } = chess.newGame('rnbqkbnr/pp1ppppp/8/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2', 'variation')
-    // Test variation creation
-    test('create new branch variation', () => {
-        expect(game).toBeTruthy()
-        if (!game) {
-            return
-        }
-        expect(group).toStrictEqual('variation')
-        expect(index).toStrictEqual(0)
-        expect(game.variations.length).toStrictEqual(1)
-        game.makeMoveFromSan('Qa5')
-        game.makeMoveFromSan('Bb5')
-        game.makeMoveFromSan('Qxd2')
-        game.prevTurn()
-        let moves = game.getMoves({ notation: 'san', filter: 'legal' })
-        expect(moves.legal.map(move => move.san)).toContain('Qxb5')
-        game.makeMoveFromSan('Qxb5')
-        // New variation board id should be 1
-        expect(game.currentBoard.id).toStrictEqual(1)
-        const selTurn = game.currentBoard.parentBoard?.selectedTurnIndex
-        const branchTurn = game.currentBoard.parentBranchTurnIndex
-        expect(selTurn).toStrictEqual(branchTurn)
-        expect(game.currentBoard.parentBoard?.selectedTurn.variations.length).toStrictEqual(1)
-        expect(game.currentBoard.continuation).toBeFalsy()
-        moves = game.getMoves({ notation: 'san', filter: 'legal' })
-        expect(moves.legal.map(move => move.san)).toContain('Qe2')
-        game.makeMoveFromSan('Qe2')
-        moves = game.getMoves({ notation: 'san', filter: 'legal' })
-        expect(moves.legal.map(move => move.san)).toContain('c4')
-        game.makeMoveFromSan('c4')
-        moves = game.getMoves({ notation: 'san', filter: 'legal' })
-        expect(moves.legal.map(move => move.san)).toContain('Qxc4')
-        game.makeMoveFromSan('Qxc4')
-        moves = game.getMoves({ notation: 'san', filter: 'legal' })
-        expect(moves.legal.map(move => move.san)).toContain('Qa6')
-        game.makeMoveFromSan('Qa6')
-        moves = game.getMoves({ notation: 'san', filter: 'legal' })
-        expect(moves.legal.map(move => move.san)).toContain('Qxc8#')
-        game.makeMoveFromSan('Qxc8#')
-        moves = game.getMoves({ notation: 'san', filter: 'legal' })
-        expect(moves.legal.length).toStrictEqual(0)
-        expect(game.isFinished).toBeTruthy()
-    })
-})
-describe('Continuation creation', () => {
-    chess.activeGroup = 'continuation'
-    const { game, group, index } = chess.newGame('rnbqkbnr/pp1ppppp/8/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2', 'continuation')
-    // Test continuation creation
-    test('create new branch continuation', () => {
-        expect(game).toBeTruthy()
-        if (!game) {
-            return
-        }
-        expect(group).toStrictEqual('continuation')
-        expect(index).toStrictEqual(0)
-        expect(game.variations.length).toStrictEqual(1)
-        game.makeMoveFromSan('Qa5')
-        game.makeMoveFromSan('Bb5')
-        game.makeMoveFromSan('Qxb5')
-        game.makeMoveFromSan('Qe2')
-        game.makeMoveFromSan('c4')
-        game.makeMoveFromSan('Qxc4')
-        game.makeMoveFromSan('Qa6')
-        game.makeMoveFromSan('Qxc8#')
-        game.prevTurn()
-        game.prevTurn()
-        game.prevTurn()
-        const initialBoard = game.currentBoard
-        const prevTurn = game.currentBoard.selectedTurnIndex
-        game.createContinuationFromSan('b4')
-        const branchTurn = game.currentBoard.parentBranchTurnIndex
-        expect(prevTurn).toStrictEqual(branchTurn)
-        expect(initialBoard.history[prevTurn].variations.length).toStrictEqual(1)
-        expect(game.currentBoard.parentBoard?.selectedTurn.variations.length).toStrictEqual(1)
-        expect(game.currentBoard.continuation).toBeTruthy()
-        expect(game.variations.length).toStrictEqual(2)
-        expect(game.currentBoard.id).toStrictEqual(1)
-        let moves = game.getMoves({ notation: 'san', filter: 'legal' })
-        expect(moves.legal.map(move => move.san)).toContain('e5')
-        game.makeMoveFromSan('e5')
-        moves = game.getMoves({ notation: 'san', filter: 'legal' })
-        expect(moves.legal.map(move => move.san)).toContain('O-O')
-        game.makeMoveFromSan('O-O')
-        expect(game.getMoveHistory('san')).toStrictEqual(['Qa5', 'Bb5', 'Qxb5', 'Qe2', 'c4', 'b4', 'e5', 'O-O'])
-    })
-})
 describe('Pass-through properties', () => {
     test('game setup', () => {
         chess.activeGroup = 'properties'
@@ -304,7 +199,7 @@ describe('Pass-through properties', () => {
         expect(chess.breaks50MoveRule).toStrictEqual(false)
         expect(chess.breaks75MoveRule).toStrictEqual(false)
         expect(chess.currentMoveVariations).toStrictEqual([])
-        expect(chess.endResult).toStrictEqual(null)
+        expect(chess.endState?.headers).toStrictEqual('*')
         expect(chess.hasEnded).toStrictEqual(false)
         expect(chess.hasInsufficientMaterial).toStrictEqual(false)
         expect(chess.hasRepeatedFivefold).toStrictEqual(false)

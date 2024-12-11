@@ -3,7 +3,6 @@ import Color from './color'
 import Fen from './fen'
 import Flags from './flags'
 import Game from './game'
-import Log from 'scoped-ts-log'
 import Move from './move'
 import Turn from './turn'
 import Options from './options'
@@ -13,6 +12,9 @@ import { ChessBoard } from './types/board'
 import { MethodOptions } from './types/options'
 import { PlayerColor } from './types/color'
 import { MoveError } from './types/move'
+
+import { Log } from 'scoped-event-log'
+import { ChessTurn } from './types'
 
 const SCOPE = 'board'
 
@@ -299,7 +301,7 @@ export default class Board implements ChessBoard {
         return (this.halfMoveCount >= 150)
     }
 
-    get endResult () {
+    get endState () {
         if (this.isInCheckmate) {
             if (this.turn === Color.BLACK) {
                 return {
@@ -359,7 +361,13 @@ export default class Board implements ChessBoard {
                 headers: '1/2-1/2',
             }
         }
-        return null
+        return {
+            result: {
+                [Color.WHITE]: Game.RESULT.UNKNOWN,
+                [Color.BLACK]: Game.RESULT.UNKNOWN,
+            },
+            headers: '*',
+        }
     }
 
     get hasInsufficientMaterial () {
@@ -1167,7 +1175,7 @@ export default class Board implements ChessBoard {
         return this.mockBoard
     }
 
-    makeMove (move: Move, opts: MethodOptions.Board.makeMove = {}) {
+    makeMove (move: Move, opts: MethodOptions.Board.makeMove = {}): ChessTurn | MoveError {
         const options = Options.Board.makeMove().assign(opts) as MethodOptions.Board.makeMove
         // Handle user moves
         if (options.isPlayerMove) {
@@ -1469,8 +1477,8 @@ export default class Board implements ChessBoard {
         let str = '  +------------------------+  '
         str += this.game.headers.get('black')?.substring(0, 28) || "Black (unknown)"
         str += '\n'
-        const boardResult = this.endResult
-        const result = boardResult ? boardResult.headers
+        const boardResult = this.endState
+        const result = boardResult.headers !== '*' ? boardResult.headers
                        // If this is the root variation and we're at the last move, we can override with game result value
                        : !this.id && this.selectedTurnIndex + 1 === this.history.length
                             ? this.game.headers.get('result') : false

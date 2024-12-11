@@ -3,7 +3,7 @@
  */
 
 import Piece from '../src/piece'
-import Log from 'scoped-ts-log'
+import { Log } from 'scoped-event-log'
 
 Log.setPrintThreshold("WARN")
 

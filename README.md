@@ -31,7 +31,7 @@ The library supports two ways to create games.
   * Starting state as a FEN string (defaults to classical starting state).
   * Group to add this game to (defaults to currently active group).
   * Whether to remove the currently active game and replace it with the new one (default false).
-2. Creating a game from a loaded PGN with `createGameFromPgn(parsedPgn)`.
+2. Creating a game from a loaded PGN with `createGameFromParsed(parsedPgn)`.
   * This requires that the raw PGN text has first been parsed with `parseFullPgn(pgn)`.
   * A second, optional argument can be used to define the group the game is added to (defaults to currently active group).
 
@@ -70,7 +70,7 @@ hxg5 29. b3 Ke6 30. a3 Kd6 31. axb4 cxb4 32. Ra5 Nd5 33. f3 Bc8 34. Kf2 Bf5\
 35. Ra7 g6 36. Ra6+ Kc5 37. Ke1 Nf4 38. g3 Nxh3 39. Kd2 Kb5 40. Rd6 Kc5 41. Ra6\
 Nf2 42. g4 Bd3 43. Re6 1/2-1/2"
 /////////////////////////
-const { game, group, index } = chess.createGameFromPgn(parsed)
+const { game, group, index } = chess.createGameFromParsed(parsed)
 ```
 
 The process can be streamlined by using the `loadPgn(pgn<string>)` method. This method will parse and load games from the given PGN string. This method is only meant for loading a handful of games at a time and there is a default setting for maximum number of games loaded in one go. The method will return loaded game headers are an array, unless a special callback function for headers is provided. The method has two optional arguments:

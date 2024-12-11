@@ -2,7 +2,7 @@ import { ChessBoard } from "./board"
 import { PlayerColor } from "./color"
 import { FenValidationResult } from "./fen"
 import { ChessGame } from "./game"
-import { GameHeaders } from "./headers"
+import { AnyHeader, GameHeaders } from "./headers"
 import { ChessMove, MoveError } from "./move"
 import { MethodOptions } from "./options"
 import { ChessPiece } from "./piece"
@@ -53,7 +53,7 @@ interface ChessCore {
      * @param group the group to assign this game to
      * @return Game
      */
-    createGameFromPgn: (pgn: { headers: string[][], moves: string }, group?: string) => GameEntry
+    createGameFromParsed: (pgn: { headers: [AnyHeader, string][], moves: string }, group?: string) => GameEntry
     /**
      * Load a game that has already been parsed from PGN
      * @param index index of the parsed game in group list
@@ -156,7 +156,7 @@ interface ChessCore {
     /**
      * Dues the game have an end result.
      */
-    endResult: null | {
+    endState: null | {
         result: {
             w: string
             b: string

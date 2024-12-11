@@ -74,11 +74,14 @@ interface ChessBoard {
     breaks75MoveRule: boolean
 
     /**
-     * Check if game on this board has an end result.
+     * End state of the board.
      * Uses the parent game's strict rule check to determine whether to check for
      * 50-move or 75-move rules and three-fold or five-fold repetition rules.
+     * 
+     * This property only returns the rule-based game ending state; it cannot determine
+     * if a game has ended in a draw by mutual agreement, for example.
      */
-    endResult: null | {
+    endState: {
         result: {
             w: string
             b: string
@@ -152,7 +155,7 @@ interface ChessBoard {
      *                                 in threefold and fivefold peretition rules (default true)
      * @return the piece removed from destination square (Piece.NONE if not a capture)
      */
-    commitMove: (move: ChessMove, updatePosCount: boolean) => ChessPiece
+    commitMove: (move: ChessMove, updatePosCount?: boolean) => ChessPiece
 
     /**
      * Commit undoing moves, handling captures, promotions and other special cases, updating the
@@ -173,13 +176,13 @@ interface ChessBoard {
      * Generate a list of possible moves in current board position
      * @param options { onlyForSquare, includeSan, includeFen, onlyLegal }
      */
-    generateMoves: (opts: MethodOptions.Board.generateMoves) => ChessMove[]
+    generateMoves: (options?: MethodOptions.Board.generateMoves) => ChessMove[]
 
     /**
      * Get a simple list of possible moves in current board state
-     * @param opts { notation, onlyDestinations, includeFen, onlyForSquare, filter }
+     * @param options { notation, onlyDestinations, includeFen, onlyForSquare, filter }
      */
-    getMoves: (opts: MethodOptions.Board.getMoves) => {
+    getMoves: (options?: MethodOptions.Board.getMoves) => {
                         blocked: { move: ChessMove, fen: string, algebraic: string, san: string, uci: string }[],
                         illegal: { move: ChessMove, fen: string, algebraic: string, san: string, uci: string }[],
                         legal: { move: ChessMove, fen: string, algebraic: string, san: string, uci: string }[]
@@ -193,7 +196,7 @@ interface ChessBoard {
      * @param detailed return detailed information about the attackers (default false)
      * @return true/false if not detailed, array of attacking piece square indices if detailed
      */
-    isAttacked: (attacker: PlayerColor, square: number | null, detailed: boolean) => boolean | number[]
+    isAttacked: (attacker: PlayerColor, square: number | null, detailed?: boolean) => boolean | number[]
 
     /**
      * Check if the proposed move is a new move or already the next move in history (that is, either
@@ -230,7 +233,7 @@ interface ChessBoard {
      * @param move the move to make
      * @param options Options.Board.makeMove
      */
-    makeMove: (move: ChessMove, opts: MethodOptions.Board.makeMove) => ChessTurn | MoveError
+    makeMove (move: ChessMove, options?: MethodOptions.Board.makeMove): ChessTurn | MoveError
 
     /**
      * Make a move from algebraic square names
@@ -239,7 +242,7 @@ interface ChessBoard {
      * @param options Options.Board.makeMove
      * @return Move on success, { error } on failure
      */
-    makeMoveFromAlgebraic: (orig: string, dest: string, options: MethodOptions.Board.makeMove) => ChessTurn | MoveError
+    makeMoveFromAlgebraic: (orig: string, dest: string, options?: MethodOptions.Board.makeMove) => ChessTurn | MoveError
 
     /**
      * Make a move from a SAN string
@@ -247,7 +250,7 @@ interface ChessBoard {
      * @param options Options.Board.makeMove
      * @return Move on success, { error } on failure
      */
-    makeMoveFromSAN: (san: string, options: MethodOptions.Board.makeMove) => ChessTurn | MoveError
+    makeMoveFromSAN: (san: string, options?: MethodOptions.Board.makeMove) => ChessTurn | MoveError
 
     /**
      * Select the next turn in turn history
@@ -298,7 +301,7 @@ interface ChessBoard {
      * Get a FEN string representing current board state
      * @param options MethodOptions.Board.toFen
      */
-    toFen: (opts: MethodOptions.Board.toFen) => string
+    toFen: (options?: MethodOptions.Board.toFen) => string
 
     /**
      * Generate an ASCII representation of the game board
@@ -310,7 +313,7 @@ interface ChessBoard {
      * @param options MethodOptions.Board.undoMoves
      * @return remove Turns or false if failure
      */
-    undoMoves: (options: MethodOptions.Board.undoMoves) => ChessTurn[] | false
+    undoMoves: (options?: MethodOptions.Board.undoMoves) => ChessTurn[] | false
 
     /**
      * Validate this board state, checking for possible errors.

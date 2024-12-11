@@ -1,6 +1,6 @@
 import { ChessBoard } from "./board"
 import { PlayerColor } from "./color"
-import { GameHeaders } from "./headers"
+import { GameHeaders, TerminationReason } from "./headers"
 import { ChessMove, MoveError } from "./move"
 import { MethodOptions } from "./options"
 import { ChessPiece } from "./piece"
@@ -9,13 +9,36 @@ import { ChessTurn } from "./turn"
 
 interface ChessGame {
     // Instance properties
-    /**
-     * Is this the active game.
-     */
+    /** Is this the active game. */
     active: boolean
+    /** Game annotator (mapped to the header "Annotator"). */
+    annotator: string | null
+    /** Currently active board (variation). */
     currentBoard: ChessBoard
+    /** Game date in the format YYYY.MM.DD (game time zone, mapped to the header "Date"). */
+    date: string | null
+    /** ECO designation of the game opening (mapped to the header "ECO"). */
+    eco: string | null
+    /** End time of the game. */
     endTime: Date | null
+    /** Game event (mapped to the header "Event"). */
+    event: string | null
+    /**
+     * FEN description of the starting position (mapped to the header "FEN").
+     * 
+     * NOTE: FEN description for the current position can be accessed in the Board object (`currentBoard`).
+     */
+    fen: string | null
+    /** PGN headers for the game. */
     headers: GameHeaders
+    /**
+     * Did the game start from a set-up position (mapped to the header "SetUp").
+     * 
+     * This property will always return a boolean, but setting it to null will remove the associated header.
+     */
+    isSetUp: boolean | null
+    /** Game mode (mapped to the header "Mode"). */
+    mode: string | null
     /**
      * Game pause times as an array of
      * ```
@@ -58,25 +81,46 @@ interface ChessGame {
         }
     }
     /**
-     * Game result for each player.
+     * Number of moves played during the game (mapped to the header "PlyCount").
+     * 
+     * NOTE: Ply count in the current position is stored in the Board object (`currentBoard`).
      */
-    result: {
-        w: string,
-        b: string,
-    }
+    plyCount: number | null
+    /**
+     * Game result (mapped to the header "Result").
+     * 
+     * NOTE: End result for the current position is stored in the Board object (`endState`).
+     */
+    result: string | null
+    /** Tournament round (mapped to the header "Round"). */
+    round: number | null
     /**
      * Should this game be preserved or is it safe to overwrite it?
      * A game should be preserved at least after it has been started and
      * after moves have been made (in analysis mode).
      */
     shouldPreserve: boolean
+    /** Game site (mapped to the header "Site"). */
+    site: string | null
+    /** Start time of the game. */
     startTime: Date | null
-    timeControl: TimeControlTimers
+    /** Game termination reason (mapped to the header "Termination"). */
+    termination: TerminationReason | null
+    /** Local game starting time in the format HH:MM:SS (mapped to the header "Time"). */
+    time: string | null
+    /** Time control used in the game (mapped to the header "TimeControl"). */
+    timeControl: string | null
+    /** Game timers. */
+    timers: TimeControlTimers
     /**
      * Should strict rules (50 move and three-fold repetition) be used
      * when determining draws.
      */
     useStrictRules: boolean
+    /** Game date in the format YYYY.MM.DD (mapped to the header "UTCDate"). */
+    utcDate: string | null
+    /** UTC game starting time in the format HH:MM:SS (mapped to the header "UTCTime"). */
+    utcTime: string | null
     /** Different variations (and continuations) in this game. */
     variations: ChessBoard[]
 
@@ -303,7 +347,7 @@ interface ChessGame {
     /**
      * Does the game have an end result.
      */
-    endResult: null | {
+    endState: {
         result: {
             w: string
             b: string

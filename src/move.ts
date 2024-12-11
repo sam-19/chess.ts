@@ -1,7 +1,7 @@
 import Board from './board'
 import Color from './color'
 import Flags from './flags'
-import Log from 'scoped-ts-log'
+import { Log } from 'scoped-event-log'
 import Options from './options'
 import Piece from './piece'
 

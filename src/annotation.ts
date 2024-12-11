@@ -2,7 +2,7 @@
  * A single move annotation.
  */
 
-import Log from 'scoped-ts-log'
+import { Log } from 'scoped-event-log'
 import { MoveAnnotation, AnnotationTextPart } from './types/annotation'
 import Nag from './nag'
 

@@ -3,7 +3,7 @@
  */
 
 import Move from '../src/move'
-import Log from 'scoped-ts-log'
+import { Log } from 'scoped-event-log'
 import Piece from '../src/piece'
 import Board from '../src/board'
 import Game from '../src/game'

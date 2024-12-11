@@ -1,6 +1,6 @@
 import Board from './board'
 import Color from './color'
-import Log from 'scoped-ts-log'
+import { Log } from 'scoped-event-log'
 import Fen from './fen'
 import Headers from './headers'
 import Move from './move'
@@ -9,11 +9,17 @@ import Piece from './piece'
 import ChessTimer from './timers'
 import Turn from './turn'
 
-import { ChessGame } from './types/game'
-import { MethodOptions } from './types/options'
-import { PlayerColor } from './types/color'
-import { ChessTurn } from './types/turn'
-import { TCTimeValues } from './types/timers'
+import { type ChessGame } from './types/game'
+import { type MethodOptions } from './types/options'
+import { type PlayerColor } from './types/color'
+import { type ChessTurn } from './types/turn'
+import { type TCTimeValues } from './types/timers'
+import {
+    type AnyHeader,
+    type GameHeaders,
+    type TerminationReason,
+} from './types/headers'
+import { ChessBoard } from './types'
 
 const SCOPE = 'game'
 
@@ -24,7 +30,7 @@ export default class Game implements ChessGame {
      * white gets draw by timeout and black gets draw by insufficient material.
      */
     static readonly RESULT = {
-        UNKNOWN: 'u',
+        UNKNOWN: '',
         ABANDONED: 'a',
         WIN: 'w',
             WIN_BY: {
@@ -70,40 +76,27 @@ export default class Game implements ChessGame {
         FINISHED: 'finished',
     }
 
-    active: boolean
-    currentBoard: Board
-    endTime: Date | null
-    headers: Headers
-    pauseTimes: [Date, Date | null][]
-    result = {
-        [Color.WHITE]: '',
-        [Color.BLACK]: '',
-    }
-    shouldPreserve: boolean
-    startTime: Date | null
-    timeControl: ChessTimer
-    useStrictRules: boolean
-    variations: Board[]
+    active = false
+    currentBoard: ChessBoard
+    endTime = null as Date | null
+    headers: GameHeaders
+    pauseTimes = [] as [Date, Date | null][]
+    shouldPreserve = false
+    startTime = null as Date | null
+    timers = new ChessTimer()
+    useStrictRules = false
+    variations = [] as ChessBoard[]
 
     constructor (
         fen = Fen.DEFAULT_STARTING_STATE,
-        pgnHeaders: string[][] = []
+        pgnHeaders: [AnyHeader, string][] = []
     ) {
-        this.active = false
-        this.endTime = null
         // Set headers
         this.headers = new Headers(pgnHeaders)
-        this.pauseTimes = []
-        this.shouldPreserve = false
-        this.startTime = null
-        this.timeControl = new ChessTimer()
-        this.useStrictRules = false
-        this.variations = []
         // Create the first board variation, i.e. the actual game
         if (fen) {
-            const board = new Board(this, fen)
-            if (board) {
-                this.currentBoard = board
+            if (Fen.Validate(fen).isValid) {
+                this.currentBoard = new Board(this, fen)
             } else {
                 Log.error(`Could not create board from FEN "${fen}", using starting state instead!`, SCOPE)
                 this.currentBoard = new Board(this)
@@ -116,6 +109,7 @@ export default class Game implements ChessGame {
         } else { // Initialize and empty board variation
             this.currentBoard = new Board(this)
         }
+        this.variations = [this.currentBoard]
     }
 
     /*
@@ -123,6 +117,17 @@ export default class Game implements ChessGame {
      *                             GETTERS
      * ======================================================================
      */
+
+    get annotator () {
+        return this.headers.get('Annotator') || null
+    }
+    set annotator (value: string | null) {
+        if (value) {
+            this.headers.set('Annotator', value)
+        } else {
+            this.headers.remove('Annotator')
+        }
+    }
 
     get currentMoveVariations () {
         const turn = this.currentBoard.selectedTurn
@@ -162,6 +167,49 @@ export default class Game implements ChessGame {
             return []
         }
     }
+    get date () {
+        return this.headers.get('Date') || null
+    }
+    set date (value: string | null) {
+        if (value) {
+            this.headers.set('Date', value)
+        } else {
+            this.headers.remove('Date')
+        }
+    }
+
+    get eco () {
+        return this.headers.get('ECO') || null
+    }
+    set eco (value: string | null) {
+        if (value) {
+            this.headers.set('ECO', value)
+        } else {
+            this.headers.remove('ECO')
+        }
+    }
+
+    get fen () {
+        return this.headers.get('FEN') || null
+    }
+    set fen (value: string | null) {
+        if (value) {
+            this.headers.set('FEN', value)
+        } else {
+            this.headers.remove('FEN')
+        }
+    }
+
+    get event () {
+        return this.headers.get('Event') || null
+    }
+    set event (value: string | null) {
+        if (value) {
+            this.headers.set('Event', value)
+        } else {
+            this.headers.remove('Event')
+        }
+    }
 
     get hasEnded () {
         return this.endTime !== null
@@ -175,26 +223,272 @@ export default class Game implements ChessGame {
         return (this.pauseTimes.length > 0 && this.pauseTimes[this.pauseTimes.length - 1][1] === null)
     }
 
+    get isSetUp () {
+        return this.headers.get('SetUp') === '1'
+    }
+    set isSetUp (value: boolean | null) {
+        if (value) {
+            this.headers.set('SetUp', value ? '1' : '0')
+        } else {
+            this.headers.remove('SetUp')
+        }
+    }
+
+    get mode () {
+        return this.headers.get('Mode') || null
+    }
+    set mode (value: string | null) {
+        if (value) {
+            this.headers.set('Mode', value)
+        } else {
+            this.headers.remove('Mode')
+        }
+    }
+
     get players () {
-        return {
-            b: {
-                // ELO can't really be 0, so that is the same as unavailable.
-                elo: parseInt(this.headers.get('BlackElo') || '0') || null,
-                name: this.headers.get('Black') || null,
-                title: this.headers.get('BlackTitle') || null,
-                type: this.headers.get('BlackType') || null,
+        const _this = this // Access parent class in getters and setters.
+        const value = {
+            get b () {
+                const black = {
+                    get elo () {
+                        return parseInt(_this.headers.get('BlackElo') || '0') || null
+                    },
+                    set elo (value: number | null) {
+                        if (value !== null) {
+                            _this.headers.set('BlackElo', value.toString())
+                        } else {
+                            _this.headers.remove('BlackElo')
+                        }
+                    },
+                    get name () {
+                        return _this.headers.get('Black') || null
+                    },
+                    set name (value: string | null) {
+                        if (value !== null) {
+                            _this.headers.set('Black', value.toString())
+                        } else {
+                            _this.headers.remove('Black')
+                        }
+                    },
+                    get title () {
+                        return _this.headers.get('BlackTitle') || null
+                    },
+                    set title (value: string | null) {
+                        if (value !== null) {
+                            _this.headers.set('BlackTitle', value.toString())
+                        } else {
+                            _this.headers.remove('BlackTitle')
+                        }
+                    },
+                    get type () {
+                        return _this.headers.get('BlackType') || null
+                    },
+                    set type (value: string | null) {
+                        if (value !== null) {
+                            _this.headers.set('BlackType', value.toString())
+                        } else {
+                            _this.headers.remove('BlackType')
+                        }
+                    },
+                }
+                return black
             },
-            w: {
-                elo: parseInt(this.headers.get('WhiteElo') || '0') || null,
-                name: this.headers.get('White') || null,
-                title: this.headers.get('WhiteTitle') || null,
-                type: this.headers.get('WhiteType') || null,
+            set b (value: ChessGame['players']['b']) {
+                if (value.elo) {
+                    _this.headers.set('BlackElo', value.elo.toString())
+                } else {
+                    _this.headers.remove('BlackElo')
+                }
+                if (value.name) {
+                    _this.headers.set('Black', value.name)
+                } else {
+                    _this.headers.remove('Black')
+                }
+                if (value.title) {
+                    _this.headers.set('BlackTitle', value.title)
+                } else {
+                    _this.headers.remove('BlackTitle')
+                }
+                if (value.type) {
+                    _this.headers.set('BlackType', value.type)
+                } else {
+                    _this.headers.remove('BlackType')
+                }
             },
+            get w () {
+                const white = {
+                    get elo () {
+                        return parseInt(_this.headers.get('WhiteElo') || '0') || null
+                    },
+                    set elo (value: number | null) {
+                        if (value !== null) {
+                            _this.headers.set('WhiteElo', value.toString())
+                        } else {
+                            _this.headers.remove('WhiteElo')
+                        }
+                    },
+                    get name () {
+                        return _this.headers.get('White') || null
+                    },
+                    set name (value: string | null) {
+                        if (value !== null) {
+                            _this.headers.set('White', value.toString())
+                        } else {
+                            _this.headers.remove('White')
+                        }
+                    },
+                    get title () {
+                        return _this.headers.get('WhiteTitle') || null
+                    },
+                    set title (value: string | null) {
+                        if (value !== null) {
+                            _this.headers.set('WhiteTitle', value.toString())
+                        } else {
+                            _this.headers.remove('WhiteTitle')
+                        }
+                    },
+                    get type () {
+                        return _this.headers.get('WhiteType') || null
+                    },
+                    set type (value: string | null) {
+                        if (value !== null) {
+                            _this.headers.set('WhiteType', value.toString())
+                        } else {
+                            _this.headers.remove('WhiteType')
+                        }
+                    },
+                }
+                return white
+            },
+            set w (value: ChessGame['players']['w']) {
+                if (value.elo) {
+                    _this.headers.set('WhiteElo', value.elo.toString())
+                } else {
+                    _this.headers.remove('WhiteElo')
+                }
+                if (value.name) {
+                    _this.headers.set('White', value.name)
+                } else {
+                    _this.headers.remove('White')
+                }
+                if (value.title) {
+                    _this.headers.set('WhiteTitle', value.title)
+                } else {
+                    _this.headers.remove('WhiteTitle')
+                }
+                if (value.type) {
+                    _this.headers.set('WhiteType', value.type)
+                } else {
+                    _this.headers.remove('WhiteType')
+                }
+            },
+        } as ChessGame['players']
+        return value
+    }
+
+    get plyCount () {
+        const ply = this.headers.get('PlyCount')
+        return ply !== undefined ? parseInt(ply) : null
+    }
+    set plyCount (value: number | null) {
+        if (value) {
+            this.headers.set('PlyCount', value.toFixed())
+        } else {
+            this.headers.remove('PlyCOunt')
+        }
+    }
+
+    get result () {
+        return this.headers.get('Result') || null
+    }
+    set result (value: string | null) {
+        if (value) {
+            this.headers.set('Result', value)
+        } else {
+            this.headers.remove('Result')
+        }
+    }
+
+    get round () {
+        const round = this.headers.get('Round')
+        return round !== undefined ? parseInt(round) : null
+    }
+    set round (value: number | null) {
+        if (value) {
+            this.headers.set('Round', value.toFixed())
+        } else {
+            this.headers.remove('Round')
+        }
+    }
+
+    get site () {
+        return this.headers.get('Site') || null
+    }
+    set site (value: string | null) {
+        if (value) {
+            this.headers.set('Site', value)
+        } else {
+            this.headers.remove('Site')
+        }
+    }
+
+    get termination () {
+        return this.headers.get('Termination') as TerminationReason || null
+    }
+    set termination (value: TerminationReason | null) {
+        if (value) {
+            this.headers.set('Termination', value)
+        } else {
+            this.headers.remove('Termination')
+        }
+    }
+
+    get time () {
+        return this.headers.get('Time') || null
+    }
+    set time (value: string | null) {
+        if (value) {
+            this.headers.set('Time', value)
+        } else {
+            this.headers.remove('Time')
+        }
+    }
+
+    get timeControl () {
+        return this.headers.get('TimeControl') || null
+    }
+    set timeControl (value: string | null) {
+        if (value) {
+            this.headers.set('TimeControl', value)
+        } else {
+            this.headers.remove('TimeControl')
         }
     }
 
     get turnIndexPosition () {
         return this.currentBoard.turnIndexPosition
+    }
+
+    get utcDate () {
+        return this.headers.get('UTCDate') || null
+    }
+    set utcDate (value: string | null) {
+        if (value) {
+            this.headers.set('UTCDate', value)
+        } else {
+            this.headers.remove('UTCDate')
+        }
+    }
+
+    get utcTime () {
+        return this.headers.get('UTCTime') || null
+    }
+    set utcTime (value: string | null) {
+        if (value) {
+            this.headers.set('UTCTime', value)
+        } else {
+            this.headers.remove('UTCTime')
+        }
     }
 
 
@@ -206,10 +500,10 @@ export default class Game implements ChessGame {
 
     addTimeControl (tc: typeof ChessTimer.FieldModel) {
         if (!this.hasStarted) {
-            if (this.timeControl === null) {
-                this.timeControl = new ChessTimer()
+            if (this.timers === null) {
+                this.timers = new ChessTimer()
             }
-            this.timeControl.addField(tc)
+            this.timers.addField(tc)
         }
     }
 
@@ -219,8 +513,8 @@ export default class Game implements ChessGame {
             // Make sure pause timestamps are in sync
             const timestamp = new Date()
             this.pauseTimes[this.pauseTimes.length - 1][1] = timestamp
-            if (this.timeControl !== null) {
-                this.timeControl.continueTimer(timestamp.getTime())
+            if (this.timers !== null) {
+                this.timers.continueTimer(timestamp.getTime())
             }
         }
     }
@@ -283,31 +577,12 @@ export default class Game implements ChessGame {
         if (this.startTime !== null && this.endTime === null) {
             const timestamp = new Date()
             this.endTime = timestamp
-            if (this.timeControl !== null) {
-                this.timeControl.stopTimer(timestamp.getTime())
+            if (this.timers !== null) {
+                this.timers.stopTimer(timestamp.getTime())
             }
             // Remove all possible white spaces from the result string
             result = result.replaceAll(/\s+/g, '')
             this.headers.set('result', result)
-            // Try to determine result from the string
-            if (!this.result[Color.WHITE] && !this.result[Color.BLACK]) {
-                if (result === '1-0') {
-                    this.result = {
-                        [Color.WHITE]: Game.RESULT.WIN,
-                        [Color.BLACK]: Game.RESULT.LOSS
-                    }
-                } else if (result === '0-1') {
-                    this.result = {
-                        [Color.WHITE]: Game.RESULT.LOSS,
-                        [Color.BLACK]: Game.RESULT.WIN
-                    }
-                } else {
-                    this.result = {
-                        [Color.WHITE]: Game.RESULT.DRAW,
-                        [Color.BLACK]: Game.RESULT.DRAW
-                    }
-                }
-            }
         }
     }
 
@@ -459,8 +734,8 @@ export default class Game implements ChessGame {
     makeMove (move: Move, opts: MethodOptions.Game.makeMove = {}) {
         const options = Options.Game.makeMove().assign(opts) as MethodOptions.Game.makeMove
         // Update time controls if need be
-        if (this.timeControl) {
-            this.timeControl.moveMade(this.currentBoard.plyNum, options.takeback)
+        if (this.timers) {
+            this.timers.moveMade(this.currentBoard.plyNum, options.takeback)
         }
         if (!options.branchVariation) {
             // TODO: Right now this check is done twice, because Board.makeMove() checks for it too
@@ -502,14 +777,9 @@ export default class Game implements ChessGame {
         }
         const turn = this.currentBoard.makeMove(move, options)
         // Handle possible game end in root variation
-        const endResult = this.currentBoard.endResult
-        if (!this.currentBoard.id && endResult) {
-            this.result = endResult.result
-            this.end(endResult.headers)
-            if (this.timeControl) {
-                // Stop the timer
-                this.timeControl.stopTimer()
-            }
+        const endState = this.currentBoard.endState
+        if (!this.currentBoard.id && endState.headers !== '*') {
+            this.end(endState.headers)
         }
         return turn
     }
@@ -597,8 +867,8 @@ export default class Game implements ChessGame {
             // Make sure pause timestamps are in sync
             const timestamp = new Date()
             this.pauseTimes.push([timestamp, null])
-            if (this.timeControl !== null) {
-                this.timeControl.pauseTimer(timestamp.getTime())
+            if (this.timers !== null) {
+                this.timers.pauseTimer(timestamp.getTime())
             }
         }
     }
@@ -731,16 +1001,16 @@ export default class Game implements ChessGame {
 
     setTimeControlFromPgn (tc: string) {
         if (!this.hasStarted) {
-            if (this.timeControl === null) {
-                this.timeControl = new ChessTimer()
+            if (this.timers === null) {
+                this.timers = new ChessTimer()
             }
-            this.timeControl.parseTimeControlString(tc)
+            this.timers.parseTimeControlString(tc)
         }
     }
 
     setTimerReportFunction (f: ((timers: TCTimeValues) => void) | null) {
         if (!this.hasStarted) {
-            this.timeControl.setReportFunction(f)
+            this.timers.setReportFunction(f)
         }
     }
 
@@ -748,17 +1018,17 @@ export default class Game implements ChessGame {
         if (!this.currentBoard) {
             return false
         }
-        if (this.timeControl !== null && this.timeControl.getReportFunction() === null) {
+        if (this.timers && this.timers.getReportFunction() === null) {
             Log.error("Cannot start game before time control report function is set!", SCOPE)
             return false
         }
         if (!this.hasStarted) {
             this.startTime = new Date()
-            if (this.timeControl !== null) {
+            if (this.timers !== null) {
                 if (this.currentBoard.plyNum !== 1) {
-                    this.timeControl.setPlyNum(this.currentBoard.plyNum)
+                    this.timers.setPlyNum(this.currentBoard.plyNum)
                 }
-                this.timeControl.startTimer()
+                this.timers.startTimer()
             }
             // Preserve started game
             this.shouldPreserve = true
@@ -990,7 +1260,9 @@ export default class Game implements ChessGame {
             if (i >= 4 && pgnLines.length === i-3) {
                 result += "  " + this.currentBoard.toFen()
             }
-            result += '\n'
+            if (i < asciiLines.length - 1) {
+                result += '\n'
+            }
         }
         return result
     }
@@ -1007,8 +1279,8 @@ export default class Game implements ChessGame {
     get breaks75MoveRule () {
         return this.currentBoard.breaks75MoveRule
     }
-    get endResult () {
-        return this.currentBoard.endResult
+    get endState () {
+        return this.variations[0].endState
     }
     get hasInsufficientMaterial () {
         return this.currentBoard.hasInsufficientMaterial

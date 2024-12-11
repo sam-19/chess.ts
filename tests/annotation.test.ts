@@ -3,7 +3,7 @@
  */
 
 import Annotation from '../src/annotation'
-import Log from 'scoped-ts-log'
+import { Log } from 'scoped-event-log'
 
 // Only log warnings and errors
 Log.setPrintThreshold("WARN")
