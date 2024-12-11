@@ -42,7 +42,7 @@ describe('Board', () => {
         expect(board.castlingRights.w.contains(Flags.QSIDE_CASTLING)).toStrictEqual(true)
         expect(board.continuation).toStrictEqual(false)
         expect(board.enPassantSqr).toStrictEqual(null)
-        expect(board.endState.headers).toStrictEqual('*')
+        expect(board.endState.header).toStrictEqual('*')
         expect(board.halfMoveCount).toStrictEqual(0)
         expect(board.hasInsufficientMaterial).toStrictEqual(false)
         expect(board.hasRepeatedFivefold).toStrictEqual(false)

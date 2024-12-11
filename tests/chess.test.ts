@@ -199,7 +199,7 @@ describe('Pass-through properties', () => {
         expect(chess.breaks50MoveRule).toStrictEqual(false)
         expect(chess.breaks75MoveRule).toStrictEqual(false)
         expect(chess.currentMoveVariations).toStrictEqual([])
-        expect(chess.endState?.headers).toStrictEqual('*')
+        expect(chess.endState?.header).toStrictEqual('*')
         expect(chess.hasEnded).toStrictEqual(false)
         expect(chess.hasInsufficientMaterial).toStrictEqual(false)
         expect(chess.hasRepeatedFivefold).toStrictEqual(false)

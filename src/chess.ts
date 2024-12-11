@@ -342,6 +342,7 @@ export default class Chess implements ChessCore {
                 closeVariation()
             }
         }
+        /* This should be handled by the Board, would an override property be needed in some cases?
         // Parse game result
         const result = pgn.moves.substring(pgn.moves.length - 3)
         if (result === '1-0') {
@@ -400,8 +401,9 @@ export default class Chess implements ChessCore {
                     [Chess.Color.BLACK]: Game.RESULT.DRAW,
                 }
             }
-            game.currentBoard.endState.headers = result
+            game.currentBoard.endState.header = result
         }
+        */
         return this.addGame(game, group)
     }
 

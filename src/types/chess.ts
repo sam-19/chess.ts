@@ -154,22 +154,24 @@ interface ChessCore {
      */
     currentMoveVariations: { move: ChessMove, continuation: boolean }[]
     /**
-     * Dues the game have an end result.
+     * End state of the active game (or null if no game is active), including:
+     * - result code for each player (from `Game.RESULT`)
+     * - header for the general result ('*' for games that have not ended yet).
+     * 
+     * This property only returns the rule-based game ending state; it cannot determine
+     * if a game has ended in a draw by mutual agreement, for example.
      */
     endState: null | {
         result: {
             w: string
             b: string
         }
-        headers: string
+        header: string
     }
     /**
      * Has the game ended.
      */
     hasEnded: boolean
-    /**
-     * Has the game started.
-     */
     /**
      * Does this game have insufficient material for checkmate.
      */

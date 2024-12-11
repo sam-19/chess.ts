@@ -309,7 +309,7 @@ export default class Board implements ChessBoard {
                         [Color.WHITE]: Game.RESULT.WIN_BY.CHECKMATE,
                         [Color.BLACK]: Game.RESULT.LOSS_BY.CHECKMATE,
                     },
-                    headers: '1-0',
+                    header: '1-0',
                 }
             } else {
                 return {
@@ -317,7 +317,7 @@ export default class Board implements ChessBoard {
                         [Color.WHITE]: Game.RESULT.LOSS_BY.CHECKMATE,
                         [Color.BLACK]: Game.RESULT.WIN_BY.CHECKMATE,
                     },
-                    headers: '0-1',
+                    header: '0-1',
                 }
             }
         } else if (this.isInStalemate) {
@@ -326,7 +326,7 @@ export default class Board implements ChessBoard {
                     [Color.WHITE]: Game.RESULT.DRAW_BY.STALEMATE,
                     [Color.BLACK]: Game.RESULT.DRAW_BY.STALEMATE,
                 },
-                headers: '1/2-1/2',
+                header: '1/2-1/2',
             }
         } else if (this.breaks75MoveRule) {
             return {
@@ -334,7 +334,7 @@ export default class Board implements ChessBoard {
                     [Color.WHITE]: Game.RESULT.DRAW_BY.SEVENTYFIVE_MOVE_RULE,
                     [Color.BLACK]: Game.RESULT.DRAW_BY.SEVENTYFIVE_MOVE_RULE,
                 },
-                headers: '1/2-1/2',
+                header: '1/2-1/2',
             }
         } else if (this.game.useStrictRules && this.breaks50MoveRule) {
             return {
@@ -342,7 +342,7 @@ export default class Board implements ChessBoard {
                     [Color.WHITE]: Game.RESULT.DRAW_BY.FIFTY_MOVE_RULE,
                     [Color.BLACK]: Game.RESULT.DRAW_BY.FIFTY_MOVE_RULE,
                 },
-                headers: '1/2-1/2',
+                header: '1/2-1/2',
             }
         } else if (this.hasRepeatedFivefold) {
             return {
@@ -350,7 +350,7 @@ export default class Board implements ChessBoard {
                     [Color.WHITE]: Game.RESULT.DRAW_BY.FIVEFOLD_REPETITION,
                     [Color.BLACK]: Game.RESULT.DRAW_BY.FIVEFOLD_REPETITION,
                 },
-                headers: '1/2-1/2',
+                header: '1/2-1/2',
             }
         } else if (this.game.useStrictRules && this.hasRepeatedThreefold) {
             return {
@@ -358,7 +358,7 @@ export default class Board implements ChessBoard {
                     [Color.WHITE]: Game.RESULT.DRAW_BY.THREEFOLD_REPETITION,
                     [Color.BLACK]: Game.RESULT.DRAW_BY.THREEFOLD_REPETITION,
                 },
-                headers: '1/2-1/2',
+                header: '1/2-1/2',
             }
         }
         return {
@@ -366,7 +366,7 @@ export default class Board implements ChessBoard {
                 [Color.WHITE]: Game.RESULT.UNKNOWN,
                 [Color.BLACK]: Game.RESULT.UNKNOWN,
             },
-            headers: '*',
+            header: '*',
         }
     }
 
@@ -1478,7 +1478,7 @@ export default class Board implements ChessBoard {
         str += this.game.headers.get('black')?.substring(0, 28) || "Black (unknown)"
         str += '\n'
         const boardResult = this.endState
-        const result = boardResult.headers !== '*' ? boardResult.headers
+        const result = boardResult.header !== '*' ? boardResult.header
                        // If this is the root variation and we're at the last move, we can override with game result value
                        : !this.id && this.selectedTurnIndex + 1 === this.history.length
                             ? this.game.headers.get('result') : false

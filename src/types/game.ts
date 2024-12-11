@@ -345,14 +345,19 @@ interface ChessGame {
      */
     breaks75MoveRule: boolean
     /**
-     * Does the game have an end result.
+     * End state of the root board variation, including:
+     * - result code for each player (from `Game.RESULT`)
+     * - header for the general result ('*' for games that have not ended yet).
+     * 
+     * This property only returns the rule-based game ending state; it cannot determine
+     * if a game has ended in a draw by mutual agreement, for example.
      */
     endState: {
         result: {
             w: string
             b: string
         }
-        headers: string
+        header: string
     }
     /**
      * Does this game have insufficient material for checkmate.

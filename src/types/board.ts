@@ -74,7 +74,10 @@ interface ChessBoard {
     breaks75MoveRule: boolean
 
     /**
-     * End state of the board.
+     * End state of the game, including:
+     * - result code for each player (from `Game.RESULT`)
+     * - header for the general result ('*' for games that have not ended yet).
+     * 
      * Uses the parent game's strict rule check to determine whether to check for
      * 50-move or 75-move rules and three-fold or five-fold repetition rules.
      * 
@@ -86,7 +89,7 @@ interface ChessBoard {
             w: string
             b: string
         }
-        headers: string
+        header: string
     }
 
     /**

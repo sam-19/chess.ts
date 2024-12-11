@@ -31,38 +31,38 @@ export default class Game implements ChessGame {
      */
     static readonly RESULT = {
         UNKNOWN: '',
-        ABANDONED: 'a',
-        WIN: 'w',
+        ABANDONED: 'abandned',
+        WIN: 'win',
             WIN_BY: {
-                CHECKMATE: 'w:checkmate',
-                RESIGNATION: 'w:resignation',
-                ARBITER_DECISION: 'w:arbiter',
-                RULE_VIOLATION: 'w:violation', // Basically a special case of ARBITER_DECISION
-                TIMEOUT: 'w:timeout',  // Opponent's flag falls (time runs out) during the time control
-                FORFEIT: 'w:forfeit', // Opponent didn't arrive to start the game in time
+                CHECKMATE: 'win:checkmate',
+                RESIGNATION: 'win:resignation',
+                ARBITER_DECISION: 'win:arbiter',
+                RULE_VIOLATION: 'win:violation', // Basically a special case of ARBITER_DECISION
+                TIMEOUT: 'win:timeout',  // Opponent's flag falls (time runs out) during the time control
+                FORFEIT: 'win:forfeit', // Opponent didn't arrive to start the game in time
             },
-        LOSS: 'l',
+        LOSS: 'loss',
             LOSS_BY: {
-                CHECKMATE: 'l:checkmate',
-                RESIGNATION: 'l:resignation',
-                ARBITER_DECISION: 'l:arbiter',
-                RULE_VIOLATION: 'l:violation',
-                TIMEOUT: 'l:timeout',
-                FORFEIT: 'l:forfeit',
+                CHECKMATE: 'loss:checkmate',
+                RESIGNATION: 'loss:resignation',
+                ARBITER_DECISION: 'loss:arbiter',
+                RULE_VIOLATION: 'loss:violation',
+                TIMEOUT: 'loss:timeout',
+                FORFEIT: 'loss:forfeit',
             },
-        DRAW: 'd',
+        DRAW: 'draw',
             DRAW_BY: {
-                STALEMATE: 'd:stalemate',
-                INSUFFICIENT_MATERIAL: 'd:material', // A game where both players have in sufficient material is in a 'dead position'
-                MUTUAL_AGREEMENT: 'd:agreement',
-                ARBITER_DECISION: 'd:arbiter',
-                THREEFOLD_REPETITION: 'd:repetition',
-                INTENDED_THREEFOLD_REPETITION: 'd:repetition:intended', // One player intends to claim three-fold repetition on their next move
-                FIVEFOLD_REPETITION: 'd:repetition:arbiter',
-                FIFTY_MOVE_RULE: 'd:moverule',
-                INTENDED_FIFTY_MOVE_RULE: 'd:moverule:intended',
-                SEVENTYFIVE_MOVE_RULE: 'd:moverule:arbiter',
-                TIMEOUT: 'd:timeout',
+                STALEMATE: 'draw:stalemate',
+                INSUFFICIENT_MATERIAL: 'draw:material', // A game where both players have in sufficient material is in a 'dead position'
+                MUTUAL_AGREEMENT: 'draw:agreement',
+                ARBITER_DECISION: 'draw:arbiter',
+                THREEFOLD_REPETITION: 'draw:repetition',
+                INTENDED_THREEFOLD_REPETITION: 'draw:repetition:intended', // One player intends to claim three-fold repetition on their next move
+                FIVEFOLD_REPETITION: 'draw:repetition:arbiter',
+                FIFTY_MOVE_RULE: 'draw:moverule',
+                INTENDED_FIFTY_MOVE_RULE: 'draw:moverule:intended',
+                SEVENTYFIVE_MOVE_RULE: 'draw:moverule:arbiter',
+                TIMEOUT: 'draw:timeout',
             },
     }
     /**
@@ -778,8 +778,8 @@ export default class Game implements ChessGame {
         const turn = this.currentBoard.makeMove(move, options)
         // Handle possible game end in root variation
         const endState = this.currentBoard.endState
-        if (!this.currentBoard.id && endState.headers !== '*') {
-            this.end(endState.headers)
+        if (!this.currentBoard.id && endState.header !== '*') {
+            this.end(endState.header)
         }
         return turn
     }
