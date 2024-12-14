@@ -1,15 +1,16 @@
 import Color from './color'
-import { ChessPiece } from './types/piece'
+import { PlayerColor } from './types'
+import { ChessPiece, PieceCode, PieceType } from './types/piece'
 
 export default class Piece implements ChessPiece {
     // Static properties
-    static readonly TYPE_NONE   = '.'
-    static readonly TYPE_PAWN   = 'p'
-    static readonly TYPE_KNIGHT = 'n'
-    static readonly TYPE_BISHOP = 'b'
-    static readonly TYPE_ROOK   = 'r'
-    static readonly TYPE_QUEEN  = 'q'
-    static readonly TYPE_KING   = 'k'
+    static readonly TYPE_NONE   = '.' as PieceType
+    static readonly TYPE_PAWN   = 'p' as PieceType
+    static readonly TYPE_KNIGHT = 'n' as PieceType
+    static readonly TYPE_BISHOP = 'b' as PieceType
+    static readonly TYPE_ROOK   = 'r' as PieceType
+    static readonly TYPE_QUEEN  = 'q' as PieceType
+    static readonly TYPE_KING   = 'k' as PieceType
     // Piece objects
     static readonly WHITE_PAWN   = new Piece({ color: Color.WHITE, type: Piece.TYPE_PAWN,   unicode: '♙', html: '&#9812;' })
     static readonly WHITE_KNIGHT = new Piece({ color: Color.WHITE, type: Piece.TYPE_KNIGHT, unicode: '♘', html: '&#9816;' })
@@ -23,7 +24,7 @@ export default class Piece implements ChessPiece {
     static readonly BLACK_ROOK   = new Piece({ color: Color.BLACK, type: Piece.TYPE_ROOK,   unicode: '♜', html: '&#9820;' })
     static readonly BLACK_QUEEN  = new Piece({ color: Color.BLACK, type: Piece.TYPE_QUEEN,  unicode: '♛', html: '&#9819;' })
     static readonly BLACK_KING   = new Piece({ color: Color.BLACK, type: Piece.TYPE_KING,   unicode: '♚', html: '&#9818;' })
-    static readonly NONE         = new Piece({ color: Color.NONE,  type: Piece.TYPE_NONE,   unicode: '',   html: ''        })
+    static readonly NONE         = new Piece({ color: Color.NONE,  type: Piece.TYPE_NONE,   unicode: '',   html: ''       })
     // Map white pieces to lower case letters, black ones to upper case letters
     static readonly PIECES = {
         'P': Piece.WHITE_PAWN,
@@ -56,19 +57,19 @@ export default class Piece implements ChessPiece {
         Piece.BLACK_KNIGHT,
     ]
     // Instance properties
-    key: string
-    type: string
-    color: string
+    key: PieceCode
+    type: PieceType
+    color: PlayerColor
     symbol: string
     unicode: string
     html: string
 
-    constructor (options: { color: string, unicode: string, html: string, type: string }) {
+    constructor (options: { color: PlayerColor, unicode: string, html: string, type: PieceType }) {
         this.type = options.type
         this.color = options.color
         this.symbol = this.color === Color.WHITE ? this.type.toUpperCase() : this.type
         this.key = this.type === Piece.TYPE_NONE ? '' :
-                   (this.color === Color.WHITE ?  'w' : 'b') + this.type.toUpperCase()
+                   (this.color === Color.WHITE ?  'w' : 'b') + this.type.toUpperCase() as PieceCode
         this.unicode = options.unicode
         this.html = options.html
         // Prevent changes to properties

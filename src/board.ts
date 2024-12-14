@@ -306,16 +306,16 @@ export default class Board implements ChessBoard {
             if (this.turn === Color.BLACK) {
                 return {
                     result: {
-                        [Color.WHITE]: Game.RESULT.WIN_BY.CHECKMATE,
-                        [Color.BLACK]: Game.RESULT.LOSS_BY.CHECKMATE,
+                        w: Game.RESULT.WIN_BY.CHECKMATE,
+                        b: Game.RESULT.LOSS_BY.CHECKMATE,
                     },
                     header: '1-0',
                 }
             } else {
                 return {
                     result: {
-                        [Color.WHITE]: Game.RESULT.LOSS_BY.CHECKMATE,
-                        [Color.BLACK]: Game.RESULT.WIN_BY.CHECKMATE,
+                        w: Game.RESULT.LOSS_BY.CHECKMATE,
+                        b: Game.RESULT.WIN_BY.CHECKMATE,
                     },
                     header: '0-1',
                 }
@@ -323,48 +323,48 @@ export default class Board implements ChessBoard {
         } else if (this.isInStalemate) {
             return {
                 result: {
-                    [Color.WHITE]: Game.RESULT.DRAW_BY.STALEMATE,
-                    [Color.BLACK]: Game.RESULT.DRAW_BY.STALEMATE,
+                    w: Game.RESULT.DRAW_BY.STALEMATE,
+                    b: Game.RESULT.DRAW_BY.STALEMATE,
                 },
                 header: '1/2-1/2',
             }
         } else if (this.breaks75MoveRule) {
             return {
                 result: {
-                    [Color.WHITE]: Game.RESULT.DRAW_BY.SEVENTYFIVE_MOVE_RULE,
-                    [Color.BLACK]: Game.RESULT.DRAW_BY.SEVENTYFIVE_MOVE_RULE,
+                    w: Game.RESULT.DRAW_BY.SEVENTYFIVE_MOVE_RULE,
+                    b: Game.RESULT.DRAW_BY.SEVENTYFIVE_MOVE_RULE,
                 },
                 header: '1/2-1/2',
             }
         } else if (this.game.useStrictRules && this.breaks50MoveRule) {
             return {
                 result: {
-                    [Color.WHITE]: Game.RESULT.DRAW_BY.FIFTY_MOVE_RULE,
-                    [Color.BLACK]: Game.RESULT.DRAW_BY.FIFTY_MOVE_RULE,
+                    w: Game.RESULT.DRAW_BY.FIFTY_MOVE_RULE,
+                    b: Game.RESULT.DRAW_BY.FIFTY_MOVE_RULE,
                 },
                 header: '1/2-1/2',
             }
         } else if (this.hasRepeatedFivefold) {
             return {
                 result: {
-                    [Color.WHITE]: Game.RESULT.DRAW_BY.FIVEFOLD_REPETITION,
-                    [Color.BLACK]: Game.RESULT.DRAW_BY.FIVEFOLD_REPETITION,
+                    w: Game.RESULT.DRAW_BY.FIVEFOLD_REPETITION,
+                    b: Game.RESULT.DRAW_BY.FIVEFOLD_REPETITION,
                 },
                 header: '1/2-1/2',
             }
         } else if (this.game.useStrictRules && this.hasRepeatedThreefold) {
             return {
                 result: {
-                    [Color.WHITE]: Game.RESULT.DRAW_BY.THREEFOLD_REPETITION,
-                    [Color.BLACK]: Game.RESULT.DRAW_BY.THREEFOLD_REPETITION,
+                    w: Game.RESULT.DRAW_BY.THREEFOLD_REPETITION,
+                    b: Game.RESULT.DRAW_BY.THREEFOLD_REPETITION,
                 },
                 header: '1/2-1/2',
             }
         }
         return {
             result: {
-                [Color.WHITE]: Game.RESULT.UNKNOWN,
-                [Color.BLACK]: Game.RESULT.UNKNOWN,
+                w: Game.RESULT.UNKNOWN,
+                b: Game.RESULT.UNKNOWN,
             },
             header: '*',
         }

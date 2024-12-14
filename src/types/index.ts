@@ -9,7 +9,7 @@ import { GameHeaders } from "./headers"
 import { ChessMove, MoveError, MoveOptions } from "./move"
 import { MoveNag, NagEntry } from "./nag"
 import { ChessOptions, MethodOptions, ValidOptions } from "./options"
-import { ChessPiece } from "./piece"
+import { ChessPiece, PieceCode, PieceType } from "./piece"
 import { TCFieldModel, TCTimeValues, TimeControlTimers } from "./timers"
 import { ChessTurn, TurnMeta, TurnProperties } from "./turn"
 
@@ -34,6 +34,8 @@ export {
     MoveOptions,
     NagEntry,
     PieceColor,
+    PieceCode,
+    PieceType,
     PlayerColor,
     TCFieldModel,
     TCTimeValues,

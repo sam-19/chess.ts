@@ -1,7 +1,9 @@
-interface ChessPiece {
-    key: string
-    type: string
-    color: string
+import { PlayerColor } from './color'
+
+export interface ChessPiece {
+    key: PieceCode
+    type: PieceType
+    color: PlayerColor
     symbol: string
     unicode: string
     html: string
@@ -13,4 +15,6 @@ interface ChessPiece {
     toString: () => string
 }
 
-export { ChessPiece }
+export type PieceCode = 'bB' | 'bK' | 'bN' | 'bP' | 'bQ' | 'bR' |
+                        'wB' | 'wK' | 'wN' | 'wP' | 'wQ' | 'wR' | ''
+export type PieceType = '.' | 'b' | 'k' | 'n' | 'p' | 'q' | 'r'

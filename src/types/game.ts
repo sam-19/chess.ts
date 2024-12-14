@@ -3,7 +3,7 @@ import { PlayerColor } from "./color"
 import { GameHeaders, TerminationReason } from "./headers"
 import { ChessMove, MoveError } from "./move"
 import { MethodOptions } from "./options"
-import { ChessPiece } from "./piece"
+import { ChessPiece, PieceType } from "./piece"
 import { TimeControlTimers, TCFieldModel, TCTimeValues } from "./timers"
 import { ChessTurn } from "./turn"
 
@@ -213,7 +213,7 @@ interface ChessGame {
      * @param color PlayerColor
      * @param opts MethodOptions.Game.getCapturedPieces
      */
-    getCapturedPieces: (color: PlayerColor, opts?: MethodOptions.Game.getCapturedPieces) => string[] | ChessPiece[]
+    getCapturedPieces: (color: PlayerColor, opts?: MethodOptions.Game.getCapturedPieces) => PieceType[] | ChessPiece[]
 
     /**
      * Return the list of moves (from game start to currently selected move) in currently active line,

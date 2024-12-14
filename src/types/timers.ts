@@ -147,8 +147,8 @@ type TCFieldModel = {
 }
 
 interface TCTimeValues {
-    elapsed: { w: number, b: number }
-    remaining: { w: number, b: number }
+    elapsed: { [player: string]: number }
+    remaining: { [player: string]: number }
 }
 
 export { TimeControlTimers, TCFieldModel, TCTimeValues }
