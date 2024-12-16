@@ -66,7 +66,7 @@ export default class ChessHeaders implements GameHeaders {
                 error: `'${value}' does not match allowed pattern 'YYYY.MM.DD'.`
             }],
             ['eco', {
-                allowed: [/^[A-E]\d\d(\/\d\d)$/],
+                allowed: [/^[A-E]\d\d(\/\d\d)?$/],
                 error: `'${value}' does not match allowed pattern '(A-E)##', with optional suffix '/##'.`
             }],
             ['plycount', {
@@ -85,16 +85,16 @@ export default class ChessHeaders implements GameHeaders {
                 error: `'${value}' is not an allowed value.`
             }],
             ['time', {
-                allowed: [/^\d\d:\d\d:\d\d$/],
-                error: `'${value}' does not match allowed pattern 'HH:MM:SS'.`
+                allowed: [/^\d\d:\d\d(:\d\d)?$/],
+                error: `'${value}' does not match allowed pattern 'HH:MM:SS' (seconds are optional).`
             }],
             ['utcdate', {
                 allowed: [/^\d\d\d\d\.\d\d\.\d\d$/],
                 error: `'${value}' does not match allowed pattern 'YYYY.MM.DD'.`
             }],
             ['utctime', {
-                allowed: [/^\d\d:\d\d:\d\d$/],
-                error: `'${value}' does not match allowed pattern 'HH:MM:SS'.`
+                allowed: [/^\d\d:\d\d:(\d\d)$/],
+                error: `'${value}' does not match allowed pattern 'HH:MM:SS' (seconds are optional).`
             }],
             ['whiteelo', {
                 allowed: [/^\d\d?\d?\d?$/],
