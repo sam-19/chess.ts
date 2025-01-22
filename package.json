@@ -1,6 +1,6 @@
 {
   "name": "typescript-chess",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "repository": "https://github.com/sam-19/chess.ts.git",
   "main": "dist/chess.js",
   "files": [
