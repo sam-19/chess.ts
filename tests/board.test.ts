@@ -8,6 +8,7 @@ import { Log } from 'scoped-event-log'
 import Flags from '../src/flags'
 import Piece from '../src/piece'
 import Fen from '../src/fen'
+import { BoardSquareIndex, BoardSquareName } from '../src/types/board'
 
 // Only log warnings and errors
 Log.setPrintThreshold("WARN")
@@ -216,9 +217,9 @@ describe('Board', () => {
                 if (kIdx === vName) {
                     expect(vIdx).toStrictEqual(parseInt(kName))
                 } else {
-                    const dst = Board.distanceBetween(kIdx, vName)
+                    const dst = Board.distanceBetween(kIdx as BoardSquareName, vName)
                     expect(dst).toBeGreaterThan(0)
-                    expect(dst).toStrictEqual(Board.distanceBetween(parseInt(kName), vIdx))
+                    expect(dst).toStrictEqual(Board.distanceBetween(parseInt(kName) as BoardSquareIndex, vIdx))
                 }
             }
         }

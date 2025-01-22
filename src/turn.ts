@@ -5,6 +5,7 @@ import Flags from './flags'
 import Move from './move'
 import { ChessTurn, TurnMeta, TurnProperties } from './types/turn'
 import { PlayerColor } from './types/color'
+import { BoardSquareIndex } from './types/board'
 
 export default class Turn implements ChessTurn {
     // Instance properties
@@ -12,10 +13,10 @@ export default class Turn implements ChessTurn {
     id: string
     fen: string
     move: Move
-    castlingRights: { [color: string]: Flags }
-    kingPos: { [color: string]: number | null }
+    castlingRights: { [color in PlayerColor]: Flags }
+    kingPos: { [color in PlayerColor]: BoardSquareIndex | null }
     turn: PlayerColor
-    enPassantSqr: number | null
+    enPassantSqr: BoardSquareIndex | null
     turnNum: number
     halfMoveCount: number
     plyNum: number
@@ -27,12 +28,12 @@ export default class Turn implements ChessTurn {
         this.fen = options.fen,
         this.move = options.move  // Move object
         this.castlingRights = {
-            [Color.WHITE]: options.castlingRights[Color.WHITE],
-            [Color.BLACK]: options.castlingRights[Color.BLACK]
+            w: options.castlingRights[Color.WHITE],
+            b: options.castlingRights[Color.BLACK]
         }
         this.kingPos = {
-            [Color.WHITE]: options.kingPos[Color.WHITE],
-            [Color.BLACK]: options.kingPos[Color.BLACK]
+            w: options.kingPos[Color.WHITE],
+            b: options.kingPos[Color.BLACK]
         }
         this.turn = options.turn
         this.enPassantSqr = options.enPassantSqr

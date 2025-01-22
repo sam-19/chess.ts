@@ -18,9 +18,9 @@ export default class Color implements PieceColor {
     get NONE (): PlayerColor {
         return Color.NONE
     }
-    static swap = function (color: string): PlayerColor {
+    static swap = function (color: PlayerColor): PlayerColor {
         return (
-            color === Color.WHITE 
+            color === Color.WHITE
                     ? Color.BLACK
                     : Color.WHITE
         )

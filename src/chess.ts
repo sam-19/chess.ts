@@ -22,6 +22,7 @@ import { PlayerColor } from './types/color'
 import { MoveError } from './types/move'
 import { TCTimeValues } from './types/timers'
 import { AnyHeader } from './types/headers'
+import { BoardSquareIndex, BoardSquareName } from './types/board'
 
 const SCOPE = 'chess'
 
@@ -951,7 +952,7 @@ export default class Chess implements ChessCore {
     makeMove (move: Move, opts?: MethodOptions.Board.makeMove) {
         return this.activeGame?.makeMove(move, opts) || Chess.noActiveGameError
     }
-    makeMoveFromAlgebraic (orig: string, dest: string, opts?: MethodOptions.Board.makeMove) {
+    makeMoveFromAlgebraic (orig: BoardSquareName, dest: BoardSquareName, opts?: MethodOptions.Board.makeMove) {
         return this.activeGame?.makeMoveFromAlgebraic(orig, dest, opts) || Chess.noActiveGameError
     }
     makeMoveFromSan (san: string, opts?: MethodOptions.Board.makeMove) {
@@ -969,16 +970,16 @@ export default class Chess implements ChessCore {
     pause () {
         this.activeGame?.pause()
     }
-    pieceAt (sqr: number | string) {
+    pieceAt (sqr: BoardSquareIndex | BoardSquareName) {
         return this.activeGame?.pieceAt(sqr) || Piece.NONE
     }
-    placePiece (piece: Piece, square: string | number) {
+    placePiece (piece: Piece, square: BoardSquareIndex | BoardSquareName) {
         return this.activeGame?.placePiece(piece, square) || false
     }
     prevTurn () {
         return this.activeGame?.prevTurn() || false
     }
-    removePiece (square: string | number) {
+    removePiece (square: BoardSquareIndex | BoardSquareName) {
         return this.activeGame?.removePiece(square) || Piece.NONE
     }
     returnFromContinuation () {

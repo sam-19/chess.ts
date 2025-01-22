@@ -9,6 +9,7 @@ import { ChessMove } from './types/move'
 import { ChessPiece } from './types/piece'
 import { MoveFlags } from './types/flags'
 import { MethodOptions } from './types/options'
+import { BoardSquareIndex } from './types/board'
 
 const SCOPE = 'move'
 
@@ -80,13 +81,13 @@ export default class Move implements ChessMove {
     // Instance properties
     algebraic: string | null = null
     capturedPiece: ChessPiece | null = null
-    dest: number
+    dest: BoardSquareIndex | -1
     detail = new Map<string, string | string[] | number | number[]>()
     fen: string | null = null
     flags: MoveFlags
     legal: boolean | null = null
     movedPiece: ChessPiece
-    orig: number
+    orig: BoardSquareIndex | -1
     promotionPiece: ChessPiece | null = null
     san: string | null = null
     uci: string | null = null

@@ -1,3 +1,4 @@
+import { BoardSquareIndex, BoardSquareName } from './board'
 import { ChessPiece } from "./piece"
 
 type ValidOptions = { [key: string]: string | number | boolean | ((headers: string[][][]) => void) | ((progress: number[]) => void) | null | undefined }
@@ -12,7 +13,7 @@ declare namespace MethodOptions {
         }
         type generateMoves = {
             detailed?: boolean
-            onlyForSquare?: string | number
+            onlyForSquare?: BoardSquareIndex | BoardSquareName
             includeSan?: boolean
             includeFen?: boolean
             onlyLegal?: boolean
@@ -23,7 +24,7 @@ declare namespace MethodOptions {
             notation?: 'all' | 'algebraic' | 'san' | 'uci'
             onlyDestinations?: boolean
             includeFen?: boolean
-            onlyForSquare?: string | number
+            onlyForSquare?: BoardSquareIndex | BoardSquareName
             filter?: 'legal' | 'illegal' | 'blocked'
         }
         type makeMove = {
@@ -81,8 +82,8 @@ declare namespace MethodOptions {
         }
     }
     type MoveOptions = {
-        orig: number
-        dest: number
+        orig: BoardSquareIndex
+        dest: BoardSquareIndex
         detail: { [key: string]: string | string[] | number | number[] }
         movedPiece: ChessPiece
         capturedPiece: ChessPiece | null

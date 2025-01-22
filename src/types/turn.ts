@@ -1,5 +1,5 @@
 import { MoveAnnotation } from "./annotation"
-import { ChessBoard } from "./board"
+import { BoardSquareIndex, ChessBoard } from "./board"
 import { PlayerColor } from "./color"
 import { MoveFlags } from "./flags"
 import { ChessMove } from "./move"
@@ -28,11 +28,11 @@ interface ChessTurn {
     /**
      * Remaining castling rights after this turn.
      */
-    castlingRights: { [color: string]: MoveFlags }
+    castlingRights: { [color in PlayerColor]: MoveFlags }
     /**
      * King positions after this turn.
      */
-    kingPos: { [color: string]: number | null }
+    kingPos: { [color in PlayerColor]: BoardSquareIndex | null }
     /**
      * Player whose turn this was.
      */
@@ -40,7 +40,7 @@ interface ChessTurn {
     /**
      * Possible en passant square after this turn.
      */
-    enPassantSqr: number | null
+    enPassantSqr: BoardSquareIndex | null
     /**
      * Running number associated with this turn (for PGN).
      */
@@ -112,11 +112,11 @@ type TurnProperties = {
     /**
      * Remaining castling rights after this turn.
      */
-    castlingRights: { [color: string]: MoveFlags }
+    castlingRights: { [color in PlayerColor]: MoveFlags }
     /**
      * King positions after this turn.
      */
-    kingPos: { [color: string]: number | null }
+    kingPos: { [color in PlayerColor]: BoardSquareIndex | null }
     /**
      * Player whose turn this was.
      */
@@ -124,7 +124,7 @@ type TurnProperties = {
     /**
      * Possible en passant square after this turn.
      */
-    enPassantSqr: number | null
+    enPassantSqr: BoardSquareIndex | null
     /**
      * Running number associated with this turn (for PGN).
      */

@@ -1,4 +1,4 @@
-import { ChessBoard } from "./board"
+import { BoardSquareIndex, BoardSquareName, ChessBoard } from "./board"
 import { PlayerColor } from "./color"
 import { FenValidationResult } from "./fen"
 import { ChessGame } from "./game"
@@ -27,7 +27,7 @@ interface ChessCore {
      * Currently active group
      * @param group group identifier
      */
-    activeGroup :string
+    activeGroup: string
     /**
      * List of groups and contained games.
      */
@@ -129,7 +129,7 @@ interface ChessCore {
     * @param group - Group of the game (defaults to currently active group).
     * @returns The selected Game or null if it doesn't exist.
     */
-   selectGame: (index: number, group?: string) => ChessGame | null
+    selectGame: (index: number, group?: string) => ChessGame | null
     /**
      * Unset active game, but keep the group
      */
@@ -157,7 +157,7 @@ interface ChessCore {
      * End state of the active game (or null if no game is active), including:
      * - result code for each player (from `Game.RESULT`)
      * - header for the general result ('*' for games that have not ended yet).
-     * 
+     *
      * This property only returns the rule-based game ending state; it cannot determine
      * if a game has ended in a draw by mutual agreement, for example.
      */
@@ -307,7 +307,9 @@ interface ChessCore {
      * @param dest board square (a1...h8)
      * @param options Options.Board.makeMove
      */
-    makeMoveFromAlgebraic: (orig: string, dest: string, options: MethodOptions.Board.makeMove) => ChessTurn | MoveError
+    makeMoveFromAlgebraic: (
+        orig: BoardSquareName, dest: BoardSquareName, options: MethodOptions.Board.makeMove
+    ) => ChessTurn | MoveError
     /**
      * Make move from a SAN string.
      * @param san
@@ -340,13 +342,13 @@ interface ChessCore {
      * @param square 0x88 square index or square name (a1, a1,... h7, h8)
      * @return piece at square
      */
-    pieceAt: (square: number | string) => ChessPiece
+    pieceAt: (square: BoardSquareIndex | BoardSquareName) => ChessPiece
     /**
      * Place a piece on the given square.
      * @param piece
      * @param square 0x88 square index
      */
-    placePiece: (piece: ChessPiece, square: number | string) => false | ChessPiece
+    placePiece: (piece: ChessPiece, square: BoardSquareIndex | BoardSquareName) => false | ChessPiece
     /**
      * Go to previous turn in history, returning to parent variation if necessary.
      * @return true on success, false on failure
@@ -357,7 +359,7 @@ interface ChessCore {
      * @param square 0x88 square index or sqwuare name
      * @return Removed Piece or false on error
      */
-    removePiece: (square: number | string) => false | ChessPiece
+    removePiece: (square: BoardSquareIndex | BoardSquareName) => false | ChessPiece
     /**
      * Return from current continuation, activating the parent variation.
      * @return true on success, false on failure

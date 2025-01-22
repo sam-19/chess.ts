@@ -1,16 +1,17 @@
+import { BoardSquareIndex } from './board'
 import { MoveFlags } from "./flags"
 import { ChessPiece } from "./piece"
 
 interface ChessMove {
     algebraic: string | null
     capturedPiece: ChessPiece | null
-    dest: number
+    dest: BoardSquareIndex | -1
     detail: Map<string, string | string[] | number | number[]>
     fen: string | null
     flags: MoveFlags
     legal: boolean | null
     movedPiece: ChessPiece
-    orig: number
+    orig: BoardSquareIndex | -1
     promotionPiece: ChessPiece | null
     san: string | null
     uci: string | null
@@ -22,8 +23,8 @@ interface ChessMove {
 type MoveError = { error?: string }
 
 interface MoveOptions {
-    orig: number
-    dest: number
+    orig: BoardSquareIndex
+    dest: BoardSquareIndex
     detail: { [key: string]: string | string[] | number | number[] }
     movedPiece: ChessPiece
     capturedPiece: ChessPiece | null

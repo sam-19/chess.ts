@@ -6,14 +6,34 @@ import { MoveFlags } from "./flags"
 import { PlayerColor } from "./color"
 import { MethodOptions } from "./options"
 
-interface ChessBoard {
+/** Valid board square names. */
+export type BoardSquareName = 'a1' | 'a2' | 'a3' | 'a4' | 'a5' | 'a6' | 'a7' | 'a8' |
+                              'b1' | 'b2' | 'b3' | 'b4' | 'b5' | 'b6' | 'b7' | 'b8' |
+                              'c1' | 'c2' | 'c3' | 'c4' | 'c5' | 'c6' | 'c7' | 'c8' |
+                              'd1' | 'd2' | 'd3' | 'd4' | 'd5' | 'd6' | 'd7' | 'd8' |
+                              'e1' | 'e2' | 'e3' | 'e4' | 'e5' | 'e6' | 'e7' | 'e8' |
+                              'f1' | 'f2' | 'f3' | 'f4' | 'f5' | 'f6' | 'f7' | 'f8' |
+                              'g1' | 'g2' | 'g3' | 'g4' | 'g5' | 'g6' | 'g7' | 'g8' |
+                              'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'h7' | 'h8'
+
+/** Valid 0x88 board square indices. */
+export type BoardSquareIndex = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 |
+                               16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 |
+                               32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 |
+                               48 | 49 | 50 | 51 | 52 | 53 | 54 | 55 |
+                               64 | 65 | 66 | 67 | 68 | 69 | 70 | 71 |
+                               80 | 81 | 82 | 83 | 84 | 85 | 86 | 87 |
+                               96 | 97 | 98 | 99 | 100 | 101 | 102 | 103 |
+                               112 | 113 | 114 | 115 | 116 | 117 | 118 | 119
+
+export interface ChessBoard {
     //////       INSTANCE PROPERTIES       //////
     /** Which castling rights each player has left */
-    castlingRights: { [color: string]: MoveFlags }
+    castlingRights: { [color in PlayerColor]: MoveFlags }
     /** Is this a continuation of the parent move */
     continuation: boolean
     /** Possible square eligible for en pasant capture */
-    enPassantSqr: number | null
+    enPassantSqr: BoardSquareIndex | null
     /** Parent game */
     game: ChessGame
     /** How many half moves since last capture or pawn move, for 50/75 move rule */
@@ -31,7 +51,7 @@ interface ChessBoard {
      * King position is so fundamental in chess that it is worth the effort to keep
      * track of it separately instead of looking it up every time it's needed.
      */
-    kingPos: { [color: string]: number | null }
+    kingPos: { [color in PlayerColor]: BoardSquareIndex | null }
     /** A board template to use for calculating resulting board states after alternative moves. */
     mockBoard: ChessBoard | null
     /** Cached moves for this turn (so they don't have to be calculated multiple times) */
@@ -77,10 +97,10 @@ interface ChessBoard {
      * End state of the game, including:
      * - result code for each player (from `Game.RESULT`)
      * - header for the general result ('*' for games that have not ended yet).
-     * 
+     *
      * Uses the parent game's strict rule check to determine whether to check for
      * 50-move or 75-move rules and three-fold or five-fold repetition rules.
-     * 
+     *
      * This property only returns the rule-based game ending state; it cannot determine
      * if a game has ended in a draw by mutual agreement, for example.
      */
@@ -199,7 +219,9 @@ interface ChessBoard {
      * @param detailed return detailed information about the attackers (default false)
      * @return true/false if not detailed, array of attacking piece square indices if detailed
      */
-    isAttacked: (attacker: PlayerColor, square: number | null, detailed?: boolean) => boolean | number[]
+    isAttacked: (
+        attacker: PlayerColor, square: BoardSquareIndex | null, detailed?: boolean
+    ) => boolean | BoardSquareIndex[]
 
     /**
      * Check if the proposed move is a new move or already the next move in history (that is, either
@@ -245,7 +267,9 @@ interface ChessBoard {
      * @param options Options.Board.makeMove
      * @return Move on success, { error } on failure
      */
-    makeMoveFromAlgebraic: (orig: string, dest: string, options?: MethodOptions.Board.makeMove) => ChessTurn | MoveError
+    makeMoveFromAlgebraic: (
+        orig: BoardSquareName, dest: BoardSquareName, options?: MethodOptions.Board.makeMove
+    ) => ChessTurn | MoveError
 
     /**
      * Make a move from a SAN string
@@ -266,14 +290,14 @@ interface ChessBoard {
      * @param square 0x88 square index or square name (a1, a1,... h7, h8)
      * @return piece at square
      */
-    pieceAt: (square: number | string) => ChessPiece
+    pieceAt: (square: BoardSquareIndex | BoardSquareName) => ChessPiece
 
     /**
      * Place a piece on the given square.
      * @param piece
-     * @param square 0x88 square index
+     * @param square 0x88 square index or name.
      */
-    placePiece: (piece: ChessPiece, square: number | string) => false | ChessPiece
+    placePiece: (piece: ChessPiece, square: BoardSquareIndex | BoardSquareName) => false | ChessPiece
 
     /**
      * Select the previous turn in turn history
@@ -283,10 +307,10 @@ interface ChessBoard {
 
     /**
      * Remove the piece occupying given square; returns removed piece
-     * @param square 0x88 square index or sqwuare name
+     * @param square 0x88 square index or square name
      * @return removed piece, false on error
      */
-    removePiece: (square: number | string) => false | ChessPiece
+    removePiece: (square: BoardSquareIndex | BoardSquareName) => false | ChessPiece
 
     /**
      * Reset the move cache object.
@@ -325,4 +349,3 @@ interface ChessBoard {
      */
     validate: (ignoreTurn: boolean, fixMinor: boolean) => { isValid: boolean, errors: string[] }
 }
-export { ChessBoard }

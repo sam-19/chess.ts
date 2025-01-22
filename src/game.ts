@@ -20,6 +20,7 @@ import {
     type TerminationReason,
 } from './types/headers'
 import { ChessBoard } from './types'
+import { BoardSquareIndex, BoardSquareName } from './types/board'
 
 const SCOPE = 'game'
 
@@ -784,7 +785,7 @@ export default class Game implements ChessGame {
         return turn
     }
 
-    makeMoveFromAlgebraic (orig: string, dest: string, options: MethodOptions.Game.makeMove = {}) {
+    makeMoveFromAlgebraic (orig: BoardSquareName, dest: BoardSquareName, options: MethodOptions.Game.makeMove = {}) {
         const move = Move.generateFromAlgebraic(orig, dest, this.currentBoard)
         if (move.error !== undefined) {
             Log.error(`Cound not make move from algebraic (${orig}-${dest}): ${move.error}`, SCOPE)
@@ -1315,13 +1316,13 @@ export default class Game implements ChessGame {
     getMoves (filter: MethodOptions.Board.getMoves = {}) {
         return this.currentBoard.getMoves(filter)
     }
-    pieceAt (sqr: string | number) {
+    pieceAt (sqr: BoardSquareIndex | BoardSquareName) {
         return this.currentBoard.pieceAt(sqr)
     }
-    placePiece (piece: Piece, square: number | string) {
+    placePiece (piece: Piece, square: BoardSquareIndex | BoardSquareName) {
         return this.currentBoard.placePiece(piece, square)
     }
-    removePiece (square: number | string) {
+    removePiece (square: BoardSquareIndex | BoardSquareName) {
         return this.currentBoard.removePiece(square)
     }
     toFen (options: MethodOptions.Board.toFen = {}) {

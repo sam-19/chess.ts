@@ -8,7 +8,7 @@ import Turn from './turn'
 import Options from './options'
 import Piece from './piece'
 
-import { ChessBoard } from './types/board'
+import { BoardSquareIndex, BoardSquareName, ChessBoard } from './types/board'
 import { MethodOptions } from './types/options'
 import { PlayerColor } from './types/color'
 import { MoveError } from './types/move'
@@ -35,7 +35,7 @@ export default class Board implements ChessBoard {
         a3:  80, b3:  81, c3:  82, d3:  83, e3:  84, f3:  85, g3:  86, h3:  87,
         a2:  96, b2:  97, c2:  98, d2:  99, e2: 100, f2: 101, g2: 102, h2: 103,
         a1: 112, b1: 113, c1: 114, d1: 115, e1: 116, f1: 117, g1: 118, h1: 119
-    }
+    } as { [key in BoardSquareName]: BoardSquareIndex }
     static readonly SQUARE_NAMES = {
         0:  'a8',   1: 'b8',   2: 'c8',   3: 'd8',   4: 'e8',   5: 'f8',   6: 'g8',   7: 'h8',
         16:  'a7',  17: 'b7',  18: 'c7',  19: 'd7',  20: 'e7',  21: 'f7',  22: 'g7',  23: 'h7',
@@ -45,21 +45,21 @@ export default class Board implements ChessBoard {
         80:  'a3',  81: 'b3',  82: 'c3',  83: 'd3',  84: 'e3',  85: 'f3',  86: 'g3',  87: 'h3',
         96:  'a2',  97: 'b2',  98: 'c2',  99: 'd2', 100: 'e2', 101: 'f2', 102: 'g2', 103: 'h2',
         112:  'a1', 113: 'b1', 114: 'c1', 115: 'd1', 116: 'e1', 117: 'f1', 118: 'g1', 119: 'h1'
-    }
+    } as { [key in BoardSquareIndex]: BoardSquareName }
     static readonly PAWN_RANK = {
-        [Color.WHITE]: 6,
-        [Color.BLACK]: 1
+        w: 6,
+        b: 1
     }
 
-    castlingRights: { [color: string]: Flags }
+    castlingRights: { [color in PlayerColor]: Flags }
     continuation: boolean
-    enPassantSqr: number | null
+    enPassantSqr: BoardSquareIndex | null
     game: Game
     halfMoveCount: number
     history: Turn[]
     id: number
     isMock: boolean
-    kingPos: { [color: string]: number | null }
+    kingPos: { [color in PlayerColor]: BoardSquareIndex | null }
     mockBoard: Board | null
     moveCache = {
         detailed: false,
@@ -85,8 +85,8 @@ export default class Board implements ChessBoard {
     constructor (game: Game, fen?: string, mock = false) {
         // Start with full castling rights for both players
         this.castlingRights = {
-            [Color.WHITE]: new Flags([Flags.KSIDE_CASTLING, Flags.QSIDE_CASTLING]),
-            [Color.BLACK]: new Flags([Flags.KSIDE_CASTLING, Flags.QSIDE_CASTLING])
+            w: new Flags([Flags.KSIDE_CASTLING, Flags.QSIDE_CASTLING]),
+            b: new Flags([Flags.KSIDE_CASTLING, Flags.QSIDE_CASTLING])
         }
         this.continuation = false
         this.enPassantSqr = null
@@ -96,8 +96,8 @@ export default class Board implements ChessBoard {
         this.id = game.variations.length
         this.isMock = mock
         this.kingPos = {
-            [Color.WHITE]: null,
-            [Color.BLACK]: null
+            w: null,
+            b: null
         }
         this.mockBoard = null
         this.moveCache = {
@@ -155,16 +155,16 @@ export default class Board implements ChessBoard {
         const newBoard = new Board(orig.game)
         // Override default properties
         newBoard.castlingRights = {
-            [Color.WHITE]: orig.castlingRights[Color.WHITE].copy(),
-            [Color.BLACK]: orig.castlingRights[Color.BLACK].copy()
+            w: orig.castlingRights[Color.WHITE].copy(),
+            b: orig.castlingRights[Color.BLACK].copy()
         }
         newBoard.continuation = orig.continuation
         newBoard.enPassantSqr = orig.enPassantSqr
         newBoard.halfMoveCount = orig.halfMoveCount
         newBoard.history = [...orig.history]
         newBoard.kingPos = {
-            [Color.WHITE]: orig.kingPos[Color.WHITE],
-            [Color.BLACK]: orig.kingPos[Color.BLACK]
+            w: orig.kingPos[Color.WHITE],
+            b: orig.kingPos[Color.BLACK]
         }
         newBoard.moveCache = {
             detailed: orig.moveCache.detailed,
@@ -189,13 +189,13 @@ export default class Board implements ChessBoard {
      * @param square2 - Name or index of the second square.
      * @returns Distance in moves (any direction) or -1 on error.
      */
-    static distanceBetween (square1: number | string, square2: number | string) {
+    static distanceBetween (square1: BoardSquareIndex | BoardSquareName, square2: BoardSquareIndex | BoardSquareName) {
         let file1 = 0
         let rank1 = 0
         let file2 = 0
         let rank2 = 0
         if (typeof square1 === 'string') {
-            square1 = square1.toLowerCase()
+            square1 = square1.toLowerCase() as BoardSquareName
             if (!Object.keys(Board.SQUARE_INDICES).includes(square1)) {
                 Log.error(`Square ${square1} is not a valid square name.`, SCOPE)
                 return -1
@@ -208,7 +208,7 @@ export default class Board implements ChessBoard {
         file1 = Board.fileOf(square1)
         rank1 = Board.rankOf(square1)
         if (typeof square2 === 'string') {
-            square2 = square2.toLowerCase()
+            square2 = square2.toLowerCase() as BoardSquareName
             if (!Object.keys(Board.SQUARE_INDICES).includes(square2)) {
                 Log.error(`Square ${square1} is not a valid square name.`, SCOPE)
                 return -1
@@ -259,7 +259,7 @@ export default class Board implements ChessBoard {
         return p >> 4
     }
 
-    static squareIndex (square: number | string): number {
+    static squareIndex (square: BoardSquareIndex | BoardSquareName): BoardSquareIndex | -1 {
         // Seperate check for algebraic and 0x88 index lookups
         if (typeof square === 'number') {
             if (!Board.isValidSquareIndex(square)) {
@@ -280,7 +280,7 @@ export default class Board implements ChessBoard {
      * Get algebraic representation of a 0x88 square index.
      * @param square position index
      */
-     static squareToAlgebraic (square: number) {
+     static squareToAlgebraic (square: BoardSquareIndex) {
         if (!Board.isValidSquareIndex(square)) {
             return null
         }
@@ -466,23 +466,23 @@ export default class Board implements ChessBoard {
         const opponent = Color.swap(this.turn)
         let removedPiece = Piece.NONE
         // Move the piece to destination square and clear origin square
-        this.squares[move.dest as number] = this.squares[move.orig as number]
-        this.squares[move.orig as number] = Piece.NONE
+        this.squares[move.dest] = this.squares[move.orig]
+        this.squares[move.orig] = Piece.NONE
         // Remove a pawn captured en passant
         if (move.flags.contains(Flags.EN_PASSANT)) {
             if (active === Color.WHITE) {
                 // The captured pawn is one rank below destination square
-                removedPiece = this.removePiece(move.dest as number + 16) as Piece
+                removedPiece = this.removePiece(move.dest + 16 as BoardSquareIndex) as Piece
             } else {
                 // The captured pawn is one rank above destination square
-                removedPiece = this.removePiece(move.dest as number - 16) as Piece
+                removedPiece = this.removePiece(move.dest - 16 as BoardSquareIndex) as Piece
             }
         } else if (move.flags.contains(Flags.PROMOTION)) {
             // Replace pawn with promotion piece
-            removedPiece = this.placePiece(move.promotionPiece as Piece, move.dest as number) as Piece
+            removedPiece = this.placePiece(move.promotionPiece as Piece, move.dest as BoardSquareIndex) as Piece
         }
         // Handle special king moves
-        if (move.movedPiece.type === Piece.TYPE_KING) {
+        if (move.movedPiece.type === Piece.TYPE_KING && move.dest !== -1) {
             this.kingPos[active] = move.dest
             // Handle rook moves when castling
             if (move.flags.contains(Flags.KSIDE_CASTLING)) {
@@ -530,9 +530,9 @@ export default class Board implements ChessBoard {
         // Record en passant if pawn makes double advance
         if (move.flags.contains(Flags.DOUBLE_ADV)) {
             if (active === Color.WHITE) {
-                this.enPassantSqr = move.dest + Move.DOWN // En passant square is one rank below the pawn
+                this.enPassantSqr = move.dest + Move.DOWN as BoardSquareIndex // En passant square is one rank below the pawn
             } else {
-                this.enPassantSqr = move.dest + Move.UP // En passant square is one rank above the pawn
+                this.enPassantSqr = move.dest + Move.UP as BoardSquareIndex // En passant square is one rank above the pawn
             }
         } else {
             this.enPassantSqr = null
@@ -568,12 +568,12 @@ export default class Board implements ChessBoard {
     commitUndoMoves (moves: Turn[]) {
         // Revert board state to match the first move on the list
         this.castlingRights = {
-            [Color.WHITE]: moves[0].castlingRights[Color.WHITE].copy(),
-            [Color.BLACK]: moves[0].castlingRights[Color.BLACK].copy()
+            w: moves[0].castlingRights[Color.WHITE].copy(),
+            b: moves[0].castlingRights[Color.BLACK].copy()
         }
         this.kingPos = {
-            [Color.WHITE]: moves[0].kingPos[Color.WHITE],
-            [Color.BLACK]: moves[0].kingPos[Color.BLACK]
+            w: moves[0].kingPos[Color.WHITE],
+            b: moves[0].kingPos[Color.BLACK]
         }
         this.turn = moves[0].turn
         this.enPassantSqr = moves[0].enPassantSqr
@@ -605,6 +605,9 @@ export default class Board implements ChessBoard {
     }
 
     disambiguateMove (move: Move) {
+        if (move.orig === -1 || move.dest === -1) {
+            return ""
+        }
         // Always add a file identifier to pawn captures
         if (move.movedPiece?.type === Piece.TYPE_PAWN) {
             if (move.flags?.contains(Flags.CAPTURE) || move.flags?.contains(Flags.EN_PASSANT)) {
@@ -811,15 +814,15 @@ export default class Board implements ChessBoard {
             // Possibly could move to bit-wise checking in the future, as was in aaronfi's ES6 version
             if (i === this.kingPos[active]) {
                 // Check that castling is still possible
-                const orig = this.kingPos[active] as number
+                const orig = this.kingPos[active] as BoardSquareIndex
                 if (this.castlingRights[active].contains(Flags.KSIDE_CASTLING)) {
-                    const dest = orig + 2
+                    const dest = orig + 2 as BoardSquareIndex
                     if (this.squares[orig + 1] !== Piece.NONE
                         || this.squares[dest] !== Piece.NONE // Squares must be vacant
                     ) {
                         addMove(orig, dest, this, [Flags.KSIDE_CASTLING, Flags.MOVE_BLOCKED])
                     } else if (this.isAttacked(opponent, this.kingPos[active]) // Cannot castle a king in check
-                        || this.isAttacked(opponent, orig + 1) // Can't castle a king across an attacked square
+                        || this.isAttacked(opponent, orig + 1 as BoardSquareIndex) // Can't castle a king across an attacked square
                         || this.isAttacked(opponent, dest)) // Can't move king into an attacked square
                     {
                         addMove(orig, dest, this, [Flags.KSIDE_CASTLING, Flags.MOVE_ILLEGAL])
@@ -829,14 +832,14 @@ export default class Board implements ChessBoard {
                 }
                 // Same for queen side
                 if (this.castlingRights[active].contains(Flags.QSIDE_CASTLING)) {
-                    const dest = orig - 2
+                    const dest = orig - 2 as BoardSquareIndex
                     if (this.squares[orig - 1] !== Piece.NONE
                         || this.squares[orig - 2] !== Piece.NONE
                         || this.squares[orig - 3] !== Piece.NONE
                     ) {
                         addMove(orig, dest, this, [Flags.QSIDE_CASTLING, Flags.MOVE_BLOCKED])
                     } else if (this.isAttacked(opponent, orig)
-                        || this.isAttacked(opponent, orig - 1)
+                        || this.isAttacked(opponent, orig - 1 as BoardSquareIndex)
                         || this.isAttacked(opponent, dest)
                     ) {
                         addMove(orig, dest, this, [Flags.QSIDE_CASTLING, Flags.MOVE_ILLEGAL])
@@ -974,13 +977,13 @@ export default class Board implements ChessBoard {
         return finalMoves
     }
 
-    isAttacked (attacker: PlayerColor, square: number | null, detailed = false) {
+    isAttacked (attacker: PlayerColor, square: BoardSquareIndex | null, detailed = false) {
         // If target piece is not on the board, it cannot be attacked
         if (square === null) {
             return false
         }
         // Initialize an array of attackers for detailed reporting
-        const attackers = []
+        const attackers = [] as BoardSquareIndex[]
         for (let i=Board.SQUARE_INDICES.a8; i<=Board.SQUARE_INDICES.h1; i++) {
             if (i & 0x88) {
                 i += 7
@@ -1093,8 +1096,8 @@ export default class Board implements ChessBoard {
         this.enPassantSqr = null
         this.history = []
         this.kingPos = {
-            [Color.WHITE]: null,
-            [Color.BLACK]: null
+            w: null,
+            b: null
         }
         this.posCount = new Map<string, number>()
         this.squares = (new Array(128)).fill(Piece.NONE)
@@ -1102,7 +1105,7 @@ export default class Board implements ChessBoard {
         // Assign pieces
         const params = fen.split(/\s+/)
         const pos = params[0]
-        let sqr = 0
+        let sqr = 0 as BoardSquareIndex
         // Assing pieces
         for (let i = 0; i < pos.length; i++) {
             const sym = pos.charAt(i)
@@ -1147,15 +1150,15 @@ export default class Board implements ChessBoard {
         }
         if (reset && this.mockBoard) {
             this.mockBoard.castlingRights = {
-                [Color.WHITE]: this.castlingRights[Color.WHITE].copy(),
-                [Color.BLACK]: this.castlingRights[Color.BLACK].copy()
+                w: this.castlingRights[Color.WHITE].copy(),
+                b: this.castlingRights[Color.BLACK].copy()
             }
             this.mockBoard.enPassantSqr = this.enPassantSqr
             this.mockBoard.halfMoveCount = this.halfMoveCount
             this.mockBoard.history = []
             this.mockBoard.kingPos = {
-                [Color.WHITE]: this.kingPos[Color.WHITE],
-                [Color.BLACK]: this.kingPos[Color.BLACK]
+                w: this.kingPos[Color.WHITE],
+                b: this.kingPos[Color.BLACK]
             }
             this.mockBoard.moveCache = {
                 detailed: false,
@@ -1261,8 +1264,8 @@ export default class Board implements ChessBoard {
                        + (move.wildcard ? Move.WILDCARD_MOVES[0] : move.uci)
         const newMove = new Turn({
             castlingRights : {
-                [Color.WHITE]: this.castlingRights[Color.WHITE].copy(),
-                [Color.BLACK]: this.castlingRights[Color.BLACK].copy()
+                w: this.castlingRights[Color.WHITE].copy(),
+                b: this.castlingRights[Color.BLACK].copy()
             },
             fen: this.toFen(),
             enPassantSqr: this.enPassantSqr,
@@ -1290,7 +1293,7 @@ export default class Board implements ChessBoard {
         return newMove
     }
 
-    makeMoveFromAlgebraic (orig: string, dest: string, options: MethodOptions.Board.makeMove = {}) {
+    makeMoveFromAlgebraic (orig: BoardSquareName, dest: BoardSquareName, options: MethodOptions.Board.makeMove = {}) {
         const move = Move.generateFromAlgebraic(orig, dest, this)
         if (!Object.prototype.hasOwnProperty.call(move, 'error')) {
             Log.debug(`Making a move from algebraic: ${orig}-${dest}.`, SCOPE)
@@ -1320,23 +1323,23 @@ export default class Board implements ChessBoard {
         return this.selectTurn(this.selectedTurnIndex + 1)
     }
 
-    pieceAt (square: number | string): Piece {
-        square = Board.squareIndex(square)
-        if (square >= 0) {
-            return this.squares[square]
+    pieceAt (square: BoardSquareIndex | BoardSquareName): Piece {
+        const squareIdx = Board.squareIndex(square)
+        if (squareIdx >= 0) {
+            return this.squares[squareIdx]
         } else {
             return Piece.NONE
         }
     }
 
-    placePiece (piece: Piece, square: number | string) {
+    placePiece (piece: Piece, square: BoardSquareIndex | BoardSquareName) {
         // Check that piece and square are valid
         if (!(piece.symbol in Piece.PIECES)) {
             Log.error(`Cannot put piece to requested square: Piece (${piece}) is invalid.`, SCOPE)
             return false
         }
-        square = Board.squareIndex(square)
-        if (square >= 0) {
+        const squareIdx = Board.squareIndex(square)
+        if (squareIdx !== -1) {
             // Each player may have only one king on the board
             if (piece.type === Piece.TYPE_KING && this.kingPos[piece.color] !== null) {
                 Log.error("Cannot have more than one king per side.", SCOPE)
@@ -1345,9 +1348,9 @@ export default class Board implements ChessBoard {
             // Check if there is a piece already in the square and return it (capture)
             const prevPiece = this.pieceAt(square)
             // Place the piece and save possible king position
-            this.squares[square] = piece
+            this.squares[squareIdx] = piece
             if (piece.type === Piece.TYPE_KING) {
-                this.kingPos[piece.color] = square
+                this.kingPos[piece.color] = squareIdx
             }
             return prevPiece
         } else {
@@ -1366,10 +1369,10 @@ export default class Board implements ChessBoard {
         return this.selectTurn(this.selectedTurnIndex - 1)
     }
 
-    removePiece (square: number | string) {
-        square = Board.squareIndex(square)
+    removePiece (square: BoardSquareIndex | BoardSquareName) {
+        const squareIdx = Board.squareIndex(square)
         // Check that square is valid
-        if (square < 0) {
+        if (squareIdx < 0) {
             Log.error(`Cannot remove piece from ${square}: Value is not a valid square.`, SCOPE)
             return false
         }
@@ -1380,7 +1383,7 @@ export default class Board implements ChessBoard {
             this.kingPos[piece.color] = null
         }
         // Assign empty square
-        this.squares[square] = Piece.NONE
+        this.squares[squareIdx] = Piece.NONE
         return piece
     }
 

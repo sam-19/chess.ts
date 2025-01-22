@@ -1,4 +1,4 @@
-import { ChessBoard } from "./board"
+import { BoardSquareIndex, BoardSquareName, ChessBoard } from "./board"
 import { PlayerColor } from "./color"
 import { GameHeaders, TerminationReason } from "./headers"
 import { ChessMove, MoveError } from "./move"
@@ -25,7 +25,7 @@ interface ChessGame {
     event: string | null
     /**
      * FEN description of the starting position (mapped to the header "FEN").
-     * 
+     *
      * NOTE: FEN description for the current position can be accessed in the Board object (`currentBoard`).
      */
     fen: string | null
@@ -33,7 +33,7 @@ interface ChessGame {
     headers: GameHeaders
     /**
      * Did the game start from a set-up position (mapped to the header "SetUp").
-     * 
+     *
      * This property will always return a boolean, but setting it to null will remove the associated header.
      */
     isSetUp: boolean | null
@@ -82,13 +82,13 @@ interface ChessGame {
     }
     /**
      * Number of moves played during the game (mapped to the header "PlyCount").
-     * 
+     *
      * NOTE: Ply count in the current position is stored in the Board object (`currentBoard`).
      */
     plyCount: number | null
     /**
      * Game result (mapped to the header "Result").
-     * 
+     *
      * NOTE: End result for the current position is stored in the Board object (`endState`).
      */
     result: string | null
@@ -247,7 +247,9 @@ interface ChessGame {
      * @param dest board square (a1...h8)
      * @param options Options.Board.makeMove
      */
-    makeMoveFromAlgebraic: (orig: string, dest: string, options?: MethodOptions.Board.makeMove) => ChessTurn | MoveError
+    makeMoveFromAlgebraic: (
+        orig: BoardSquareName, dest: BoardSquareName, options?: MethodOptions.Board.makeMove
+    ) => ChessTurn | MoveError
 
     /**
      * Make move from a SAN string.
@@ -348,7 +350,7 @@ interface ChessGame {
      * End state of the root board variation, including:
      * - result code for each player (from `Game.RESULT`)
      * - header for the general result ('*' for games that have not ended yet).
-     * 
+     *
      * This property only returns the rule-based game ending state; it cannot determine
      * if a game has ended in a draw by mutual agreement, for example.
      */
@@ -418,13 +420,13 @@ interface ChessGame {
      * @param square 0x88 square index or square name (a1, a1,... h7, h8)
      * @return piece at square
      */
-    pieceAt: (square: number | string) => ChessPiece
+    pieceAt: (square: BoardSquareIndex | BoardSquareName) => ChessPiece
     /**
      * Place a piece on the given square.
      * @param piece
      * @param square 0x88 square index
      */
-    placePiece: (piece: ChessPiece, square: number | string) => false | ChessPiece
+    placePiece: (piece: ChessPiece, square: BoardSquareIndex | BoardSquareName) => false | ChessPiece
     /**
      * Go to previous turn in history, returning to parent variation if necessary.
      * @return true on success, false on failure
@@ -435,7 +437,7 @@ interface ChessGame {
      * @param square 0x88 square index or sqwuare name
      * @return Removed Piece or false on error
      */
-    removePiece: (square: number | string) => false | ChessPiece
+    removePiece: (square: BoardSquareIndex | BoardSquareName) => false | ChessPiece
     /**
      * Get the FEN representation of this game.
      */
