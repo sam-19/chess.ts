@@ -283,9 +283,9 @@ export default class Move implements ChessMove {
         }
         let san = ""
         // Castling moves
-        if (move.flags?.contains(Flags.KSIDE_CASTLING)) {
+        if (move.flags?.contains(Flags.CASTLE_KSIDE)) {
             san = "O-O"
-        } else if (move.flags?.contains(Flags.QSIDE_CASTLING)) {
+        } else if (move.flags?.contains(Flags.CASTLE_QSIDE)) {
             san = "O-O-O"
         } else {
             // Make sure the resulting SAN can represent only one legal move

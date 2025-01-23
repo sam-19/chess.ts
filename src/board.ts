@@ -85,8 +85,8 @@ export default class Board implements ChessBoard {
     constructor (game: Game, fen?: string, mock = false) {
         // Start with full castling rights for both players
         this.castlingRights = {
-            w: new Flags([Flags.KSIDE_CASTLING, Flags.QSIDE_CASTLING]),
-            b: new Flags([Flags.KSIDE_CASTLING, Flags.QSIDE_CASTLING])
+            w: new Flags([Flags.CASTLE_KSIDE, Flags.CASTLE_QSIDE]),
+            b: new Flags([Flags.CASTLE_KSIDE, Flags.CASTLE_QSIDE])
         }
         this.continuation = false
         this.enPassantSqr = null
@@ -485,10 +485,10 @@ export default class Board implements ChessBoard {
         if (move.movedPiece.type === Piece.TYPE_KING && move.dest !== -1) {
             this.kingPos[active] = move.dest
             // Handle rook moves when castling
-            if (move.flags.contains(Flags.KSIDE_CASTLING)) {
+            if (move.flags.contains(Flags.CASTLE_KSIDE)) {
                 this.squares[move.dest as number - 1] = this.squares[move.dest as number + 1]
                 this.squares[move.dest as number + 1] = Piece.NONE
-            } else if (move.flags.contains(Flags.QSIDE_CASTLING)) {
+            } else if (move.flags.contains(Flags.CASTLE_QSIDE)) {
                 this.squares[move.dest as number + 1] = this.squares[move.dest as number - 2]
                 this.squares[move.dest as number - 2] = Piece.NONE
             }
@@ -499,15 +499,15 @@ export default class Board implements ChessBoard {
         if (this.castlingRights[active].length) {
             if (active === Color.WHITE) {
                 if (move.orig === Board.SQUARE_INDICES.a1) {
-                    this.castlingRights[active].remove(Flags.QSIDE_CASTLING, true) // Do a silent remove
+                    this.castlingRights[active].remove(Flags.CASTLE_QSIDE, true) // Do a silent remove
                 } else if (move.orig === Board.SQUARE_INDICES.h1) {
-                    this.castlingRights[active].remove(Flags.KSIDE_CASTLING, true)
+                    this.castlingRights[active].remove(Flags.CASTLE_KSIDE, true)
                 }
             } else {
                 if (move.orig === Board.SQUARE_INDICES.a8) {
-                    this.castlingRights[active].remove(Flags.QSIDE_CASTLING, true)
+                    this.castlingRights[active].remove(Flags.CASTLE_QSIDE, true)
                 } else if (move.orig === Board.SQUARE_INDICES.h8) {
-                    this.castlingRights[active].remove(Flags.KSIDE_CASTLING, true)
+                    this.castlingRights[active].remove(Flags.CASTLE_KSIDE, true)
                 }
             }
         }
@@ -515,19 +515,19 @@ export default class Board implements ChessBoard {
         if (this.castlingRights[opponent].length) {
             if (opponent === Color.WHITE) {
                 if (move.dest === Board.SQUARE_INDICES.a1) {
-                    this.castlingRights[opponent].remove(Flags.QSIDE_CASTLING, true)
+                    this.castlingRights[opponent].remove(Flags.CASTLE_QSIDE, true)
                 } else if (move.dest === Board.SQUARE_INDICES.h1) {
-                    this.castlingRights[opponent].remove(Flags.KSIDE_CASTLING, true)
+                    this.castlingRights[opponent].remove(Flags.CASTLE_KSIDE, true)
                 }
             } else {
                 if (move.dest === Board.SQUARE_INDICES.a8) {
-                    this.castlingRights[opponent].remove(Flags.QSIDE_CASTLING, true)
+                    this.castlingRights[opponent].remove(Flags.CASTLE_QSIDE, true)
                 } else if (move.dest === Board.SQUARE_INDICES.h8) {
-                    this.castlingRights[opponent].remove(Flags.KSIDE_CASTLING, true)
+                    this.castlingRights[opponent].remove(Flags.CASTLE_KSIDE, true)
                 }
             }
         }
-        // Record en passant if pawn makes double advance
+        // Set en passant square if pawn makes double advance.
         if (move.flags.contains(Flags.DOUBLE_ADV)) {
             if (active === Color.WHITE) {
                 this.enPassantSqr = move.dest + Move.DOWN as BoardSquareIndex // En passant square is one rank below the pawn
@@ -592,10 +592,10 @@ export default class Board implements ChessBoard {
                 this.squares[move.dest as number] = Piece.NONE
             }
             // Undo castling
-            if (move.flags.contains(Flags.KSIDE_CASTLING)) {
+            if (move.flags.contains(Flags.CASTLE_KSIDE)) {
                 this.squares[move.dest as number + 1] = this.squares[move.dest as number - 1]
                 this.squares[move.dest as number - 1] = Piece.NONE
-            } else if (move.flags.contains(Flags.QSIDE_CASTLING)) {
+            } else if (move.flags.contains(Flags.CASTLE_QSIDE)) {
                 this.squares[move.dest as number - 2] = this.squares[move.dest as number + 1]
                 this.squares[move.dest as number + 1] = Piece.NONE
             }
@@ -755,14 +755,14 @@ export default class Board implements ChessBoard {
                         if (this.squares[sqr] === Piece.NONE) {
                             addMove(i, sqr, this, [Flags.DOUBLE_ADV])
                         } else {
-                            addMove(i, sqr, this, [Flags.MOVE_BLOCKED])
+                            addMove(i, sqr, this, [Flags.ILLEGAL_BLOCKED])
                         }
                     }
                 } else {
                     // Add moves as blocked
-                    addMove(i, sqr, this, [Flags.MOVE_BLOCKED])
+                    addMove(i, sqr, this, [Flags.ILLEGAL_BLOCKED])
                     if (Board.PAWN_RANK[active] === Board.rankOf(i)) {
-                        addMove(i, i + Move.PAWN_OFFSETS[active as keyof typeof Move.PAWN_OFFSETS][1], this, [Flags.MOVE_BLOCKED])
+                        addMove(i, i + Move.PAWN_OFFSETS[active as keyof typeof Move.PAWN_OFFSETS][1], this, [Flags.ILLEGAL_BLOCKED])
                     }
                 }
                 // Capture moves
@@ -786,7 +786,7 @@ export default class Board implements ChessBoard {
                         // Check for squares on the "physical" board
                         if (dirBlocked) {
                             // Add rest of the blocked moves
-                            addMove(i, sqr, this, [Flags.MOVE_BLOCKED])
+                            addMove(i, sqr, this, [Flags.ILLEGAL_BLOCKED])
                             sqr += offset
                             continue
                         }
@@ -796,7 +796,7 @@ export default class Board implements ChessBoard {
                             if (this.squares[sqr].color !== active) {
                                 addMove(i, sqr, this, [Flags.CAPTURE])
                             } else {
-                                addMove(i, sqr, this, [Flags.MOVE_BLOCKED])
+                                addMove(i, sqr, this, [Flags.ILLEGAL_BLOCKED])
                             }
                             dirBlocked = true
                         }
@@ -815,36 +815,42 @@ export default class Board implements ChessBoard {
             if (i === this.kingPos[active]) {
                 // Check that castling is still possible
                 const orig = this.kingPos[active] as BoardSquareIndex
-                if (this.castlingRights[active].contains(Flags.KSIDE_CASTLING)) {
+                if (this.castlingRights[active].contains(Flags.CASTLE_KSIDE)) {
                     const dest = orig + 2 as BoardSquareIndex
-                    if (this.squares[orig + 1] !== Piece.NONE
+                    if (
+                        this.squares[orig + 1] !== Piece.NONE
                         || this.squares[dest] !== Piece.NONE // Squares must be vacant
                     ) {
-                        addMove(orig, dest, this, [Flags.KSIDE_CASTLING, Flags.MOVE_BLOCKED])
-                    } else if (this.isAttacked(opponent, this.kingPos[active]) // Cannot castle a king in check
+                        addMove(orig, dest, this, [Flags.CASTLE_KSIDE, Flags.ILLEGAL_BLOCKED])
+                    } else if (this.isAttacked(opponent, dest)) {
+                        // Can't move king into an attacked square
+                        addMove(orig, dest, this, [Flags.CASTLE_KSIDE, Flags.ILLEGAL_CHECK])
+                    } else if (
+                        this.isAttacked(opponent, this.kingPos[active]) // Cannot castle a king that is in check
                         || this.isAttacked(opponent, orig + 1 as BoardSquareIndex) // Can't castle a king across an attacked square
-                        || this.isAttacked(opponent, dest)) // Can't move king into an attacked square
-                    {
-                        addMove(orig, dest, this, [Flags.KSIDE_CASTLING, Flags.MOVE_ILLEGAL])
+                    ) {
+                        addMove(orig, dest, this, [Flags.CASTLE_KSIDE, Flags.ILLEGAL_OTHER])
                     } else {
-                        addMove(orig, dest, this, [Flags.KSIDE_CASTLING])
+                        addMove(orig, dest, this, [Flags.CASTLE_KSIDE])
                     }
                 }
                 // Same for queen side
-                if (this.castlingRights[active].contains(Flags.QSIDE_CASTLING)) {
+                if (this.castlingRights[active].contains(Flags.CASTLE_QSIDE)) {
                     const dest = orig - 2 as BoardSquareIndex
-                    if (this.squares[orig - 1] !== Piece.NONE
+                    if (
+                        this.squares[orig - 1] !== Piece.NONE
                         || this.squares[orig - 2] !== Piece.NONE
                         || this.squares[orig - 3] !== Piece.NONE
                     ) {
-                        addMove(orig, dest, this, [Flags.QSIDE_CASTLING, Flags.MOVE_BLOCKED])
-                    } else if (this.isAttacked(opponent, orig)
+                        addMove(orig, dest, this, [Flags.CASTLE_QSIDE, Flags.ILLEGAL_BLOCKED])
+                    } else if (this.isAttacked(opponent, dest)) {
+                        addMove(orig, dest, this, [Flags.CASTLE_QSIDE, Flags.ILLEGAL_CHECK])
+                    }  else if (this.isAttacked(opponent, orig)
                         || this.isAttacked(opponent, orig - 1 as BoardSquareIndex)
-                        || this.isAttacked(opponent, dest)
                     ) {
-                        addMove(orig, dest, this, [Flags.QSIDE_CASTLING, Flags.MOVE_ILLEGAL])
+                        addMove(orig, dest, this, [Flags.CASTLE_QSIDE, Flags.ILLEGAL_OTHER])
                     } else {
-                        addMove(orig, dest, this, [Flags.QSIDE_CASTLING])
+                        addMove(orig, dest, this, [Flags.CASTLE_QSIDE])
                     }
                 }
             }
@@ -860,16 +866,14 @@ export default class Board implements ChessBoard {
             // Check if this move would leave the active player's king exposed
             const kingAttacked = tmpBoard.isAttacked(opponent, tmpBoard.kingPos[this.turn], options.detailed)
             if (kingAttacked && (kingAttacked === true || kingAttacked.length)) {
-                move.flags.add(Flags.PINNED)
+                move.flags.add(Flags.ILLEGAL_PINNED)
                 if (options.includeSan) {
                     move.san = Move.toSan(move, this)
                 }
-                if (options.detailed) {
+                if (Array.isArray(kingAttacked)) {
                     move.detail.set(
                         'attackers',
-                        (kingAttacked as number[]).map(
-                            num => Board.SQUARE_NAMES[num as keyof typeof Board.SQUARE_NAMES]
-                        )
+                        (kingAttacked).map(num => Board.SQUARE_NAMES[num])
                     )
                 }
                 move.legal = false
@@ -889,7 +893,7 @@ export default class Board implements ChessBoard {
                 move.san = Move.toSan(move, this)
             }
             // Mark blocked moves as illegal and move to the next
-            if (move.flags.contains(Flags.MOVE_BLOCKED)) {
+            if (move.flags.contains(Flags.ILLEGAL_BLOCKED)) {
                 move.legal = false
                 continue
             }
@@ -939,7 +943,7 @@ export default class Board implements ChessBoard {
             //Skip moves that are not requested
             if ((options.filter === 'legal' && !move.legal)
                 || (options.filter === 'illegal' && (move.legal)) // Blocked moves are also illegal
-                || (options.filter === 'blocked' && (move.legal || !move.flags?.contains(Flags.MOVE_BLOCKED)))
+                || (options.filter === 'blocked' && (move.legal || !move.flags?.contains(Flags.ILLEGAL_BLOCKED)))
                 || (options.onlyForSquare && (move.algebraic?.substring(0,2) !== options.onlyForSquare))
             ) {
                 continue
@@ -968,7 +972,7 @@ export default class Board implements ChessBoard {
             // Sort by type
             if (move.legal) {
                 finalMoves.legal.push(moveData)
-            } else if (move.flags?.contains(Flags.MOVE_BLOCKED)) {
+            } else if (move.flags?.contains(Flags.ILLEGAL_BLOCKED)) {
                 finalMoves.blocked.push(moveData)
             } else {
                 finalMoves.illegal.push(moveData)
@@ -1123,16 +1127,16 @@ export default class Board implements ChessBoard {
         this.castlingRights[Color.BLACK] = new Flags()
         // Check for remaining castling rights
         if (params[2].indexOf('K') > -1) {
-            this.castlingRights[Color.WHITE].add(Flags.KSIDE_CASTLING)
+            this.castlingRights[Color.WHITE].add(Flags.CASTLE_KSIDE)
         }
         if (params[2].indexOf('Q') > -1) {
-            this.castlingRights[Color.WHITE].add(Flags.QSIDE_CASTLING)
+            this.castlingRights[Color.WHITE].add(Flags.CASTLE_QSIDE)
         }
         if (params[2].indexOf('k') > -1) {
-            this.castlingRights[Color.BLACK].add(Flags.KSIDE_CASTLING)
+            this.castlingRights[Color.BLACK].add(Flags.CASTLE_KSIDE)
         }
         if (params[2].indexOf('q') > -1) {
-            this.castlingRights[Color.BLACK].add(Flags.QSIDE_CASTLING)
+            this.castlingRights[Color.BLACK].add(Flags.CASTLE_QSIDE)
         }
         // Is there an en-passant square
         this.enPassantSqr = (params[3] === '-') ? null
@@ -1463,10 +1467,10 @@ export default class Board implements ChessBoard {
         fen += " " + this.turn
         // Check castling rights
         let cr = ""
-        if (this.castlingRights[Color.WHITE].contains(Flags.KSIDE_CASTLING)) cr += 'K'
-        if (this.castlingRights[Color.WHITE].contains(Flags.QSIDE_CASTLING)) cr += 'Q'
-        if (this.castlingRights[Color.BLACK].contains(Flags.KSIDE_CASTLING)) cr += 'k'
-        if (this.castlingRights[Color.BLACK].contains(Flags.QSIDE_CASTLING)) cr += 'q'
+        if (this.castlingRights[Color.WHITE].contains(Flags.CASTLE_KSIDE)) cr += 'K'
+        if (this.castlingRights[Color.WHITE].contains(Flags.CASTLE_QSIDE)) cr += 'Q'
+        if (this.castlingRights[Color.BLACK].contains(Flags.CASTLE_KSIDE)) cr += 'k'
+        if (this.castlingRights[Color.BLACK].contains(Flags.CASTLE_QSIDE)) cr += 'q'
         // Add castling flags or - if no castling rights remain
         fen += " " + (cr ? cr : "-")
         // Add enpassant square or - if none exist
@@ -1600,8 +1604,8 @@ export default class Board implements ChessBoard {
             errors.push("Black has too many pieces on the board.")
         }
         // TODO: Check for bishop colors (ie. all not on same color if 16 pieces on the board)
-        if ((this.castlingRights[Color.WHITE].contains(Flags.KSIDE_CASTLING) ||
-            this.castlingRights[Color.WHITE].contains(Flags.QSIDE_CASTLING))
+        if ((this.castlingRights[Color.WHITE].contains(Flags.CASTLE_KSIDE) ||
+            this.castlingRights[Color.WHITE].contains(Flags.CASTLE_QSIDE))
             && this.pieceAt('e1') !== Piece.WHITE_KING
         ) {
             if (fixMinor) {
@@ -1611,8 +1615,8 @@ export default class Board implements ChessBoard {
                 errors.push("White can't have castling rights if the king has moved.")
             }
         }
-        if ((this.castlingRights[Color.BLACK].contains(Flags.KSIDE_CASTLING) ||
-            this.castlingRights[Color.BLACK].contains(Flags.QSIDE_CASTLING))
+        if ((this.castlingRights[Color.BLACK].contains(Flags.CASTLE_KSIDE) ||
+            this.castlingRights[Color.BLACK].contains(Flags.CASTLE_QSIDE))
             && this.pieceAt('e8') !== Piece.BLACK_KING
         ) {
             if (fixMinor) {
@@ -1622,41 +1626,41 @@ export default class Board implements ChessBoard {
                 errors.push("Black can't have castling rights if the king has moved.")
             }
         }
-        if (this.castlingRights[Color.WHITE].contains(Flags.KSIDE_CASTLING)
+        if (this.castlingRights[Color.WHITE].contains(Flags.CASTLE_KSIDE)
             && this.pieceAt('h1') !== Piece.WHITE_ROOK
         ) {
             if (fixMinor) {
-                this.castlingRights[Color.WHITE].remove(Flags.KSIDE_CASTLING, true)
+                this.castlingRights[Color.WHITE].remove(Flags.CASTLE_KSIDE, true)
             } else {
                 isValid = false
                 errors.push("White can't have king-side castling rights if the rook has moved.")
             }
         }
-        if (this.castlingRights[Color.WHITE].contains(Flags.QSIDE_CASTLING)
+        if (this.castlingRights[Color.WHITE].contains(Flags.CASTLE_QSIDE)
             && this.pieceAt('a1') !== Piece.WHITE_ROOK
         ) {
             if (fixMinor) {
-                this.castlingRights[Color.WHITE].remove(Flags.QSIDE_CASTLING, true)
+                this.castlingRights[Color.WHITE].remove(Flags.CASTLE_QSIDE, true)
             } else {
                 isValid = false
                 errors.push("White can't have queen-side castling rights if the rook has moved.")
             }
         }
-        if (this.castlingRights[Color.BLACK].contains(Flags.KSIDE_CASTLING)
+        if (this.castlingRights[Color.BLACK].contains(Flags.CASTLE_KSIDE)
             && this.pieceAt('h8') !== Piece.BLACK_ROOK
         ) {
             if (fixMinor) {
-                this.castlingRights[Color.BLACK].remove(Flags.KSIDE_CASTLING, true)
+                this.castlingRights[Color.BLACK].remove(Flags.CASTLE_KSIDE, true)
             } else {
                 isValid = false
                 errors.push("Black can't have king-side castling rights if the rook has moved.")
             }
         }
-        if (this.castlingRights[Color.BLACK].contains(Flags.QSIDE_CASTLING)
+        if (this.castlingRights[Color.BLACK].contains(Flags.CASTLE_QSIDE)
             && this.pieceAt('a8') !== Piece.BLACK_ROOK
         ) {
             if (fixMinor) {
-                this.castlingRights[Color.BLACK].remove(Flags.QSIDE_CASTLING, true)
+                this.castlingRights[Color.BLACK].remove(Flags.CASTLE_QSIDE, true)
             } else {
                 isValid = false
                 errors.push("Black can't have queen-side castling rights if the rook has moved.")

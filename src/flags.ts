@@ -9,33 +9,49 @@ const SCOPE = 'flags'
  * A collection of flags that describe a given move.
  */
 export default class Flags implements MoveFlags {
-    // Static properties
-    // I'm leaving these to binary values in case I have to change the checks back to bit-wise comparisons later
+    // Static properties.
+    // I'm leaving these to binary values in case I have to change the checks back to bit-wise comparisons later.
+    /** Normal move. */
     static readonly NORMAL = 1
+    /** A piece was captured. */
     static readonly CAPTURE = 2
-    static readonly DOUBLE_ADV = 4  // Pawn doing a double advance
+    /** A double-advance initial pawn move. */
+    static readonly DOUBLE_ADV = 4
+    /** En-passant capture. */
     static readonly EN_PASSANT = 8
+    /** A pawn was promoted. */
     static readonly PROMOTION = 16
+    /** The move put the opponent in check. */
     static readonly CHECK = 32
+    /** The move put the opponent in checkmate. */
     static readonly CHECKMATE = 64
-    static readonly KSIDE_CASTLING = 128
-    static readonly QSIDE_CASTLING = 256
-    static readonly IN_CHECK = 512 // The player in turn is in check
-    static readonly PINNED = 1024 // The proposed move would expose the king to attack
-    static readonly MOVE_BLOCKED = 2048 // This move is blocked by another piece
-    static readonly MOVE_ILLEGAL = 4096 // Move is illegal for some other reason
+    /** King castled to king-side. */
+    static readonly CASTLE_KSIDE = 128
+    /** King castled to queen-side. */
+    static readonly CASTLE_QSIDE = 256
+    // The following flags describe why some move cannot be made.
+    /** The move would leave the player's king in check. */
+    static readonly ILLEGAL_CHECK = 512
+    /** The move would expose the player's king to attack. */
+    static readonly ILLEGAL_PINNED = 1024
+    /** The move is blocked by another piece. */
+    static readonly ILLEGAL_BLOCKED = 2048
+    /** The move is illegal for some other reason. */
+    static readonly ILLEGAL_OTHER = 4096
+    /** Single-character display codes for each flag. */
     static readonly DISPLAY = {
-        [ Flags.NORMAL         ]: 'n',
-        [ Flags.CAPTURE        ]: 'c',
-        [ Flags.DOUBLE_ADV     ]: 'd', // Was originally b, is it some official standard?
-        [ Flags.EN_PASSANT     ]: 'e',
-        [ Flags.PROMOTION      ]: 'p',
-        [ Flags.KSIDE_CASTLING ]: 'k',
-        [ Flags.QSIDE_CASTLING ]: 'q',
-        [ Flags.IN_CHECK       ]: 'C',
-        [ Flags.PINNED         ]: 'X',
-        [ Flags.MOVE_BLOCKED   ]: 'B'
+        [ Flags.NORMAL          ]: 'n',
+        [ Flags.CAPTURE         ]: 'c',
+        [ Flags.DOUBLE_ADV      ]: 'd', // Was originally b, is it some official standard?
+        [ Flags.EN_PASSANT      ]: 'e',
+        [ Flags.PROMOTION       ]: 'p',
+        [ Flags.CASTLE_KSIDE    ]: 'k',
+        [ Flags.CASTLE_QSIDE    ]: 'q',
+        [ Flags.ILLEGAL_CHECK   ]: 'C',
+        [ Flags.ILLEGAL_PINNED  ]: 'X',
+        [ Flags.ILLEGAL_BLOCKED ]: 'B'
     }
+    /** Array of valid move flags. */
     static readonly VALID = [
         Flags.NORMAL,
         Flags.CAPTURE,
@@ -44,12 +60,12 @@ export default class Flags implements MoveFlags {
         Flags.PROMOTION,
         Flags.CHECK,
         Flags.CHECKMATE,
-        Flags.KSIDE_CASTLING,
-        Flags.QSIDE_CASTLING,
-        Flags.IN_CHECK,
-        Flags.PINNED,
-        Flags.MOVE_BLOCKED,
-        Flags.MOVE_ILLEGAL,
+        Flags.CASTLE_KSIDE,
+        Flags.CASTLE_QSIDE,
+        Flags.ILLEGAL_CHECK,
+        Flags.ILLEGAL_PINNED,
+        Flags.ILLEGAL_BLOCKED,
+        Flags.ILLEGAL_OTHER,
     ]
 
     // Instance porperties
