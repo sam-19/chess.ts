@@ -140,12 +140,7 @@ export default class Move implements ChessMove {
         } else {
             this.capturedPiece = capturedPiece
         }
-        // TODO: Hande interactive promotion
-        if (!promotionPiece) {
-            this.promotionPiece = (movedPiece.color === Color.WHITE ? Piece.WHITE_QUEEN : Piece.BLACK_QUEEN)
-        } else {
-            this.promotionPiece = promotionPiece
-        }
+        this.promotionPiece = promotionPiece || null
         // Generate algebraic and UCI notation for move
         this.algebraic = Board.SQUARE_NAMES[this.orig as keyof typeof Board.SQUARE_NAMES]
                          + "-"

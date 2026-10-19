@@ -19,6 +19,7 @@
 Move generation and board state
 - Castling out of check or through an attacked square was generated as a legal move.
 - Undoing an en passant capture put the captured pawn back on the wrong square.
+- Every move had a queen as its `promotionPiece`; it is now `null` for moves that are not promotions.
 - Castling rights from a FEN were kept even when the king or rook was not on its original square.
 - Creating a variation for a move made before a castling move removed the castled rook from the variation's board.
 - New variations and continuations inherited repetition counts from later in the line they branched from.

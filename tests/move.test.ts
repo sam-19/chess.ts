@@ -41,6 +41,8 @@ describe('Move generator', () => {
         const aMove = Move.generateFromAlgebraic('e2', 'e4', board) as Move
         expect(aMove.flags?.contains(Flags.DOUBLE_ADV)).toStrictEqual(true)
         expect(aMove.movedPiece.symbol).toStrictEqual(Piece.WHITE_PAWN.symbol)
+        // Only promotions have a promotion piece.
+        expect(aMove.promotionPiece).toBeNull()
     })
     test('generate from san', () => {
         const sMove = Move.generateFromSan('e4', board) as Move
