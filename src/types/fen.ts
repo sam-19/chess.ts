@@ -9,4 +9,4 @@ interface ChessFen {
     validate: (onlyPosition?: boolean, rules?: string) => FenValidationResult
 }
 
-export { ChessFen, FenValidationResult }
+export type { ChessFen, FenValidationResult }

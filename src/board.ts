@@ -1,22 +1,30 @@
-import Annotation from './annotation'
-import Color from './color'
-import Fen from './fen'
-import Flags from './flags'
-import Game from './game'
-import Move from './move'
-import Turn from './turn'
-import Options from './options'
-import Piece from './piece'
+import Annotation from './annotation.js'
+import Color from './color.js'
+import Fen from './fen.js'
+import Flags from './flags.js'
+import Game from './game.js'
+import Move, { isMoveError } from './move.js'
+import Turn from './turn.js'
+import Options from './options.js'
+import Piece from './piece.js'
 
-import { BoardSquareIndex, BoardSquareName, ChessBoard } from './types/board'
-import { MethodOptions } from './types/options'
-import { PlayerColor } from './types/color'
-import { MoveError } from './types/move'
+import { BoardSquareIndex, BoardSquareName, ChessBoard } from './types/board.js'
+import { MethodOptions } from './types/options.js'
+import { PlayerColor } from './types/color.js'
+import { MoveError } from './types/move.js'
 
-import { Log } from 'scoped-event-log'
-import { ChessTurn } from './types'
+import { Log } from './log.js'
+import { ChessTurn } from './types/index.js'
 
 const SCOPE = 'board'
+
+/**
+ * Repetition counts as they were before each turn was made, used to restore the counts when turns are undone.
+ * Kept outside the turns so that board copies, which share turn objects, also share these.
+ */
+const POS_COUNT_BEFORE_TURN = new WeakMap<ChessTurn, Map<string, number>>()
+/** Repetition counts as they were right after each turn was made, used to restore the counts when browsing history. */
+const POS_COUNT_AFTER_TURN = new WeakMap<ChessTurn, Map<string, number>>()
 
 /**
  * The board object keeps track of game state and history in this particular line
@@ -135,6 +143,9 @@ export default class Board implements ChessBoard {
         options = Options.Board.branchFromParent().assign(options) as MethodOptions.Board.branchFromParent
         const newBoard = Board.copy(parent)
         if (!options.continuation) {
+            // The copied board is in the position of the selected turn (not the end of history), so only that turn
+            // must be undone to get to the starting position of the variation
+            newBoard.history = newBoard.history.slice(0, parent.selectedTurnIndex + 1)
             newBoard.undoMoves({ move: parent.selectedTurnIndex })
         }
         newBoard.continuation = options.continuation || false
@@ -190,10 +201,6 @@ export default class Board implements ChessBoard {
      * @returns Distance in moves (any direction) or -1 on error.
      */
     static distanceBetween (square1: BoardSquareIndex | BoardSquareName, square2: BoardSquareIndex | BoardSquareName) {
-        let file1 = 0
-        let rank1 = 0
-        let file2 = 0
-        let rank2 = 0
         if (typeof square1 === 'string') {
             square1 = square1.toLowerCase() as BoardSquareName
             if (!Object.keys(Board.SQUARE_INDICES).includes(square1)) {
@@ -205,12 +212,12 @@ export default class Board implements ChessBoard {
             Log.error(`Square ${square1} is not a valid square index.`, SCOPE)
             return -1
         }
-        file1 = Board.fileOf(square1)
-        rank1 = Board.rankOf(square1)
+        const file1 = Board.fileOf(square1)
+        const rank1 = Board.rankOf(square1)
         if (typeof square2 === 'string') {
             square2 = square2.toLowerCase() as BoardSquareName
             if (!Object.keys(Board.SQUARE_INDICES).includes(square2)) {
-                Log.error(`Square ${square1} is not a valid square name.`, SCOPE)
+                Log.error(`Square ${square2} is not a valid square name.`, SCOPE)
                 return -1
             }
             square2 = Board.SQUARE_INDICES[square2 as keyof typeof Board.SQUARE_INDICES]
@@ -218,8 +225,8 @@ export default class Board implements ChessBoard {
             Log.error(`Square ${square2} is not a valid square index.`, SCOPE)
             return -1
         }
-        file2 = Board.fileOf(square2)
-        rank2 = Board.rankOf(square2)
+        const file2 = Board.fileOf(square2)
+        const rank2 = Board.rankOf(square2)
         return Math.max(Math.abs(file2 - file1), Math.abs(rank2 - rank1))
     }
 
@@ -328,6 +335,14 @@ export default class Board implements ChessBoard {
                 },
                 header: '1/2-1/2',
             }
+        } else if (this.hasInsufficientMaterial) {
+            return {
+                result: {
+                    w: Game.RESULT.DRAW_BY.INSUFFICIENT_MATERIAL,
+                    b: Game.RESULT.DRAW_BY.INSUFFICIENT_MATERIAL,
+                },
+                header: '1/2-1/2',
+            }
         } else if (this.breaks75MoveRule) {
             return {
                 result: {
@@ -374,19 +389,18 @@ export default class Board implements ChessBoard {
         const pieceCount = {} as { [key: string]: number}
         const bishops = []
         let totalPieces = 0
-        let sqrType = 0 // For checking which type of square a bishop is on
         for (let i=Board.SQUARE_INDICES.a8; i<=Board.SQUARE_INDICES.h1; i++) {
             if (i & 0x88) {
                 i += 7
                 continue // Outside the "physical" board
             }
-            sqrType = (sqrType + 1)%2
             const piece = this.squares[i]
             // Piece.NONE is a special case and its type has to be fetched directly
             if (piece.type !== Piece.NONE.type) {
                 pieceCount[piece.type] = ((piece.type in pieceCount) ? pieceCount[piece.type] + 1 : 1)
                 if (piece.type === Piece.TYPE_BISHOP) {
-                    bishops.push(sqrType)
+                    // Square color of the bishop
+                    bishops.push((Board.fileOf(i) + Board.rankOf(i)) % 2)
                 }
                 totalPieces++
             }
@@ -405,6 +419,26 @@ export default class Board implements ChessBoard {
         } else {
             return false
         }
+    }
+
+    /**
+     * Key identifying the position for repetition rules: piece placement, player in turn, castling rights and the
+     * en passant square, if a pawn is in place to capture en passant.
+     */
+    get positionKey () {
+        const [placement, turn, castling] = this.toFen().split(' ')
+        let enPassant = '-'
+        if (this.enPassantSqr !== null) {
+            // Capturing pawns are one rank below (white) or above (black) the en passant square
+            const pawn = this.turn === Color.WHITE ? Piece.WHITE_PAWN : Piece.BLACK_PAWN
+            const rank = this.enPassantSqr + (this.turn === Color.WHITE ? 16 : -16)
+            for (const sqr of [rank - 1, rank + 1]) {
+                if (!(sqr & 0x88) && this.squares[sqr] === pawn) {
+                    enPassant = Board.squareToAlgebraic(this.enPassantSqr) || '-'
+                }
+            }
+        }
+        return `${placement} ${turn} ${castling} ${enPassant}`
     }
 
     get hasRepeatedFivefold () {
@@ -542,7 +576,7 @@ export default class Board implements ChessBoard {
         this.turnNum = Math.floor(this.plyNum/2) + 1
         this.turn = Color.swap(this.turn) as PlayerColor
         this.resetMoveCache()
-        const fen  = this.toFen({ meta: false })
+        const fen  = this.positionKey
         // Reset half move counter and three fold repetition counter if a pawn moves or capture takes place
         if (move.movedPiece.type === Piece.TYPE_PAWN
             || move.flags.contains(Flags.CAPTURE)
@@ -557,7 +591,7 @@ export default class Board implements ChessBoard {
         }
         if (updatePosCount) {
             if (this.posCount.has(fen)) {
-                this.posCount.set(fen, this.posCount.get(fen) || 0 + 1)
+                this.posCount.set(fen, (this.posCount.get(fen) || 0) + 1)
             } else {
                 this.posCount.set(fen, 1)
             }
@@ -585,18 +619,24 @@ export default class Board implements ChessBoard {
         // Undo the moves in turn history
         for (let i=0; i<moves.length; i++) {
             const move = moves[i].move
-            // Undo capture and en passant
-            if (move.flags.contains(Flags.CAPTURE) || move.flags.contains(Flags.EN_PASSANT)) {
+            // Undo en passant; the captured pawn was one rank behind the destination square
+            if (move.flags.contains(Flags.EN_PASSANT)) {
+                this.squares[move.dest as number] = Piece.NONE
+                const capturedSqr = move.dest as number + (move.movedPiece?.color === Color.WHITE ? 16 : -16)
+                this.squares[capturedSqr] = move.capturedPiece as Piece
+            } else if (move.flags.contains(Flags.CAPTURE)) {
+                // Undo capture
                 this.squares[move.dest as number] = move.capturedPiece as Piece
             } else {
                 this.squares[move.dest as number] = Piece.NONE
             }
             // Undo castling
+            const rook = move.movedPiece?.color === Color.WHITE ? Piece.WHITE_ROOK : Piece.BLACK_ROOK
             if (move.flags.contains(Flags.KSIDE_CASTLING)) {
-                this.squares[move.dest as number + 1] = this.squares[move.dest as number - 1]
+                this.squares[move.dest as number + 1] = rook
                 this.squares[move.dest as number - 1] = Piece.NONE
             } else if (move.flags.contains(Flags.QSIDE_CASTLING)) {
-                this.squares[move.dest as number - 2] = this.squares[move.dest as number + 1]
+                this.squares[move.dest as number - 2] = rook
                 this.squares[move.dest as number + 1] = Piece.NONE
             }
             this.squares[move.orig as number] = move.movedPiece as Piece
@@ -659,16 +699,15 @@ export default class Board implements ChessBoard {
             && (!options.includeFen || this.moveCache.includeFen)
             && (!options.detailed || this.moveCache.detailed)
         )  {
-            if (!options.onlyLegal) {
+            const onlySqr = options.onlyForSquare !== undefined && options.onlyForSquare !== null
+                            ? Board.squareIndex(options.onlyForSquare) : -1
+            if (!options.onlyLegal && onlySqr === -1) {
                 return this.moveCache.moves
             }
-            // Else we'll check for valid moves
-            const legalMoves = []
-            for (let i=0; i<this.moveCache.moves.length; i++) {
-                if (this.moveCache.moves[i].legal)
-                    legalMoves.push(this.moveCache.moves[i])
-            }
-            return legalMoves
+            // Else we'll filter legal moves and/or moves for the requested square
+            return this.moveCache.moves.filter(move =>
+                (!options.onlyLegal || move.legal) && (onlySqr === -1 || move.orig === onlySqr)
+            )
         }
         // Declare variables also used in helper function
         const newMoves: Move[] = []
@@ -721,7 +760,7 @@ export default class Board implements ChessBoard {
             const onlySqr = Board.squareIndex(options.onlyForSquare)
             // Set first and last squares to the requested square
             if (onlySqr !== -1) {
-                firstSqr = lastSqr = Board.SQUARE_INDICES[options.onlyForSquare as keyof typeof Board.SQUARE_INDICES]
+                firstSqr = lastSqr = onlySqr
             } else {
                 return []
             }
@@ -888,8 +927,9 @@ export default class Board implements ChessBoard {
             if (options.includeSan && !options.onlyLegal) {
                 move.san = Move.toSan(move, this)
             }
-            // Mark blocked moves as illegal and move to the next
-            if (move.flags.contains(Flags.MOVE_BLOCKED)) {
+            // Mark blocked and otherwise illegal moves (e.g. castling out of or through check) as illegal and move
+            // to the next; the king safety check above only covers the king's final square
+            if (move.flags.contains(Flags.MOVE_BLOCKED) || move.flags.contains(Flags.MOVE_ILLEGAL)) {
                 move.legal = false
                 continue
             }
@@ -901,7 +941,10 @@ export default class Board implements ChessBoard {
             legalMoves.push(move)
         }
         // Cache moves for this turn
-        if (
+        // Moves generated for a single square are not the complete set of moves for this turn
+        const isPartial = options.onlyForSquare !== undefined && options.onlyForSquare !== null
+                          && Board.squareIndex(options.onlyForSquare) !== -1
+        if (!isPartial && (
             // Technically I shouldn't have to check this, but in case I make some changes to the upstream code later
             !this.moveCache.moves.length ||
             // Test if new moves include more information than currently cached ones
@@ -910,7 +953,7 @@ export default class Board implements ChessBoard {
                 && (!this.moveCache.includeSan || options.includeSan)
                 && (!this.moveCache.includeFen || options.includeFen)
             )
-        ) {
+        )) {
             // The `|| false` is just to satisfy Typescript linter
             this.moveCache.includeFen = options.includeFen || false
             this.moveCache.includeSan = options.includeSan || false
@@ -924,8 +967,8 @@ export default class Board implements ChessBoard {
     }
 
     getMoves (opts: MethodOptions.Board.getMoves = {}) {
-        let moveDataType: { move: Move, fen: string, algebraic: string, san: string, uci: string }
-        let finalMovesType: { blocked: typeof moveDataType[], illegal: typeof moveDataType[], legal: typeof moveDataType[] }
+        type MoveData = { move: Move, fen: string, algebraic: string, san: string, uci: string }
+        type FinalMoves = { blocked: MoveData[], illegal: MoveData[], legal: MoveData[] }
         const options = Options.Board.getMoves().assign(opts) as MethodOptions.Board.getMoves
         const moves = this.generateMoves({
             detailed: options.detailed,
@@ -933,9 +976,9 @@ export default class Board implements ChessBoard {
             includeFen: options.includeFen,
             onlyLegal: options.filter === 'legal'
         })
-        const finalMoves = { blocked: [], illegal: [], legal: [] } as typeof finalMovesType
+        const finalMoves = { blocked: [], illegal: [], legal: [] } as FinalMoves
         for (const move of moves) {
-            const moveData = {} as typeof moveDataType
+            const moveData = {} as MoveData
             //Skip moves that are not requested
             if ((options.filter === 'legal' && !move.legal)
                 || (options.filter === 'illegal' && (move.legal)) // Blocked moves are also illegal
@@ -956,13 +999,13 @@ export default class Board implements ChessBoard {
                 if (options.notation == 'all') {
                     moveData.algebraic = move.algebraic || ''
                     moveData.san = move.san || ''
-                    moveData.uci = (move.algebraic?.substring(0,2) || '') + (move.algebraic?.substring(3) || '')
+                    moveData.uci = move.uci || ''
                 } else if (options.notation === 'algebraic') {
                     moveData.algebraic = move.algebraic || ''
                 } else if (options.notation === 'san') {
                     moveData.san = move.san || ''
                 } else if (options.notation === 'uci') {
-                    moveData.uci = (move.algebraic?.substring(0,2) || '') + (move.algebraic?.substring(3) || '')
+                    moveData.uci = move.uci || ''
                 }
             }
             // Sort by type
@@ -1058,14 +1101,14 @@ export default class Board implements ChessBoard {
             return { isNew: true, contIdx: -1, varIdx: -1 }
         }
         // Is this move equal to the next move in history
-        if (this.history[this.selectedTurnIndex + 1].move.san === move.san || move.wildcard) {
+        if (this.history[this.selectedTurnIndex + 1].move.uci === move.uci || move.wildcard) {
             return { isNew: false, contIdx: -1, varIdx: -1 }
         }
         // Does any continuation of the current move match the attempted move
         if (this.selectedTurnIndex >= 0) { // index is -1 before first move
             const curVars = this.history[this.selectedTurnIndex].variations
             for (let i=0; i<curVars.length; i++) {
-                if (curVars[i].continuation && curVars[i].history[0].move.algebraic === move.algebraic) {
+                if (curVars[i].continuation && curVars[i].history[0]?.move.uci === move.uci) {
                     return { isNew: false, contIdx: i, varIdx: -1 }
                 }
             }
@@ -1074,8 +1117,8 @@ export default class Board implements ChessBoard {
         const nextVars = this.history[this.selectedTurnIndex + 1].variations
         for (let i=0; i<nextVars.length; i++) {
             if (!nextVars[i].continuation // Skip continuations
-                && (nextVars[i].history[0].move.algebraic === move.algebraic
-                || nextVars[i].history[0].move.wildcard))
+                && (nextVars[i].history[0]?.move.uci === move.uci
+                || nextVars[i].history[0]?.move.wildcard))
             {
                 return { isNew: false, contIdx: -1, varIdx: i }
             }
@@ -1085,12 +1128,22 @@ export default class Board implements ChessBoard {
     }
 
     loadFen (fen: string) {
+        fen = fen.trim()
         // Check that given FEN is valid
         const gameFen = new Fen(fen)
         const fenError = gameFen.validate()
         if (fenError.errorCode) {
             Log.error(`Cannot create variation from FEN: ${fenError.errorMessage} (${fen}).`, SCOPE)
             return false
+        }
+        // The player who just moved cannot be in check; test this on a mock board before changing this one
+        // (mock boards only ever load positions from valid boards, so they skip this test)
+        if (!this.isMock) {
+            const probe = new Board(this.game, fen, true)
+            if (probe.isAttacked(probe.turn, probe.kingPos[Color.swap(probe.turn)])) {
+                Log.error(`Cannot create variation from FEN: The player not in turn is in check (${fen}).`, SCOPE)
+                return false
+            }
         }
         // Reset properties
         this.enPassantSqr = null
@@ -1140,7 +1193,9 @@ export default class Board implements ChessBoard {
         this.halfMoveCount = parseInt(params[4], 10)
         this.turnNum = parseInt(params[5], 10)
         this.plyNum = (this.turnNum - 1)*2 + (this.turn === Color.BLACK ? 1 : 0)
-        this.posCount.set(this.toFen({ meta: false }), 1)
+        // Drop castling rights that the position does not support (king or rook not on its original square)
+        this.validate(true, true)
+        this.posCount.set(this.positionKey, 1)
         return true
     }
 
@@ -1224,9 +1279,9 @@ export default class Board implements ChessBoard {
                     const turn = this.selectedTurn
                     const newBoard = Board.branchFromParent(this, { continuation: false })
                     turn.variations.push(newBoard)
-                    newBoard.makeMove(move, options)
+                    const newTurn = newBoard.makeMove(move, options)
                     this.game.currentBoard = newBoard
-                    return turn
+                    return newTurn
                 }
             }
             // Check if any continuation of the current move matches attempted move
@@ -1234,8 +1289,8 @@ export default class Board implements ChessBoard {
                 const childVars = this.history[this.selectedTurnIndex].variations
                 for (let i=0; i < childVars.length; i++) {
                     if (childVars[i].continuation // Only continuations
-                        && (childVars[i].history[0].move.san === move.san
-                        || childVars[i].history[0].move.wildcard))
+                        && (childVars[i].history[0]?.move.uci === move.uci
+                        || childVars[i].history[0]?.move.wildcard))
                     {
                         if (this.game.enterContinuation(i)) {
                             return this.game.currentBoard.history[0]
@@ -1249,14 +1304,10 @@ export default class Board implements ChessBoard {
         // We're at the end of turn history or this is not a user move
         // Record move time and delta from last move
         const meta = {} as { moveTime: number, moveTimeDelta: number, comments: string, puzzleSolution: boolean }
-        if (this.history.length) {
-            if (!options.moveTime) {
-                meta.moveTime = Date.now()
-            }
-            if (!options.moveTimeDelta) {
-                meta.moveTimeDelta = meta.moveTime - (this.history[this.selectedTurnIndex - 1]?.meta?.moveTime || 0)
-            }
-        }
+        meta.moveTime = options.moveTime || Date.now()
+        // Time since the previous move (the currently selected turn), if known
+        const prevMoveTime = this.history[this.selectedTurnIndex]?.meta?.moveTime
+        meta.moveTimeDelta = options.moveTimeDelta || (prevMoveTime ? meta.moveTime - prevMoveTime : 0)
         // Store a unique identifier for this move
         const lastMove = this.history[this.history.length - 1]
         const moveId = this.plyNum.toString()
@@ -1278,9 +1329,11 @@ export default class Board implements ChessBoard {
             turn: this.turn,
             turnNum: this.turnNum,
         })
+        POS_COUNT_BEFORE_TURN.set(newMove, new Map(this.posCount))
         // TODO: Handle removed pawn when promoting
         //const removedPiece = this.commitMove(move, options.updatePosCount)
         this.commitMove(move, options.updatePosCount)
+        POS_COUNT_AFTER_TURN.set(newMove, new Map(this.posCount))
         this.selectedTurnIndex++
         if (options.comment) {
             this.selectedTurn.annotations.push(new Annotation(options.comment))
@@ -1295,7 +1348,7 @@ export default class Board implements ChessBoard {
 
     makeMoveFromAlgebraic (orig: BoardSquareName, dest: BoardSquareName, options: MethodOptions.Board.makeMove = {}) {
         const move = Move.generateFromAlgebraic(orig, dest, this)
-        if (!Object.prototype.hasOwnProperty.call(move, 'error')) {
+        if (!isMoveError(move)) {
             Log.debug(`Making a move from algebraic: ${orig}-${dest}.`, SCOPE)
             return this.makeMove(move as Move, options)
         } else {
@@ -1306,7 +1359,7 @@ export default class Board implements ChessBoard {
 
     makeMoveFromSAN (san: string, options: MethodOptions.Board.makeMove = {}) {
         const move = Move.generateFromSan(san, this)
-        if (!Object.prototype.hasOwnProperty.call(move, 'error')) {
+        if (!isMoveError(move)) {
             Log.debug(`Making a move from SAN: ${san}.`, SCOPE)
             return this.makeMove(move as Move, options)
         } else {
@@ -1421,7 +1474,21 @@ export default class Board implements ChessBoard {
                 this.commitMove(this.selectedTurn.move, false)
             }
         }
+        this.syncPosCount()
         return true
+    }
+
+    /**
+     * Set repetition counts to match the selected turn, so that they describe the history leading to the position
+     * on the board (and not the end of the line).
+     */
+    syncPosCount () {
+        const counts = this.selectedTurnIndex >= 0
+                       ? POS_COUNT_AFTER_TURN.get(this.history[this.selectedTurnIndex])
+                       : this.history.length ? POS_COUNT_BEFORE_TURN.get(this.history[0]) : undefined
+        if (counts) {
+            this.posCount = new Map(counts)
+        }
     }
 
     toFen (opts: MethodOptions.Board.toFen = {}) {
@@ -1533,7 +1600,15 @@ export default class Board implements ChessBoard {
         // If we undo a move in the middle of history, all following moves are removed
         // TODO: Inform user about removal of all following moves
         const removedMoves = this.history.splice(moveIndex)
-        this.commitUndoMoves(removedMoves)
+        // Only the moves up to the selected turn are on the board (the rest are ahead when browsing history)
+        const appliedCount = this.selectedTurnIndex - moveIndex + 1
+        if (appliedCount > 0) {
+            this.commitUndoMoves(removedMoves.slice(0, appliedCount))
+            const prevPosCount = POS_COUNT_BEFORE_TURN.get(removedMoves[0])
+            if (options.updatePosCount !== false && prevPosCount) {
+                this.posCount = new Map(prevPosCount)
+            }
+        }
         // Correct selected move index if the selected move was undone
         if (this.selectedTurnIndex >= this.history.length) {
             this.selectedTurnIndex = this.history.length - 1
@@ -1667,7 +1742,8 @@ export default class Board implements ChessBoard {
             isValid = false
             errors.push("Both kings can't be in check at the same time.")
         }
-        if (!ignoreTurn && this.isAttacked(Color.swap(this.turn), this.kingPos[this.turn])) {
+        // The player who just moved cannot have left their king in check
+        if (!ignoreTurn && this.isAttacked(this.turn, this.kingPos[Color.swap(this.turn)])) {
             isValid = false
             errors.push("Only the player in turn can have their king in check.")
         }

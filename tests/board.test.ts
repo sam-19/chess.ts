@@ -1,29 +1,15 @@
-/**
- * @jest-environment jsdom
- */
-
-import Board from '../src/board'
-import Game from '../src/game'
-import { Log } from 'scoped-event-log'
-import Flags from '../src/flags'
-import Piece from '../src/piece'
-import Fen from '../src/fen'
-import { BoardSquareIndex, BoardSquareName } from '../src/types/board'
+import { describe, expect, test } from 'vitest'
+import Board from '../src/board.js'
+import Game from '../src/game.js'
+import { Log } from '../src/log.js'
+import Flags from '../src/flags.js'
+import Piece from '../src/piece.js'
+import Fen from '../src/fen.js'
+import { BoardSquareIndex, BoardSquareName } from '../src/types/board.js'
+import { ChessTurn } from '../src/types/turn.js'
 
 // Only log warnings and errors
 Log.setPrintThreshold("WARN")
-// Printed board state at the end of the variation
-const boardAtEnd = `  +------------------------+  Spassky, Boris V.
-8 | .  .  .  .  .  .  .  . |  Move 43, game over
-7 | .  .  .  .  .  .  .  . |
-6 | .  .  .  .  R  .  p  . |
-5 | .  .  k  .  .  .  p  . |  Result:
-4 | .  p  .  .  .  .  P  . |  1/2-1/2
-3 | .  P  .  b  .  P  .  . |
-2 | .  .  .  K  .  n  .  . |
-1 | .  .  .  .  .  .  .  . |
-  +------------------------+  Fischer, Robert J.
-    a  b  c  d  e  f  g  h`
 const game = new Game()
 expect(game).toBeDefined()
 describe('Board', () => {
@@ -80,7 +66,7 @@ describe('Board', () => {
         expect(moves.legal[0].algebraic).toStrictEqual('a2-a3')
         expect(moves.legal[0].san).toStrictEqual('a3')
         expect(moves.legal[0].uci).toStrictEqual('a2a3')
-    }),
+    })
     test('make moves', () => {
         board.makeMoveFromAlgebraic('e2', 'e4')
         expect(board.enPassantSqr).toStrictEqual(84)
@@ -92,7 +78,7 @@ describe('Board', () => {
         board.makeMoveFromSAN('d5')
         expect(board.getMoves({ notation: 'san' }).legal.map(m => m.move.san)).toContain('exd5')
         board.makeMoveFromSAN('exd5')
-        const lastMove = (board.undoMoves()!)[0]
+        const lastMove = (board.undoMoves() as ChessTurn[])[0]
         expect(lastMove.move.flags.contains(Flags.CAPTURE)).toStrictEqual(true)
         expect(board.toFen()).toStrictEqual('rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 2')
         game.loadFen('rnbqkbnr/pppppp1p/6p1/1B6/4P3/8/PPPP1PPP/RNBQK1NR b KQkq - 1 2')
@@ -118,7 +104,8 @@ describe('Board', () => {
         board = game.currentBoard
         expect(board.parentBoard?.history[board.parentBoard.history.length - 1].variations.length).toStrictEqual(1)
         expect(board.parentBoard?.history[board.parentBoard.history.length - 1].variations[0].id).toStrictEqual(board.id)
-        expect(board.parentBoard?.id).toStrictEqual(1)
+        expect(board.parentBoard?.id).toStrictEqual(0)
+        expect(board.id).not.toStrictEqual(0)
         game.makeMoveFromSan('e5')
         game.makeMoveFromSan('dxe5')
         game.makeMoveFromSan('f6')

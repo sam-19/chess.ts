@@ -1,14 +1,11 @@
-/**
- * @jest-environment jsdom
- */
-
-import Move from '../src/move'
-import { Log } from 'scoped-event-log'
-import Piece from '../src/piece'
-import Board from '../src/board'
-import Game from '../src/game'
-import Flags from '../src/flags'
-import Color from '../src/color'
+import { describe, expect, test } from 'vitest'
+import Move from '../src/move.js'
+import { Log } from '../src/log.js'
+import Piece from '../src/piece.js'
+import Board from '../src/board.js'
+import Game from '../src/game.js'
+import Flags from '../src/flags.js'
+import Color from '../src/color.js'
 
 Log.setPrintThreshold("WARN")
 

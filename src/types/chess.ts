@@ -1,13 +1,13 @@
-import { BoardSquareIndex, BoardSquareName, ChessBoard } from "./board"
-import { PlayerColor } from "./color"
-import { FenValidationResult } from "./fen"
-import { ChessGame } from "./game"
-import { AnyHeader, GameHeaders } from "./headers"
-import { ChessMove, MoveError } from "./move"
-import { MethodOptions } from "./options"
-import { ChessPiece } from "./piece"
-import { TCFieldModel, TCTimeValues } from "./timers"
-import { ChessTurn } from "./turn"
+import type { BoardSquareIndex, BoardSquareName, ChessBoard } from "./board.js"
+import type { PlayerColor } from "./color.js"
+import type { FenValidationResult } from "./fen.js"
+import type { ChessGame } from "./game.js"
+import type { AnyHeader, GameHeaders } from "./headers.js"
+import type { ChessMove, MoveError } from "./move.js"
+import type { MethodOptions } from "./options.js"
+import type { ChessPiece } from "./piece.js"
+import type { TCFieldModel, TCTimeValues } from "./timers.js"
+import type { ChessTurn } from "./turn.js"
 
 /**
  * An object that, in addition to the game itself, contains its
@@ -231,7 +231,7 @@ interface ChessCore {
     /**
      * Current board's turn index position as [index, historyLength].
      */
-    loadFen: (fen: string) => void
+    loadFen: (fen: string) => boolean
     /**
      * Add a field to the game's time controls
      * @param tc ChessTimer.FieldModel
@@ -420,4 +420,4 @@ interface ChessCore {
     // Auxiliary methods
 }
 
-export { ChessCore, GameEntry }
+export type { ChessCore, GameEntry }

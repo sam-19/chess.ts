@@ -1,6 +1,6 @@
-import Color from './color'
-import { PlayerColor } from './types'
-import { ChessPiece, PieceCode, PieceType } from './types/piece'
+import Color from './color.js'
+import { PlayerColor } from './types/index.js'
+import { ChessPiece, PieceCode, PieceType } from './types/piece.js'
 
 export default class Piece implements ChessPiece {
     // Static properties

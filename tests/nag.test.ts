@@ -1,9 +1,6 @@
-/**
- * @jest-environment jsdom
- */
-
-import Nag from '../src/nag'
-import { Log } from 'scoped-event-log'
+import { describe, expect, test } from 'vitest'
+import Nag from '../src/nag.js'
+import { Log } from '../src/log.js'
 
 Log.setPrintThreshold("WARN")
 

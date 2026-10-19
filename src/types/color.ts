@@ -6,4 +6,4 @@ interface PieceColor {
 
 type PlayerColor = 'b' | 'w'
 
-export { PieceColor, PlayerColor }
+export type { PieceColor, PlayerColor }

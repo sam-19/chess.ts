@@ -1,4 +1,4 @@
-import { MoveNag } from "./nag"
+import type { MoveNag } from "./nag.js"
 
 type AnnotationTextPart = {
     /** Printable text part. */
@@ -34,4 +34,4 @@ interface MoveAnnotation {
     toString: () => string
 }
 
-export { MoveAnnotation, AnnotationTextPart }
+export type { MoveAnnotation, AnnotationTextPart }

@@ -39,4 +39,4 @@ interface MoveFlags {
     replace: (old: number, flag: number, silent?: boolean) => void
 }
 
-export { MoveFlags }
+export type { MoveFlags }

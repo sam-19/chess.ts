@@ -1,17 +1,18 @@
-import Annotation from "./annotation"
-import Board from "./board"
-import Chess from "./chess"
-import Color from "./color"
-import Fen from "./fen"
-import Flags from "./flags"
-import Game from "./game"
-import ChessHeaders from "./headers"
-import Move from "./move"
-import Nag from "./nag"
-import Options from "./options"
-import Piece from "./piece"
-import ChessTimer from "./timers"
-import Turn from "./turn"
+import Annotation from "./annotation.js"
+import Board from "./board.js"
+import Chess from "./chess.js"
+import Color from "./color.js"
+import Fen from "./fen.js"
+import Flags from "./flags.js"
+import Game from "./game.js"
+import ChessHeaders from "./headers.js"
+import Move, { isMoveError } from "./move.js"
+import { Log } from "./log.js"
+import Nag from "./nag.js"
+import Options from "./options.js"
+import Piece from "./piece.js"
+import ChessTimer from "./timers.js"
+import Turn from "./turn.js"
 
 export {
     Annotation,
@@ -23,10 +24,14 @@ export {
     Fen,
     Flags,
     Game,
+    isMoveError,
+    Log,
     Move,
     Nag,
     Options,
     Piece,
     Turn,
 }
+export type * from "./types/index.js"
+export type { LogEvent, LogEventListener, LogLevel } from "./log.js"
 export default Chess

@@ -1,6 +1,6 @@
 // Aaronfi did a lot of testing with color handling, and this simple approach was the most performance efficient
 
-import { PieceColor, PlayerColor } from './types/color'
+import { PieceColor, PlayerColor } from './types/color.js'
 
 /**
  * Chess piece color class to enforce standard notation.

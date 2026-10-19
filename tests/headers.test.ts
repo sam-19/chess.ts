@@ -1,9 +1,6 @@
-/**
- * @jest-environment jsdom
- */
-
-import Headers from '../src/headers'
-import { Log } from 'scoped-event-log'
+import { describe, expect, test } from 'vitest'
+import Headers from '../src/headers.js'
+import { Log } from '../src/log.js'
 
 Log.setPrintThreshold("WARN")
 

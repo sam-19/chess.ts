@@ -1,9 +1,6 @@
-/**
- * @jest-environment jsdom
- */
-
-import ChessTimer, { Timers } from '../src/timers'
-import { Log } from 'scoped-event-log'
+import { describe, expect, test } from 'vitest'
+import ChessTimer, { Timers } from '../src/timers.js'
+import { Log } from '../src/log.js'
 
 Log.setPrintThreshold("WARN")
 
@@ -58,7 +55,7 @@ describe('Time control', () => {
         expect(turnTc.fields.length).toStrictEqual(2)
         turnTc.startTimer()
         await new Promise<void>(resolve => {
-            window.setTimeout(() => {
+            globalThis.setTimeout(() => {
                 resolve()
             }, 100)
         })
@@ -69,7 +66,7 @@ describe('Time control', () => {
             turnTc.moveMade(i)
         }
         await new Promise<void>(resolve => {
-            window.setTimeout(() => {
+            globalThis.setTimeout(() => {
                 resolve()
             }, 100)
         })

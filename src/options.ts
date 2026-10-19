@@ -1,4 +1,4 @@
-import { ChessOptions, MethodOptions, ValidOptions } from './types/options'
+import { ChessOptions, MethodOptions, ValidOptions } from './types/options.js'
 
 export default class Options implements ChessOptions {
     // Static properties

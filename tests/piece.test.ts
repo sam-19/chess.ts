@@ -1,9 +1,6 @@
-/**
- * @jest-environment jsdom
- */
-
-import Piece from '../src/piece'
-import { Log } from 'scoped-event-log'
+import { describe, expect, test } from 'vitest'
+import Piece from '../src/piece.js'
+import { Log } from '../src/log.js'
 
 Log.setPrintThreshold("WARN")
 

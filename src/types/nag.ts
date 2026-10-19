@@ -6,4 +6,4 @@ interface MoveNag {
     value: NagEntry | null
 }
 
-export { MoveNag, NagEntry }
+export type { MoveNag, NagEntry }

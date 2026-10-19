@@ -1,6 +1,6 @@
-import { BoardSquareIndex } from './board'
-import { MoveFlags } from "./flags"
-import { ChessPiece } from "./piece"
+import type { BoardSquareIndex } from './board.js'
+import type { MoveFlags } from "./flags.js"
+import type { ChessPiece } from "./piece.js"
 
 interface ChessMove {
     algebraic: string | null
@@ -32,4 +32,4 @@ interface MoveOptions {
     flags: number[]
 }
 
-export { ChessMove, MoveError, MoveOptions }
+export type { ChessMove, MoveError, MoveOptions }

@@ -1,4 +1,4 @@
-import { PlayerColor } from './color'
+import type { PlayerColor } from './color.js'
 
 export interface ChessPiece {
     key: PieceCode

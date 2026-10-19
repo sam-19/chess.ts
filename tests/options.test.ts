@@ -1,9 +1,6 @@
-/**
- * @jest-environment jsdom
- */
-
-import Options from '../src/options'
-import { Log } from 'scoped-event-log'
+import { describe, expect, test } from 'vitest'
+import Options from '../src/options.js'
+import { Log } from '../src/log.js'
 
 Log.setPrintThreshold("WARN")
 

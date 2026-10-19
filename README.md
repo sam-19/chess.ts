@@ -6,17 +6,26 @@ Chess.ts is a Javascript chess library, written in TypeScript. It includes a FEN
 
 ## Installation
 
-`npm install -S typescript-chess`
+`npm install typescript-chess`
+
+The package is published as native ES modules with bundled type declarations and has no runtime dependencies. It runs in browsers, Web Workers and Node.js 20+. CommonJS `require()` and the UMD bundle were dropped in 0.2.0.
 
 ## Usage
 
-You may need to create a declaration file for the package. Just create `.d.ts` file (such as `chess.d.ts`) to your types folder with the content:
-```javascript
-declare module 'typescript-chess' {
-    import Chess from 'typescript-chess/dist/chess'
-    export default Chess
+Everything, including the types, is exported from the package root:
+```typescript
+import Chess, { Game, isMoveError, Log, type ChessTurn } from 'typescript-chess'
+```
+
+Moves that cannot be made return an error object instead of throwing. Check results with `isMoveError()`:
+```typescript
+const result = game.makeMoveFromSan('Nf3')
+if (isMoveError(result)) {
+    console.warn(result.error)
 }
 ```
+
+The library logs through its own `Log`. Only warnings and errors are printed to the console by default; change this with `Log.setPrintThreshold('DEBUG' | 'INFO' | 'WARN' | 'ERROR' | 'DISABLE')`, or receive every event with `Log.addListener(event => ...)`.
 
 ### Creating games
 
@@ -105,6 +114,16 @@ const { game, group, index } = chess.active
 The active game can be unset with `Chess.unsetActive()`, after which `Chess.activeGame` will return null. A game's state can be reset to default starting state with `Chess.resetGame()`, which accepts the group and the index of the game as optional arguments (defaults to currently active values).
 
 A single game can be removed with `Chess.removeGame()`, which accepts a group name as first optional argument and game index within the group as second optional argument (both default to current active values). `Chess.clearAllGames()` will clear all the games in a group that it accepts as an optional argument (defaults to currently active group).
+
+## Development
+
+```sh
+npm install
+npm test             # Vitest, including perft move generator checks
+npm run typecheck
+npm run lint
+npm run build        # emits ES modules and declarations to dist/
+```
 
 ## Attributions
 

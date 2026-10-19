@@ -1,11 +1,11 @@
-import { BoardSquareIndex, BoardSquareName, ChessBoard } from "./board"
-import { PlayerColor } from "./color"
-import { GameHeaders, TerminationReason } from "./headers"
-import { ChessMove, MoveError } from "./move"
-import { MethodOptions } from "./options"
-import { ChessPiece, PieceType } from "./piece"
-import { TimeControlTimers, TCFieldModel, TCTimeValues } from "./timers"
-import { ChessTurn } from "./turn"
+import type { BoardSquareIndex, BoardSquareName, ChessBoard } from "./board.js"
+import type { PlayerColor } from "./color.js"
+import type { GameHeaders, TerminationReason } from "./headers.js"
+import type { ChessMove, MoveError } from "./move.js"
+import type { MethodOptions } from "./options.js"
+import type { ChessPiece, PieceType } from "./piece.js"
+import type { TimeControlTimers, TCFieldModel, TCTimeValues } from "./timers.js"
+import type { ChessTurn } from "./turn.js"
 
 interface ChessGame {
     // Instance properties
@@ -195,6 +195,15 @@ interface ChessGame {
     end: (result?: string) => void
 
     /**
+     * Handle a player running out of time. If the timer is set to time out automatically, the player who ran out of
+     * time loses, unless the opponent cannot checkmate, which is a draw.
+     * @param player - The player whose time ran out.
+     */
+    handleTimeout: (player: PlayerColor) => void
+    /** Create a timer that ends this game when a player runs out of time. */
+    createTimers: () => TimeControlTimers
+
+    /**
      * Enter one of this move's alternate continuations, making the first move of the continuation.
      * @param i continuation's index in the list of this move's variations (optional, default 0)
      * @return the first move of the continuation or false (in case of error)
@@ -232,7 +241,7 @@ interface ChessGame {
      * Load a new game from a FEN string, overwriting a possible previous game.
      * @param fen
      */
-    loadFen: (fen: string) => void
+    loadFen: (fen: string) => boolean
 
     /**
      * Make a move from Move object.
@@ -444,4 +453,4 @@ interface ChessGame {
     toFen: (options?: MethodOptions.Board.toFen) => string
 }
 
-export { ChessGame }
+export type { ChessGame }

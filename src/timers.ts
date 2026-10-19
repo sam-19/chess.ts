@@ -1,8 +1,8 @@
-import Color from './color'
-import Options from './options'
+import Color from './color.js'
+import Options from './options.js'
 
-import { TimeControlTimers, TCFieldModel, TCTimeValues } from './types/timers'
-import { PlayerColor } from './types/color'
+import { TimeControlTimers, TCFieldModel, TCTimeValues } from './types/timers.js'
+import { PlayerColor } from './types/color.js'
 
 export default class ChessTimer implements TimeControlTimers {
     // Static properties
@@ -38,10 +38,13 @@ export default class ChessTimer implements TimeControlTimers {
     activePlayer: PlayerColor = Color.WHITE
     plyNum = 0
     time: Timers = new Timers()
-    reportTimer: number | undefined = undefined
+    reportTimer: ReturnType<typeof setTimeout> | undefined = undefined
     turnFirst = true
     firstMove = true
     reportFunction: ((timers: Timers) => void) | null = null
+    /** Player whose time has run out, if any. */
+    flagged: PlayerColor | null = null
+    timeoutFunction: ((player: PlayerColor) => void) | null = null
 
     // TODO: Capped Fischer timing and Bronstein timing?
     constructor (descriptor?: string, reportFunction?: (timers: Timers) => void) {
@@ -117,27 +120,24 @@ export default class ChessTimer implements TimeControlTimers {
         return new Timers(this.time)
     }
 
-    getDelay (plyNum=this.plyNum) {
-        for (let i=0; i<this.fields.length; i++) {
-            // Float approximation errors are a b***h, better compare integers
-            if ((this.fields[i].start - 1)*2 <= plyNum &&
-                (this.fields[i].end === null || (this.fields[i].end as number - 1)*2 > plyNum + 1)
-            ) {
-                return this.fields[i].delay
-            }
-        }
-        return ChessTimer.FieldModel.delay
+    /**
+     * Get the time control fields in effect on the given ply. Plies are counted from zero, so a field for turns
+     * 1-40 is in effect on plies 0-79.
+     */
+    getActiveFields (plyNum=this.plyNum) {
+        return this.fields.filter(field =>
+            (field.start - 1)*2 <= plyNum && (field.end === null || field.end*2 > plyNum)
+        )
     }
 
+    /** Delay (in seconds) in effect on the given ply; universal and per-stage delays add up. */
+    getDelay (plyNum=this.plyNum) {
+        return this.getActiveFields(plyNum).reduce((sum, field) => sum + field.delay, 0)
+    }
+
+    /** Increment (in seconds) in effect on the given ply; universal and per-stage increments add up. */
     getIncrement (plyNum=this.plyNum) {
-        for (let i=0; i<this.fields.length; i++) {
-            if ((this.fields[i].start - 1)*2 <= plyNum &&
-                (this.fields[i].end === null || (this.fields[i].end as number - 1)*2 > plyNum + 1)
-            ) {
-                return this.fields[i].increment
-            }
-        }
-        return ChessTimer.FieldModel.increment
+        return this.getActiveFields(plyNum).reduce((sum, field) => sum + field.increment, 0)
     }
 
     getLimitAddition (plyNum=this.plyNum) {
@@ -151,6 +151,16 @@ export default class ChessTimer implements TimeControlTimers {
             }
         }
         return ChessTimer.FieldModel.limit
+    }
+
+    /**
+     * Time (in seconds) added to the player's clock when they complete the move on the given ply, i.e. the time limit
+     * of a stage that starts on the player's next move.
+     */
+    getStageAddition (plyNum=this.plyNum) {
+        const nextTurn = Math.floor(plyNum/2) + 2
+        return this.fields.filter(field => field.start > 1 && field.start === nextTurn)
+                          .reduce((sum, field) => sum + field.limit, 0)
     }
 
     getReportFunction () {
@@ -176,14 +186,27 @@ export default class ChessTimer implements TimeControlTimers {
     }
 
     isHourglass (plyNum=this.plyNum) {
-        for (let i=0; i<this.fields.length; i++) {
-            if ((this.fields[i].start - 1)*2 <= plyNum &&
-                (this.fields[i].end === null || (this.fields[i].end as number - 1)*2 > plyNum + 1)
-            ) {
-                return this.fields[i].hourglass
-            }
+        return this.getActiveFields(plyNum).some(field => field.hourglass)
+    }
+
+    /**
+     * Check if the given player has run out of time and flag them if so.
+     * @returns true if the player's flag has fallen
+     */
+    checkTimeout (player: PlayerColor, remaining: number) {
+        if (this.flagged !== null) {
+            return this.flagged === player
         }
-        return ChessTimer.FieldModel.hourglass
+        if (!this.fields.length || remaining > 0) {
+            return false
+        }
+        this.flagged = player
+        this.time.remaining[player] = 0
+        this.stopTimer()
+        if (this.timeoutFunction) {
+            this.timeoutFunction(player)
+        }
+        return true
     }
 
     moveMade (plyNum: number, takeback=false) {
@@ -193,10 +216,16 @@ export default class ChessTimer implements TimeControlTimers {
         if (!this.fields.length) {
             return { error: "There are no fields set, cannot apply time control!" }
         }
+        if (this.flagged !== null) {
+            return { error: "Time has run out!" }
+        }
         const timestamp = Date.now()
         if (this.start === 0) {
             // First move, start the clock, don't report White's time
             this.startTimer(timestamp, false)
+            // A stage may end on the first move
+            const player = plyNum%2 ? Color.BLACK : Color.WHITE
+            this.time.remaining[player] += this.getStageAddition(plyNum)*1000
             // Black's turn, so report Black's timer
             this.activePlayer = Color.BLACK
         } else {
@@ -212,17 +241,16 @@ export default class ChessTimer implements TimeControlTimers {
                 }
             } else {
                 this.time.elapsed[player] += timeDelta
+                // The move does not count if the player ran out of time before completing it
+                if (this.checkTimeout(player, this.time.remaining[player] - timeDelta)) {
+                    return { error: "Time has run out!" }
+                }
                 // Calculate remaining time only if there is an actual time control set
                 if (this.fields.length) {
-                    // Check for possible time limit increment.
-                    // First limit is added at startTimer, so don't add it again.
-                    const limit = this.firstMove ? 0 : this.getLimitAddition(plyNum)
-                    if (limit) {
-                        this.time.remaining[Color.WHITE] += limit*1000
-                        this.time.remaining[Color.BLACK] += limit*1000
-                    }
                     // Make the appropriate addition to remaining time
                     this.time.remaining[player] -= timeDelta - this.getIncrement()*1000
+                    // The time of the next stage is added when the player completes the last move of a stage
+                    this.time.remaining[player] += this.getStageAddition(plyNum)*1000
                     // Finally, check if this is an hourglass timer
                     if (this.isHourglass(plyNum)) {
                         this.time.remaining[Color.swap(player)] += timeDelta
@@ -242,14 +270,20 @@ export default class ChessTimer implements TimeControlTimers {
         return this.time
     }
 
-    parseTimeControlString (descriptor: string) {
+    /**
+     * Parse a time control descriptor.
+     * @param descriptor - Time control descriptor.
+     * @param pgnFormat - Parse the descriptor as a PGN TimeControl tag, where all time values are seconds. Otherwise
+     *                    small values are assumed to be hours (below 10) or minutes (up to 100).
+     */
+    parseTimeControlString (descriptor: string, pgnFormat = false) {
         // Field object base model
         // Remove old time controls
         // TODO: Way to append controls from additional fields?
         this.fields = []
         // Bullet time controls are the simplest
         const bullet = descriptor.match(/^(\d+)\|(\d+)$/) || descriptor.match(/^(\d+)\s?min$/)
-        if (bullet) {
+        if (bullet && !pgnFormat) {
             const field = {...ChessTimer.FieldModel} // Copy base mode
             field.limit = parseInt(bullet[1], 10)*60 // Bullet uses minutes for limit
             if (bullet[2]) {
@@ -270,7 +304,7 @@ export default class ChessTimer implements TimeControlTimers {
             const field = {...ChessTimer.FieldModel} // Copy base mode
             field.start = turn
             let turns = null
-            let limit = null
+            let limit: RegExpMatchArray | null
             // Try different variations
             limit = params.match(/^sd\/?(\*?\d+)/)
             if (limit === null) {
@@ -300,7 +334,7 @@ export default class ChessTimer implements TimeControlTimers {
                 const numericLimit = parseInt(limit[1], 10)
                 // We can make an assumption that apart from major tournaments, anything below
                 // 10 probably means hours, from 10 to 100 minutes and above seconds.
-                field.limit = (
+                field.limit = pgnFormat ? numericLimit : (
                     numericLimit < 10
                     ? numericLimit*60*60
                     : numericLimit <= 100
@@ -389,11 +423,28 @@ export default class ChessTimer implements TimeControlTimers {
 
     pauseTimer (timestamp=Date.now()) {
         if (this.reportTimer !== null) {
-            window.clearInterval(this.reportTimer)
-            window.clearTimeout(this.reportTimer)
+            globalThis.clearInterval(this.reportTimer)
+            globalThis.clearTimeout(this.reportTimer)
             this.reportTimer = undefined
         }
         this.pauses.push([timestamp, null])
+    }
+
+    /**
+     * Stop the timer and clear its state for a new game. Time control fields and callbacks are kept.
+     */
+    reset () {
+        this.stopTimer()
+        this.start = 0
+        this.lastMove = 0
+        this.pauses = []
+        this.end = 0
+        this.activePlayer = Color.WHITE
+        this.plyNum = 0
+        this.time = new Timers()
+        this.turnFirst = true
+        this.firstMove = true
+        this.flagged = null
     }
 
     setAutoTimeout (value: boolean) {
@@ -436,8 +487,8 @@ export default class ChessTimer implements TimeControlTimers {
 
     stopTimer (timestamp=Date.now()) {
         if (this.reportTimer !== null) {
-            window.clearInterval(this.reportTimer)
-            window.clearTimeout(this.reportTimer)
+            globalThis.clearInterval(this.reportTimer)
+            globalThis.clearTimeout(this.reportTimer)
             this.reportTimer = undefined
         }
         this.end = timestamp
@@ -446,8 +497,8 @@ export default class ChessTimer implements TimeControlTimers {
     updateReportTimer () {
         if (this.reportTimer !== null) {
             // Make sure we don't start multiple timers
-            window.clearInterval(this.reportTimer)
-            window.clearTimeout(this.reportTimer)
+            globalThis.clearInterval(this.reportTimer)
+            globalThis.clearTimeout(this.reportTimer)
         }
         if (this.reportFunction === null) {
             return
@@ -465,11 +516,16 @@ export default class ChessTimer implements TimeControlTimers {
                 interval - timeSurplus > ChessTimer.MarginOfError)
             ) {
                 // Not a full second, set a timeout for the remaining fraction first
-                this.reportTimer = window.setTimeout(() => {
+                this.reportTimer = globalThis.setTimeout(() => {
                     const timers = this.copyTimers()
                     const timeDelta = this.getTimeDelta()
                     timers.elapsed[this.activePlayer] += timeDelta
                     timers.remaining[this.activePlayer] -= timeDelta
+                    if (this.checkTimeout(this.activePlayer, timers.remaining[this.activePlayer])) {
+                        timers.remaining[this.activePlayer] = 0
+                        this.reportFunction?.(timers)
+                        return
+                    }
                     if (this.isHourglass()) {
                         // When in hourglass mode, report the increasing time on opponent as well
                         timers.remaining[Color.swap(this.activePlayer)] += timeDelta
@@ -490,11 +546,16 @@ export default class ChessTimer implements TimeControlTimers {
                 }
             } else {
                 // Set an interval to report remaining time
-                this.reportTimer = window.setInterval(() => {
+                this.reportTimer = globalThis.setInterval(() => {
                     const timers = this.copyTimers()
                     const timeDelta = this.getTimeDelta()
                     timers.elapsed[this.activePlayer] += timeDelta
                     timers.remaining[this.activePlayer] -= timeDelta
+                    if (this.checkTimeout(this.activePlayer, timers.remaining[this.activePlayer])) {
+                        timers.remaining[this.activePlayer] = 0
+                        this.reportFunction?.(timers)
+                        return
+                    }
                     if (this.isHourglass()) {
                         timers.remaining[Color.swap(this.activePlayer)] += timeDelta
                     } else if (this.plyNum && !this.getIncrement()) {
@@ -521,7 +582,7 @@ export default class ChessTimer implements TimeControlTimers {
                 interval - timeSurplus > ChessTimer.MarginOfError
             ) {
                 // Not a full second, set a timeout for the remaining fraction first
-                this.reportTimer = window.setTimeout(() => {
+                this.reportTimer = globalThis.setTimeout(() => {
                     const timers = this.copyTimers()
                     const timeDelta = this.getTimeDelta()
                     timers.elapsed[this.activePlayer] += timeDelta
@@ -541,7 +602,7 @@ export default class ChessTimer implements TimeControlTimers {
                 }
             } else {
                 // Set an interval to report remaining time
-                this.reportTimer = window.setInterval(() => {
+                this.reportTimer = globalThis.setInterval(() => {
                     const timers = this.copyTimers()
                     const timeDelta = this.getTimeDelta()
                     timers.elapsed[this.activePlayer] += timeDelta
@@ -573,12 +634,12 @@ export default class ChessTimer implements TimeControlTimers {
                 if (field.end !== null) {
                     // Print / between turn count and limit
                     descriptor += `/${limit}`
-                } else if (
-                    fields.length && field.end === null &&
-                    !field.delay && !field.increment
-                ) {
-                    // Print a sudden death limit
+                } else if (fields.length) {
+                    // Print a sudden death limit following other fields
                     descriptor += `SD/${limit}`
+                } else {
+                    // The only field is a sudden death limit
+                    descriptor += limit
                 }
                 if (field.delay) {
                     descriptor += `d${field.delay}`

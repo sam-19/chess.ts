@@ -1,9 +1,6 @@
-/**
- * @jest-environment jsdom
- */
-
-import Fen from '../src/fen'
-import { Log } from 'scoped-event-log'
+import { describe, expect, test } from 'vitest'
+import Fen from '../src/fen.js'
+import { Log } from '../src/log.js'
 
 Log.setPrintThreshold("WARN")
 

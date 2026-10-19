@@ -1,10 +1,7 @@
-/**
- * @jest-environment jsdom
- */
-
-import { Fen, Game } from '../src'
-import { Log } from 'scoped-event-log'
-import { ChessTurn } from '../src/types'
+import { describe, expect, test } from 'vitest'
+import { Fen, Game } from '../src/index.js'
+import { Log } from '../src/log.js'
+import { ChessTurn } from '../src/types/index.js'
 
 Log.setPrintThreshold("WARN")
 
@@ -16,11 +13,12 @@ const finalPGN = `[White "Ms. Blanco"]
 [Date "2001.02.03"]
 [WhiteTitle "IM"]
 [Round "1"]
+[Result "1-0"]
 
-1. e4 e5 2. Nc3 Bb4 3. Qh5 Nf6 4. Bc4 Nxe4 5. Qxf7#`
+1. e4 e5 2. Nc3 Bb4 3. Qh5 Nf6 4. Bc4 Nxe4 5. Qxf7# 1-0`
 const finalString = `  +------------------------+  Mr. Black
 8 | r  n  b  q  k  .  .  r |  Move 5, game over
-7 | p  p  p  p  .  Q  p  p |  1. e4 e5 2. Nc3 Bb4 3. Qh5 Nf6 4. Bc4 Nxe4 5. Qxf7#
+7 | p  p  p  p  .  Q  p  p |  1. e4 e5 2. Nc3 Bb4 3. Qh5 Nf6 4. Bc4 Nxe4 5. Qxf7# 1-0
 6 | .  .  .  .  .  .  .  . |
 5 | .  .  .  .  p  .  .  . |  Result:  rnbqk2r/pppp1Qpp/8/4p3/1bB1n3/2N5/PPPP1PPP/R1B1K1NR b KQkq - 0 5
 4 | .  b  B  .  n  .  .  . |  1-0

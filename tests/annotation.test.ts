@@ -1,9 +1,6 @@
-/**
- * @jest-environment jsdom
- */
-
-import Annotation from '../src/annotation'
-import { Log } from 'scoped-event-log'
+import { describe, expect, test } from 'vitest'
+import Annotation from '../src/annotation.js'
+import { Log } from '../src/log.js'
 
 // Only log warnings and errors
 Log.setPrintThreshold("WARN")

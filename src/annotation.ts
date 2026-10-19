@@ -2,9 +2,9 @@
  * A single move annotation.
  */
 
-import { Log } from 'scoped-event-log'
-import { MoveAnnotation, AnnotationTextPart } from './types/annotation'
-import Nag from './nag'
+import { Log } from './log.js'
+import { MoveAnnotation, AnnotationTextPart } from './types/annotation.js'
+import Nag from './nag.js'
 
 const SCOPE = 'annotation'
 

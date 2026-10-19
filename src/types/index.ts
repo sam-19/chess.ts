@@ -1,19 +1,19 @@
-import { AnnotationTextPart, MoveAnnotation } from "./annotation"
-import { ChessBoard } from "./board"
-import { ChessCore, GameEntry } from "./chess"
-import { PieceColor, PlayerColor } from "./color"
-import { ChessFen, FenValidationResult } from "./fen"
-import { MoveFlags } from "./flags"
-import { ChessGame } from "./game"
-import { GameHeaders } from "./headers"
-import { ChessMove, MoveError, MoveOptions } from "./move"
-import { MoveNag, NagEntry } from "./nag"
-import { ChessOptions, MethodOptions, ValidOptions } from "./options"
-import { ChessPiece, PieceCode, PieceType } from "./piece"
-import { TCFieldModel, TCTimeValues, TimeControlTimers } from "./timers"
-import { ChessTurn, TurnMeta, TurnProperties } from "./turn"
+import type { AnnotationTextPart, MoveAnnotation } from "./annotation.js"
+import type { ChessBoard } from "./board.js"
+import type { ChessCore, GameEntry } from "./chess.js"
+import type { PieceColor, PlayerColor } from "./color.js"
+import type { ChessFen, FenValidationResult } from "./fen.js"
+import type { MoveFlags } from "./flags.js"
+import type { ChessGame } from "./game.js"
+import type { GameHeaders } from "./headers.js"
+import type { ChessMove, MoveError, MoveOptions } from "./move.js"
+import type { MoveNag, NagEntry } from "./nag.js"
+import type { ChessOptions, MethodOptions, ValidOptions } from "./options.js"
+import type { ChessPiece, PieceCode, PieceType } from "./piece.js"
+import type { TCFieldModel, TCTimeValues, TimeControlTimers } from "./timers.js"
+import type { ChessTurn, TurnMeta, TurnProperties } from "./turn.js"
 
-export {
+export type {
     AnnotationTextPart,
     ChessBoard,
     ChessCore,

@@ -1,10 +1,10 @@
-import { ChessGame } from "./game"
-import { ChessMove, MoveError } from "./move"
-import { ChessPiece } from "./piece"
-import { ChessTurn } from "./turn"
-import { MoveFlags } from "./flags"
-import { PlayerColor } from "./color"
-import { MethodOptions } from "./options"
+import type { ChessGame } from "./game.js"
+import type { ChessMove, MoveError } from "./move.js"
+import type { ChessPiece } from "./piece.js"
+import type { ChessTurn } from "./turn.js"
+import type { MoveFlags } from "./flags.js"
+import type { PlayerColor } from "./color.js"
+import type { MethodOptions } from "./options.js"
 
 /** Valid board square names. */
 export type BoardSquareName = 'a1' | 'a2' | 'a3' | 'a4' | 'a5' | 'a6' | 'a7' | 'a8' |
@@ -126,6 +126,12 @@ export interface ChessBoard {
      * Check if any position has repeated three times on this board.
      */
     hasRepeatedThreefold: boolean
+
+    /**
+     * Key identifying the position for repetition rules: piece placement, player in turn, castling rights and
+     * en passant square (only if a pawn can capture en passant).
+     */
+    positionKey: string
 
     /**
      * Is the game on this board a draw.
@@ -323,6 +329,12 @@ export interface ChessBoard {
      * @return true on success, false on failure
      */
     selectTurn: (index: number) => boolean
+
+    /**
+     * Set repetition counts to match the selected turn, so that they describe the history leading to the position on
+     * the board (and not the end of the line).
+     */
+    syncPosCount: () => void
 
     /**
      * Get a FEN string representing current board state

@@ -1,4 +1,4 @@
-import { PlayerColor } from "./color"
+import type { PlayerColor } from "./color.js"
 
 interface TimeControlTimers {
     autoTimeout: boolean
@@ -10,10 +10,28 @@ interface TimeControlTimers {
     activePlayer: PlayerColor
     plyNum: number
     time: TCTimeValues
-    reportTimer: number | undefined
+    reportTimer: ReturnType<typeof setTimeout> | undefined
     turnFirst: boolean
     firstMove: boolean
     reportFunction: ((timers: TCTimeValues) => void) | null
+    /** Player whose time has run out, if any. */
+    flagged: PlayerColor | null
+    /** Function called when a player runs out of time. */
+    timeoutFunction: ((player: PlayerColor) => void) | null
+
+    /**
+     * Check if the given player has run out of time and flag them if so (stopping the timer).
+     * @param player - Player to check.
+     * @param remaining - Player's remaining time in milliseconds.
+     * @return true if the player's flag has fallen
+     */
+    checkTimeout: (player: PlayerColor, remaining: number) => boolean
+
+    /**
+     * Get the time control fields in effect on the given ply (plies counted from zero).
+     * @param plyNum - Ply number (optional, default current ply)
+     */
+    getActiveFields: (plyNum?: number) => TCFieldModel[]
 
     /**
      * Add a new field to time controls
@@ -54,6 +72,7 @@ interface TimeControlTimers {
      * @return limit
      */
     getLimitAddition: (plyNum?: number) => number
+    getStageAddition: (plyNum?: number) => number
 
     /**
      * Get the time control report function.
@@ -87,7 +106,7 @@ interface TimeControlTimers {
      * @param descriptor
      * @return { errors, warnings } from the parse
      */
-    parseTimeControlString: (descriptor: string) => { errors: string[], warnings: string[] }
+    parseTimeControlString: (descriptor: string, pgnFormat?: boolean) => { errors: string[], warnings: string[] }
 
     /**
      * Pause the timer.
@@ -99,6 +118,8 @@ interface TimeControlTimers {
      * Set the auto-timeout property.
      * @param value
      */
+    /** Stop the timer and clear its state for a new game. */
+    reset: () => void
     setAutoTimeout: (value: boolean) => void
 
     /**
@@ -151,4 +172,4 @@ interface TCTimeValues {
     remaining: { [player: string]: number }
 }
 
-export { TimeControlTimers, TCFieldModel, TCTimeValues }
+export type { TimeControlTimers, TCFieldModel, TCTimeValues }

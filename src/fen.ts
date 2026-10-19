@@ -1,6 +1,6 @@
-import Color from './color'
-import Piece from './piece'
-import { ChessFen } from './types/fen'
+import Color from './color.js'
+import Piece from './piece.js'
+import { ChessFen } from './types/fen.js'
 /**
  * A Forsynth-Edwards Notation string describing a chess game state.
  */
@@ -26,7 +26,9 @@ export default class Fen implements ChessFen {
        13: 'White has more than 8 pawns on the board.',
        14: 'Black has more than 8 pawns on the board.',
        15: 'White doesn\'t have the right number of kings on the board.',
-       16: 'Black doesn\'t have the right number of kings on the board.'
+       16: 'Black doesn\'t have the right number of kings on the board.',
+       17: 'Pawns cannot be on the first or last rank.',
+       18: '4th field (en-passant square) does not match a pawn that has just advanced two squares.',
     }
     /**
      * Validate this FEN string.
@@ -85,7 +87,7 @@ export default class Fen implements ChessFen {
             let sumSquares = 0
             let previousWasNumber = false
             for (let k=0; k<rows[i].length; k++) {
-                if (!isNaN(parseInt(rows[i][k], 10))) {
+                if (/^[1-8]$/.test(rows[i][k])) {
                     if (previousWasNumber) {
                         return { isValid: false, errorCode: 3, errorMessage: Fen.ERRORS[3] }
                     }
@@ -126,17 +128,19 @@ export default class Fen implements ChessFen {
                 return { isValid: false, errorCode: 15, errorMessage: Fen.ERRORS[15] }
             else if (kings[Color.BLACK] !== 1)
                 return { isValid: false, errorCode: 16, errorMessage: Fen.ERRORS[16] }
+            else if (/[pP]/.test(rows[0]) || /[pP]/.test(rows[7]))
+                return { isValid: false, errorCode: 17, errorMessage: Fen.ERRORS[17] }
         }
         if (onlyPosition) {
             // Board position is valid
             return { isValid: true, errorCode: 0, errorMessage: Fen.ERRORS[0] }
         }
         // Move number must be 1 or higher
-        if (isNaN(parseInt(tokens[5])) || (parseInt(tokens[5], 10) <= 0)) {
+        if (!/^\d+$/.test(tokens[5]) || (parseInt(tokens[5], 10) <= 0)) {
             return { isValid: false, errorCode: 6, errorMessage: Fen.ERRORS[6] }
         }
         // Half move counter must be 0 or higher number
-        if (isNaN(parseInt(tokens[4])) || (parseInt(tokens[4], 10) < 0)) {
+        if (!/^\d+$/.test(tokens[4])) {
             return { isValid: false, errorCode: 7, errorMessage: Fen.ERRORS[7] }
         }
         // Player to move must be either w (white) or b (black)
@@ -149,8 +153,20 @@ export default class Fen implements ChessFen {
         {
             return { isValid: false, errorCode: 8, errorMessage: Fen.ERRORS[8] }
         }
+        // The pawn that just advanced two squares must be in front of the en passant square, with the en passant
+        // square and the square the pawn started from empty
+        if (tokens[3] !== '-') {
+            const squares = rows.map(row => row.replace(/[1-8]/g, n => '.'.repeat(parseInt(n))))
+            const file = tokens[3].charCodeAt(0) - 'a'.charCodeAt(0)
+            // Rows are listed from rank 8 to rank 1
+            const [pawnRow, epRow, startRow, pawn] = tokens[1] === 'w' ? [3, 2, 1, 'p'] : [4, 5, 6, 'P']
+            if (squares[pawnRow][file] !== pawn || squares[epRow][file] !== '.' || squares[startRow][file] !== '.') {
+                return { isValid: false, errorCode: 18, errorMessage: Fen.ERRORS[18] }
+            }
+        }
         // Validate castling rights token
-        if( !/^(KQ?k?q?|Qk?q?|kq?|q|-)$/.test(tokens[2])) {
+        // Castling rights are normally given in the order KQkq, but any order is accepted
+        if (tokens[2] !== '-' && (!/^[KQkq]{1,4}$/.test(tokens[2]) || new Set(tokens[2]).size !== tokens[2].length)) {
             return { isValid: false, errorCode: 9, errorMessage: Fen.ERRORS[9] }
         }
         // this.fen is valid

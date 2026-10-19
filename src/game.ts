@@ -1,26 +1,26 @@
-import Board from './board'
-import Color from './color'
-import { Log } from 'scoped-event-log'
-import Fen from './fen'
-import Headers from './headers'
-import Move from './move'
-import Options from './options'
-import Piece from './piece'
-import ChessTimer from './timers'
-import Turn from './turn'
+import Board from './board.js'
+import Color from './color.js'
+import { Log } from './log.js'
+import Fen from './fen.js'
+import Headers from './headers.js'
+import Move, { isMoveError } from './move.js'
+import Options from './options.js'
+import Piece from './piece.js'
+import ChessTimer from './timers.js'
+import Turn from './turn.js'
 
-import { type ChessGame } from './types/game'
-import { type MethodOptions } from './types/options'
-import { type PlayerColor } from './types/color'
-import { type ChessTurn } from './types/turn'
-import { type TCTimeValues } from './types/timers'
+import { type ChessGame } from './types/game.js'
+import { type MethodOptions } from './types/options.js'
+import { type PlayerColor } from './types/color.js'
+import { type ChessTurn } from './types/turn.js'
+import { type TCTimeValues } from './types/timers.js'
 import {
     type AnyHeader,
     type GameHeaders,
     type TerminationReason,
-} from './types/headers'
-import { ChessBoard } from './types'
-import { BoardSquareIndex, BoardSquareName } from './types/board'
+} from './types/headers.js'
+import { ChessBoard } from './types/index.js'
+import { BoardSquareIndex, BoardSquareName } from './types/board.js'
 
 const SCOPE = 'game'
 
@@ -84,7 +84,7 @@ export default class Game implements ChessGame {
     pauseTimes = [] as [Date, Date | null][]
     shouldPreserve = false
     startTime = null as Date | null
-    timers = new ChessTimer()
+    timers = this.createTimers()
     useStrictRules = false
     variations = [] as ChessBoard[]
 
@@ -96,11 +96,11 @@ export default class Game implements ChessGame {
         this.headers = new Headers(pgnHeaders)
         // Create the first board variation, i.e. the actual game
         if (fen) {
-            if (Fen.Validate(fen).isValid) {
-                this.currentBoard = new Board(this, fen)
-            } else {
+            this.currentBoard = new Board(this)
+            if (!this.currentBoard.loadFen(fen)) {
                 Log.error(`Could not create board from FEN "${fen}", using starting state instead!`, SCOPE)
-                this.currentBoard = new Board(this)
+                fen = Fen.DEFAULT_STARTING_STATE
+                this.currentBoard.loadFen(fen)
             }
             // Set appropriate header if we are not starting from default
             if (fen !== Fen.DEFAULT_STARTING_STATE) {
@@ -247,6 +247,7 @@ export default class Game implements ChessGame {
     }
 
     get players () {
+        // eslint-disable-next-line @typescript-eslint/no-this-alias
         const _this = this // Access parent class in getters and setters.
         const value = {
             get b () {
@@ -502,7 +503,7 @@ export default class Game implements ChessGame {
     addTimeControl (tc: typeof ChessTimer.FieldModel) {
         if (!this.hasStarted) {
             if (this.timers === null) {
-                this.timers = new ChessTimer()
+                this.timers = this.createTimers()
             }
             this.timers.addField(tc)
         }
@@ -531,6 +532,11 @@ export default class Game implements ChessGame {
             return false
         }
         const addition = (continuation ? 1 : 0)
+        // Variations and continuations branch from the selected turn
+        if (this.currentBoard.selectedTurnIndex < 0) {
+            Log.error(`Failed to create a new variation/continuation from SAN (${san}): No turn is selected.`, SCOPE)
+            return false
+        }
         // Check that we have not reached the end of the current variation
         if (this.currentBoard.selectedTurnIndex < this.currentBoard.history.length - addition) {
             // Check that the given SAN is really generating a new variation
@@ -552,7 +558,7 @@ export default class Game implements ChessGame {
         this.currentBoard.history[this.currentBoard.selectedTurnIndex].variations.push(newBoard)
         this.currentBoard = newBoard
         const move = Move.generateFromSan(san, this.currentBoard)
-        if (!Object.prototype.hasOwnProperty.call(move, 'error')) {
+        if (!isMoveError(move)) {
             // Check that we can make this move
             if (this.currentBoard.makeMove(move as Move)) {
                 if (continuation) {
@@ -575,7 +581,8 @@ export default class Game implements ChessGame {
     }
 
     end (result = '1/2-1/2') {
-        if (this.startTime !== null && this.endTime === null) {
+        // Untimed games may end without having been explicitly started
+        if (this.endTime === null) {
             const timestamp = new Date()
             this.endTime = timestamp
             if (this.timers !== null) {
@@ -725,11 +732,24 @@ export default class Game implements ChessGame {
     }
 
     loadFen (fen: string) {
-        const newBoard = new Board(this, fen)
+        const newBoard = new Board(this)
+        // New boards add themselves to game variations, but this one only replaces them if the FEN is valid
+        this.variations = this.variations.filter(board => board !== newBoard)
+        if (!newBoard.loadFen(fen)) {
+            return false
+        }
+        // This is the main line of the game
+        newBoard.id = 0
         this.currentBoard = newBoard
+        // The new position starts a new game
+        this.startTime = null
+        this.endTime = null
+        this.headers.remove('Result')
+        this.timers?.reset()
         this.updateSetup()
         // Reset board variations
         this.variations = [newBoard]
+        return true
     }
 
     makeMove (move: Move, opts: MethodOptions.Game.makeMove = {}) {
@@ -737,6 +757,10 @@ export default class Game implements ChessGame {
         // Update time controls if need be
         if (this.timers) {
             this.timers.moveMade(this.currentBoard.plyNum, options.takeback)
+            // A flagged game must be ended (automatically or with end()) before moves can be made again
+            if (this.timers.flagged !== null && !this.hasEnded) {
+                return { error: "Cannot make a move, time has run out." }
+            }
         }
         if (!options.branchVariation) {
             // TODO: Right now this check is done twice, because Board.makeMove() checks for it too
@@ -745,7 +769,7 @@ export default class Game implements ChessGame {
                 const newVar = this.moveHistoryToNewVariation()
                 if (newVar) {
                     const newMove = this.currentBoard.makeMove(move, options)
-                    if (!Object.prototype.hasOwnProperty.call(newMove, 'error')) {
+                    if (!isMoveError(newMove)) {
                         (newMove as Turn).variations.push(newVar)
                     }
                     return newMove
@@ -797,7 +821,7 @@ export default class Game implements ChessGame {
 
     makeMoveFromSan (san: string, options: MethodOptions.Game.makeMove = {}) {
         const move = Move.generateFromSan(san, this.currentBoard)
-        if (Object.prototype.hasOwnProperty.call(move, 'error')) {
+        if (isMoveError(move)) {
             Log.error(`Cound not make move from SAN (${san}): ${move.error}`, SCOPE)
             return move as { error: string }
         }
@@ -1003,9 +1027,9 @@ export default class Game implements ChessGame {
     setTimeControlFromPgn (tc: string) {
         if (!this.hasStarted) {
             if (this.timers === null) {
-                this.timers = new ChessTimer()
+                this.timers = this.createTimers()
             }
-            this.timers.parseTimeControlString(tc)
+            this.timers.parseTimeControlString(tc, true)
         }
     }
 
@@ -1015,11 +1039,40 @@ export default class Game implements ChessGame {
         }
     }
 
+    /**
+     * Handle a player running out of time. If the timer is set to time out automatically, the game ends: the player
+     * who ran out of time loses, unless the opponent has only a king left or there is not enough material on the
+     * board for either player to checkmate, which is a draw.
+     * @param player - The player whose time ran out.
+     */
+    /**
+     * Create a timer that ends this game when a player runs out of time (if `autoTimeout` is on).
+     */
+    createTimers () {
+        const timers = new ChessTimer()
+        timers.timeoutFunction = (player) => this.handleTimeout(player)
+        return timers
+    }
+
+    handleTimeout (player: PlayerColor) {
+        if (!this.timers.autoTimeout) {
+            return
+        }
+        const opponentHasOnlyKing = this.currentBoard.squares.every(piece =>
+            piece.color !== Color.swap(player) || piece.type === Piece.TYPE_KING
+        )
+        if (opponentHasOnlyKing || this.currentBoard.hasInsufficientMaterial) {
+            this.end('1/2-1/2')
+        } else {
+            this.end(player === Color.WHITE ? '0-1' : '1-0')
+        }
+    }
+
     start () {
         if (!this.currentBoard) {
             return false
         }
-        if (this.timers && this.timers.getReportFunction() === null) {
+        if (this.timers?.fields.length && this.timers.getReportFunction() === null) {
             Log.error("Cannot start game before time control report function is set!", SCOPE)
             return false
         }
@@ -1051,12 +1104,13 @@ export default class Game implements ChessGame {
                 pgnHeaders.push("")
         }
         const rootVar = this.variations[0]
-        const pgnMoves = processVariation(rootVar, 1, this.currentBoard)
+        // Games set up from a FEN may start from any move number
+        const pgnMoves = processVariation(rootVar, rootVar.history[0]?.turnNum ?? 1, this.currentBoard)
         // Auxiliary function to process the variations
         function processVariation (variation: Board, moveNum: number, currentBoard: Board) {
             const varMoves = [] as string[]
-            let varMoveStr = ""
-            let firstMove = true
+            let varMoveStr: string
+            let firstMove: boolean
             let lastMove = false
             for (let i=0; i<variation.history.length; i++) {
                 const turn = variation.history[i]
@@ -1079,8 +1133,13 @@ export default class Game implements ChessGame {
                     varMoves.push(" ^")
                 }
                 // Add annotations
-                if (turn.annotations.length) {
-                    varMoves.push('{' + turn.annotations.join('}{') + '}')
+                // NAGs are written as $<code> tokens, text annotations as {comments}
+                for (const annotation of turn.annotations.filter(a => a.nag)) {
+                    varMoves.push(annotation.toString())
+                }
+                const comments = turn.annotations.filter(a => !a.nag && a.toString().length)
+                if (comments.length) {
+                    varMoves.push('{' + comments.join('}{') + '}')
                 }
                 // Add variations
                 if (variation.history[i].variations.length) {
@@ -1112,10 +1171,8 @@ export default class Game implements ChessGame {
             return varMoves
         }
         // Check for result
-        const resultCode = this.headers.get('Result')
-        if (resultCode !== undefined) {
-            pgnMoves.push(resultCode)
-        }
+        // The PGN standard requires a game termination marker; '*' marks an ongoing or unknown result
+        pgnMoves.push(this.headers.get('Result') || '*')
         // Join the results and moves into a string
         let result = pgnHeaders.join(options.newLine)
         if (pgnHeaders.length && pgnMoves.length) {
@@ -1127,6 +1184,11 @@ export default class Game implements ChessGame {
             // We'll wrap the lines to desired length
             const wrappedLines = [""]
             let curMove = ""
+            // Append text to the last wrapped line, separated by a space unless the line is empty
+            const appendToLine = (text: string) => {
+                const last = wrappedLines.length - 1
+                wrappedLines[last] += (wrappedLines[last] === "" ? "" : " ") + text
+            }
             let moveCount = 0
             // Sanity check, at least one complete move should fit on a line!
             if (options.lengthMeasure === 'width' && options.maxLength < 20) {
@@ -1137,7 +1199,7 @@ export default class Game implements ChessGame {
                 if (!options.wrapMoves) {
                     // We'll wrap lines as closely as possible (even within a move)
                     if ((wrappedLines[wrappedLines.length-1].length + pgnMoves[i].length + 1) <= options.maxLength) {
-                        wrappedLines[wrappedLines.length-1] += " " + pgnMoves[i]
+                        appendToLine(pgnMoves[i])
                     } else {
                         wrappedLines.push(pgnMoves[i])
                     }
@@ -1184,12 +1246,12 @@ export default class Game implements ChessGame {
             if (curMove !== "") { // This check will also fail if options.wrapMoves is false, because curMove is never used
                 if (options.lengthMeasure === "width") {
                     if ((wrappedLines[wrappedLines.length-1].length + curMove.length + 1) <= options.maxLength)
-                        wrappedLines[wrappedLines.length-1] += " " + curMove
+                        appendToLine(curMove)
                     else
                         wrappedLines.push(curMove)
                 } else if (options.lengthMeasure === "moves") {
                     if (moveCount < options.maxLength)
-                        wrappedLines[wrappedLines.length-1] += " " + curMove
+                        appendToLine(curMove)
                     else
                         wrappedLines.push(curMove)
                 }
@@ -1245,14 +1307,6 @@ export default class Game implements ChessGame {
         // generate ascii board graph
         for (let i=0; i<asciiLines.length; i++) {
             result += asciiLines[i]
-            // Print metadata on top for black and on bottom for white
-            if (this.currentBoard.turn === Color.WHITE) {
-                if (i === 9) {
-                    result
-                }
-            } else if (i === 0) {
-                result
-            }
             // Print PGN move line if we are past the header
             if (i >= 2 && pgnLines.length > i-2) {
                 result += "  " + pgnLines[i-2]

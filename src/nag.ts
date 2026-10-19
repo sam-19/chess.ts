@@ -1,5 +1,5 @@
-import { MoveNag, NagEntry } from './types/nag'
-import { Log } from 'scoped-event-log'
+import { MoveNag, NagEntry } from './types/nag.js'
+import { Log } from './log.js'
 
 const SCOPE = 'nag'
 

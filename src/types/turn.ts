@@ -1,8 +1,8 @@
-import { MoveAnnotation } from "./annotation"
-import { BoardSquareIndex, ChessBoard } from "./board"
-import { PlayerColor } from "./color"
-import { MoveFlags } from "./flags"
-import { ChessMove } from "./move"
+import type { MoveAnnotation } from "./annotation.js"
+import type { BoardSquareIndex, ChessBoard } from "./board.js"
+import type { PlayerColor } from "./color.js"
+import type { MoveFlags } from "./flags.js"
+import type { ChessMove } from "./move.js"
 
 /**
  * A turn includes relevant information about the game and board state
@@ -146,4 +146,4 @@ type TurnProperties = {
      */
     variations?: ChessBoard[]
 }
-export { ChessTurn, TurnMeta, TurnProperties }
+export type { ChessTurn, TurnMeta, TurnProperties }

@@ -2,27 +2,27 @@
    Based on aaronfi's work https://github.com/aaronfi/chess-es6.js
 */
 
-import Annotation from './annotation'
-import Board from './board'
-import Color from './color'
-import Fen from './fen'
-import Flags from './flags'
-import Game from './game'
-import { Log } from 'scoped-event-log'
-import Move from './move'
-import Nag from './nag'
-import Options from './options'
-import Piece from './piece'
-import ChessTimer from './timers'
-import Turn from './turn'
+import Annotation from './annotation.js'
+import Board from './board.js'
+import Color from './color.js'
+import Fen from './fen.js'
+import Flags from './flags.js'
+import Game from './game.js'
+import { Log } from './log.js'
+import Move, { isMoveError } from './move.js'
+import Nag from './nag.js'
+import Options from './options.js'
+import Piece from './piece.js'
+import ChessTimer from './timers.js'
+import Turn from './turn.js'
 
-import { ChessCore, GameEntry } from './types/chess'
-import { MethodOptions } from './types/options'
-import { PlayerColor } from './types/color'
-import { MoveError } from './types/move'
-import { TCTimeValues } from './types/timers'
-import { AnyHeader } from './types/headers'
-import { BoardSquareIndex, BoardSquareName } from './types/board'
+import { ChessCore, GameEntry } from './types/chess.js'
+import { MethodOptions } from './types/options.js'
+import { PlayerColor } from './types/color.js'
+import { MoveError } from './types/move.js'
+import { TCTimeValues } from './types/timers.js'
+import { AnyHeader } from './types/headers.js'
+import { BoardSquareIndex, BoardSquareName } from './types/board.js'
 
 const SCOPE = 'chess'
 
@@ -163,7 +163,11 @@ export default class Chess implements ChessCore {
      */
     createGameFromParsed (pgn: { headers: [AnyHeader, string][], moves: string }, group=this.active.group) {
         // I found aaronfi's approach to this much more convenient than the original chess.js method
-        const VALID_RESULTS = ['1-0', '1/2-1/2', '0-1', '0-0', '*', '+/-', '-/+', '-/-']
+        const VALID_RESULTS = ['1-0', '1/2-1/2', '0-1', '*']
+        // Evaluation glyphs written in ASCII and their NAG codes
+        const EVALUATION_GLYPHS: { [glyph: string]: number } = {
+            '=': 10, '+=': 14, '+/=': 14, '=+': 15, '=/+': 15, '+/-': 16, '-/+': 17, '+-': 18, '-+': 19,
+        }
         let fen = Fen.DEFAULT_STARTING_STATE
         // Get possible setup FEN from headers
         for (let i=0; i<pgn.headers.length; i++) {
@@ -185,19 +189,25 @@ export default class Chess implements ChessCore {
         // Close this variation and return to the next one up in hierarchy
         const closeVariation = () => {
             game.currentBoard = game.currentBoard.parentBoard as Board
+            // Annotations after the variation belong to the move the variation branched from
+            lastMove = game.currentBoard.history[game.currentBoard.history.length - 1] || false
         }
         // Parse moves from PGN data
-        let end = 0
+        let end: number
         // Flag moves as procedurally generated and that game should not be preserved for them
         const moveOpts = { isPlayerMove: false, preserveGame: false }
         let lastMove: Turn | MoveError | false = false
         /** Check that the last parsed move is valid. */
         const isLastMoveValid = () => {
-            return (lastMove && !Object.prototype.hasOwnProperty.call(lastMove, 'error'))
+            return (lastMove && !isMoveError(lastMove))
         }
+        // Move number, with zero or more periods (... for black to move). Not a result or 0-0 castling.
+        const moveNumber = /\d+(?![\d/-])\s*\.*\s*/y
+        // Result given at the end of the main line move text
+        let moveTextResult = null as string | null
         parse_moves:
         for (let pos=0; pos<pgn.moves.length; pos++) {
-            let annotation = null
+            let annotation: Annotation | null
             switch (pgn.moves.charAt(pos)) {
                 // Catch end of SAN string
                 case ' ':
@@ -207,33 +217,28 @@ export default class Chess implements ChessCore {
                 case '\t':
                     break
                 case ';':
-                    if (!isLastMoveValid()) {
-                        break
-                    }
-                    lastMove = lastMove as Turn
                     // End of line annotation
                     end = pgn.moves.indexOf('\n', pos + 1)
                     if (end === -1) { // No more newlines before move part end
-                        end = pgn.moves.length - 1
+                        end = pgn.moves.length
                     }
-                    annotation = new Annotation(pgn.moves.substring(pos + 1, end).trim())
-                    // Append annotation to move
-                    lastMove.annotations.push(annotation)
+                    // Annotations before the first move are skipped
+                    if (isLastMoveValid()) {
+                        annotation = new Annotation(pgn.moves.substring(pos + 1, end).trim())
+                        ;(lastMove as Turn).annotations.push(annotation)
+                    }
                     pos = end
                     break
                 case '{':
-                    if (!isLastMoveValid()) {
-                        break
-                    }
-                    lastMove = lastMove as Turn
                     // In-line annotation
-                    end = pos+1
-                    while (pgn.moves.charAt(end) !== '}') {
-                        end++
+                    end = pgn.moves.indexOf('}', pos + 1)
+                    if (end === -1) { // Unterminated annotation runs to the end of move data
+                        end = pgn.moves.length
                     }
-                    annotation = new Annotation(pgn.moves.substring(pos+1, end).replace(/[\n\r\t]/g, ' '))
-                    // Append annotation to move
-                    lastMove.annotations.push(annotation)
+                    if (isLastMoveValid()) {
+                        annotation = new Annotation(pgn.moves.substring(pos+1, end).replace(/[\n\r\t]/g, ' '))
+                        ;(lastMove as Turn).annotations.push(annotation)
+                    }
                     pos = end
                     break
                 case '(':
@@ -257,33 +262,44 @@ export default class Chess implements ChessCore {
                     break
                 case '!':
                 case '?':
-                case '$':
-                    if (!isLastMoveValid()) {
-                        break
-                    }
-                    lastMove = lastMove as Turn
-                    // NAG (or Numeric Annotation Glyph)
+                case '$': {
+                    // NAG (or Numeric Annotation Glyph), either as $<code> or a move assessment symbol (!, ?!...)
+                    const isCode = pgn.moves.charAt(pos) === '$'
                     end = pos + 1
-                    while (pgn.moves.charAt(end).match(/[!?\d]/) !== null) {
+                    while (pgn.moves.charAt(end).match(isCode ? /\d/ : /[!?]/) !== null) {
                         end++
                     }
-                    // Append NAG to move
-                    if (pgn.moves.charAt(pos) === '$') {
-                        lastMove.annotations.push(new Annotation('', parseInt(pgn.moves.substring(pos+1, end))))
-                    } else {
-                        lastMove.annotations.push(new Annotation('', parseInt(pgn.moves.substring(pos, end))))
+                    const nagCode = isCode ? parseInt(pgn.moves.substring(pos + 1, end))
+                                           : Nag.forSymbol(pgn.moves.substring(pos, end))?.code
+                    if (isLastMoveValid() && nagCode) {
+                        (lastMove as Turn).annotations.push(new Annotation('', nagCode))
                     }
                     pos = end - 1 // for loop will add 1 to the pos after break
                     break
+                }
                 default: {
+                    // Evaluation glyphs (+/-, =...), or other symbols that cannot start a move
+                    const token = (pgn.moves.substring(pos).match(/^[^\s(){};$]+/) || [''])[0]
+                    if (/^[^A-Za-z0-9*<]/.test(token) && !token.startsWith('--')) {
+                        const nagCode = EVALUATION_GLYPHS[token] ?? Nag.forSymbol(token)?.code
+                        if (nagCode === undefined) {
+                            Log.warn(`Skipped unknown symbol ${token} in PGN move text.`, 'Chess')
+                        } else if (isLastMoveValid()) {
+                            (lastMove as Turn).annotations.push(new Annotation('', nagCode))
+                        }
+                        pos += token.length - 1 // for loop will add 1 to the pos after break
+                        break
+                    }
                     // Just your ordinary SAN move
                     for (let i=0; i<VALID_RESULTS.length; i++) {
                         // Check if this is the end of the game
                         if (pgn.moves.indexOf(VALID_RESULTS[i], pos) === pos) {
-                            if (!game.currentBoard.id)
+                            if (!game.currentBoard.id) {
+                                moveTextResult = VALID_RESULTS[i]
                                 end = pgn.moves.length // This is the actual game, so wrap it up
-                            else
+                            } else {
                                 end = pos + VALID_RESULTS[i].length // This was just a variation, keep going
+                            }
                             pos = end
                             break
                         }
@@ -292,14 +308,11 @@ export default class Chess implements ChessCore {
                     if (pos === pgn.moves.length)
                         break
                     // Pick up the running turn number
-                    const mNum = game.currentBoard.turnNum.toString()
-                    if (pgn.moves.indexOf(mNum, pos) === pos) {
-                        // Skip the move number
-                        pos += mNum.length
-                        // Skip the dot (including ... for black to move) and white space chars that precede the actua SAN
-                        while ('. \n\r\t'.indexOf(pgn.moves.charAt(pos)) !== -1) {
-                            pos++
-                        }
+                    // Skip a move number (with ... for black to move) and the white space preceding the actual SAN.
+                    // The number itself is not checked, since move numbers in PGN exports are not always reliable.
+                    moveNumber.lastIndex = pos
+                    if (moveNumber.exec(pgn.moves) !== null) {
+                        pos = moveNumber.lastIndex
                     }
                     // Check if this a wildcard move (all wildvard moves are 2 characters long)
                     if (Move.WILDCARD_MOVES.indexOf(pgn.moves.substring(pos, pos+2)) !== -1) {
@@ -320,7 +333,7 @@ export default class Chess implements ChessCore {
                         }
                         lastMove = game.makeMoveFromSan(pgn.moves.substring(pos, end), moveOpts)
                     }
-                    if (Object.prototype.hasOwnProperty.call(lastMove, 'error')) {
+                    if (isMoveError(lastMove)) {
                         // Making the move failed
                         Log.error(
                             "PGN move parsing error "
@@ -342,6 +355,12 @@ export default class Chess implements ChessCore {
             while (game.currentBoard.id !== 0) {
                 closeVariation()
             }
+        }
+        // The result recorded in the PGN takes precedence over a game end detected while loading the moves
+        const headerResult = pgn.headers.find(header => header[0].toUpperCase() === 'RESULT')?.[1]
+        const recordedResult = headerResult ?? moveTextResult
+        if (recordedResult) {
+            game.headers.set('result', recordedResult)
         }
         /* This should be handled by the Board, would an override property be needed in some cases?
         // Parse game result
@@ -433,7 +452,7 @@ export default class Chess implements ChessCore {
         if (!Object.prototype.hasOwnProperty.call(this.parsedPgnGames, group) || this.parsedPgnGames[group][index] === undefined) {
             return null
         }
-        return this.createGameFromParsed(this.parsedPgnGames[group][index])
+        return this.createGameFromParsed(this.parsedPgnGames[group][index], group)
     }
 
     /**
@@ -475,7 +494,7 @@ export default class Chess implements ChessCore {
         if (pgnGameCount) { // At least one game was found
             if (pgnGameCount <= (options.maxItems as number)) {
                 for (let i=0; i<pgnGameCount; i++) {
-                    const game = this.createGameFromParsed(this.parsedPgnGames[group].splice(i, 1)[0]).game
+                    const game = this.createGameFromParsed(this.parsedPgnGames[group].splice(0, 1)[0], group).game
                     if (this.active.group === group && this.active.index === -1 && options.activateFirst) {
                         this.active.index = 0
                     }
@@ -492,7 +511,7 @@ export default class Chess implements ChessCore {
                     }
                 }
             } else if (this.active.group === group && this.active.index === -1 && options.activateFirst) {
-                const game = this.createGameFromParsed(this.parsedPgnGames[group].splice(0, 1)[0]).game
+                const game = this.createGameFromParsed(this.parsedPgnGames[group].splice(0, 1)[0], group).game
                 const newHeaders = [] as string[][]
                 for (const [key, val] of Object.entries(game.headers.standardized())) {
                     if (key) {
@@ -557,8 +576,8 @@ export default class Chess implements ChessCore {
             const parseGames = () => {
                 return new Promise((resolve) => {
                     for (let i=curGame; i<curGame+(options.batchSize as number); i++) {
-                        if (i===pgnGameCount) {
-                            resolve(true)
+                        if (i === pgnGameCount) {
+                            break
                         }
                         this.createGameFromParsed(this.parsedPgnGames[this.active.group][i])
                         counter++
@@ -573,7 +592,7 @@ export default class Chess implements ChessCore {
                             Log.info(`Parsed ${curGame} games`, SCOPE)
                         }
                         // Wait a short moment mefore starting next batch to avoid WebSocket timeout
-                        window.setTimeout(parseGames, 100)
+                        globalThis.setTimeout(parseGames, 100)
                     } else if (curGame >= pgnGameCount) {
                         if (options.reportProgress) {
                             options.reportProgress([pgnGameCount, pgnGameCount])
@@ -701,7 +720,7 @@ export default class Chess implements ChessCore {
         // Check that the PGN has at least one valid header
         if (headerFormat.exec(pgn)) {
             // Retrieve all games
-            let match: RegExpMatchArray | null = null
+            let match: RegExpMatchArray | null
             while ((match = headerFormat.exec(pgn)) !== null) {
                 // Store the matching header
                 const nHeader = match[0]
@@ -947,7 +966,7 @@ export default class Chess implements ChessCore {
         this.activeGame?.goToStart()
     }
     loadFen (fen: string) {
-        return this.activeGame?.loadFen(fen)
+        return this.activeGame?.loadFen(fen) ?? false
     }
     makeMove (move: Move, opts?: MethodOptions.Board.makeMove) {
         return this.activeGame?.makeMove(move, opts) || Chess.noActiveGameError

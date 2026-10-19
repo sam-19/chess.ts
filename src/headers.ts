@@ -1,5 +1,5 @@
-import { Log } from 'scoped-event-log'
-import { AnyHeader, GameHeaders } from './types/headers'
+import { Log } from './log.js'
+import { AnyHeader, GameHeaders } from './types/headers.js'
 
 const SCOPE = 'headers'
 

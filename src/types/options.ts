@@ -1,5 +1,5 @@
-import { BoardSquareIndex, BoardSquareName } from './board'
-import { ChessPiece } from "./piece"
+import type { BoardSquareIndex, BoardSquareName } from './board.js'
+import type { ChessPiece } from "./piece.js"
 
 type ValidOptions = { [key: string]: string | number | boolean | ((headers: string[][][]) => void) | ((progress: number[]) => void) | null | undefined }
 interface ChessOptions {
@@ -91,4 +91,4 @@ declare namespace MethodOptions {
         flags: number[]
     }
 }
-export { ChessOptions, MethodOptions, ValidOptions }
+export type { ChessOptions, MethodOptions, ValidOptions }

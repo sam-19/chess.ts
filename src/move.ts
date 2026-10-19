@@ -1,17 +1,26 @@
-import Board from './board'
-import Color from './color'
-import Flags from './flags'
-import { Log } from 'scoped-event-log'
-import Options from './options'
-import Piece from './piece'
+import Board from './board.js'
+import Color from './color.js'
+import Flags from './flags.js'
+import { Log } from './log.js'
+import Options from './options.js'
+import Piece from './piece.js'
 
-import { ChessMove } from './types/move'
-import { ChessPiece } from './types/piece'
-import { MoveFlags } from './types/flags'
-import { MethodOptions } from './types/options'
-import { BoardSquareIndex } from './types/board'
+import { ChessMove, MoveError } from './types/move.js'
+import { ChessPiece } from './types/piece.js'
+import { MoveFlags } from './types/flags.js'
+import { MethodOptions } from './types/options.js'
+import { BoardSquareIndex } from './types/board.js'
 
 const SCOPE = 'move'
+
+/**
+ * Check if a move generation or move making result is an error.
+ * Do not test for the mere presence of an `error` property: Move instances declare an `error` field, which is an
+ * own property (with value undefined) under standard class field semantics.
+ */
+export const isMoveError = (value: unknown): value is MoveError => {
+    return typeof (value as MoveError | null)?.error === 'string'
+}
 
 export default class Move implements ChessMove {
     // Static properties
@@ -141,8 +150,10 @@ export default class Move implements ChessMove {
         this.algebraic = Board.SQUARE_NAMES[this.orig as keyof typeof Board.SQUARE_NAMES]
                          + "-"
                          + Board.SQUARE_NAMES[this.dest as keyof typeof Board.SQUARE_NAMES]
+        // UCI notation includes the promotion piece type, e.g. e7e8q
         this.uci = Board.SQUARE_NAMES[this.orig as keyof typeof Board.SQUARE_NAMES]
                    + Board.SQUARE_NAMES[this.dest as keyof typeof Board.SQUARE_NAMES]
+                   + (this.flags.contains(Flags.PROMOTION) ? this.promotionPiece?.type || '' : '')
     }
     // Copy from another Move object
     static copyFrom (move: ChessMove): Move {
@@ -161,6 +172,13 @@ export default class Move implements ChessMove {
         // SAN cannot be copied as it depends on the board state
         return copy
     }
+    /**
+     * Normalize a SAN string for comparison: remove check, mate and annotation symbols and the promotion equals sign,
+     * and use letter O in castling.
+     */
+    static normalizeSan (san: string) {
+        return san.trim().replace(/[+#?!]+$/, '').replace(/=/g, '').replace(/^0-0(-0)?/, m => m.replace(/0/g, 'O'))
+    }
     // Generate a move from given SAN
     static generateFromSan (san: string, board: Board) {
         if (san === undefined || san === null || san === "") {
@@ -174,21 +192,11 @@ export default class Move implements ChessMove {
             return Move.generateWildcardMove(board)
         else {
             const legalMoves = board.generateMoves({ includeSan: true, onlyLegal: true })
-            // Check that the given SAN represents a legal move
-            // First check for exact move matches
+            // Check that the given SAN represents a legal move, ignoring check and annotation symbols, the promotion
+            // equals sign and zeros in place of letter O in castling
+            const normalized = Move.normalizeSan(san)
             for (let i=0; i<legalMoves.length; i++) {
-                if (legalMoves[i].san === san) {
-                    return legalMoves[i]
-                }
-            }
-            // Failing that, try ignoring inconsistencies with the end of the move string (meta symbols)
-            for (let i=0; i<legalMoves.length; i++) {
-                // Queen side castling moves need special handling (they share the same beginning with king
-                // side castling moves and can be checking or mating moves)
-                if ((!legalMoves[i].san?.startsWith('O-O-O') && legalMoves[i].san?.startsWith(san)) ||
-                    (!san.startsWith('O-O-O') && san.startsWith(legalMoves[i].san as string)) ||
-                    (san.startsWith('O-O-O') && legalMoves[i].san?.startsWith('O-O-O'))
-                ) {
+                if (Move.normalizeSan(legalMoves[i].san || '') === normalized) {
                     return legalMoves[i]
                 }
             }

@@ -1,11 +1,11 @@
-import Annotation from './annotation'
-import Board from './board'
-import Color from './color'
-import Flags from './flags'
-import Move from './move'
-import { ChessTurn, TurnMeta, TurnProperties } from './types/turn'
-import { PlayerColor } from './types/color'
-import { BoardSquareIndex } from './types/board'
+import Annotation from './annotation.js'
+import Board from './board.js'
+import Color from './color.js'
+import Flags from './flags.js'
+import Move from './move.js'
+import { ChessTurn, TurnMeta, TurnProperties } from './types/turn.js'
+import { PlayerColor } from './types/color.js'
+import { BoardSquareIndex } from './types/board.js'
 
 export default class Turn implements ChessTurn {
     // Instance properties
@@ -25,7 +25,7 @@ export default class Turn implements ChessTurn {
 
     constructor (options: TurnProperties) {
         this.id = options.id
-        this.fen = options.fen,
+        this.fen = options.fen
         this.move = options.move  // Move object
         this.castlingRights = {
             w: options.castlingRights[Color.WHITE],
