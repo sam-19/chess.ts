@@ -1,6 +1,6 @@
 {
   "name": "typescript-chess",
-  "version": "0.2.0",
+  "version": "1.0.0",
   "description": "Chess game logic, PGN/FEN parsing and game timers in TypeScript.",
   "repository": "https://github.com/sam-19/chess.ts.git",
   "license": "GPL-3.0",
