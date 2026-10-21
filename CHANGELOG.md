@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.0
+## 1.0.0
 
 ### Breaking
 - Published as native ES modules with an `exports` map. CommonJS and the UMD bundle (`umd/chess.js`) are no longer built.
