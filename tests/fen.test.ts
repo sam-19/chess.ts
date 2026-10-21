@@ -68,4 +68,35 @@ describe('Fen validation', () => {
             }
         }
     })
+    test('castling rights need the king and rook on their original squares', () => {
+        const valid = (fen: string) => Fen.Validate(fen)
+        expect(valid('r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1').isValid).toStrictEqual(true)
+        expect(valid('4k3/8/8/8/8/8/8/R3K3 w Q - 0 1').isValid).toStrictEqual(true)
+        // No rook on h1
+        expect(valid('4k3/8/8/8/8/8/8/R3K3 w KQ - 0 1').errorCode).toStrictEqual(19)
+        // The king has left e8
+        expect(valid('r2k3r/8/8/8/8/8/8/4K3 w kq - 0 1').errorCode).toStrictEqual(19)
+        // A black rook on a white home square does not count
+        expect(valid('4k3/8/8/8/8/8/8/r3K3 w Q - 0 1').errorCode).toStrictEqual(19)
+        // Only the position is validated: no castling field
+        expect(Fen.Validate('4k3/8/8/8/8/8/8/4K3', true).isValid).toStrictEqual(true)
+    })
+    test('the player not in turn cannot be in check', () => {
+        const code = (fen: string) => Fen.Validate(fen).errorCode
+        // The player in turn may be in check
+        expect(code('k7/8/8/8/8/8/8/K6q w - - 0 1')).toStrictEqual(0)
+        // Rook, bishop, queen, knight, pawn and king attacks on the king not in turn
+        expect(code('k6R/8/8/8/8/8/8/K7 w - - 0 1')).toStrictEqual(20)
+        expect(code('k7/8/8/8/8/8/8/K6B w - - 0 1')).toStrictEqual(20)
+        expect(code('k7/8/8/8/8/8/8/K6Q w - - 0 1')).toStrictEqual(20)
+        expect(code('k7/2N5/8/8/8/8/8/K7 w - - 0 1')).toStrictEqual(20)
+        expect(code('k7/1P6/8/8/8/8/8/K7 w - - 0 1')).toStrictEqual(20)
+        expect(code('8/8/8/8/8/8/1p6/K6k b - - 0 1')).toStrictEqual(20)
+        // A blocked line is no check; a pawn does not attack straight ahead
+        expect(code('k5NR/8/8/8/8/8/8/K7 w - - 0 1')).toStrictEqual(0)
+        expect(code('k7/P7/8/8/8/8/8/K7 w - - 0 1')).toStrictEqual(0)
+        // The same for black attacking the white king
+        expect(code('k7/8/8/8/8/8/8/K6r b - - 0 1')).toStrictEqual(20)
+        expect(code('k7/8/8/8/8/8/1p6/K7 b - - 0 1')).toStrictEqual(20)
+    })
 })

@@ -29,6 +29,43 @@ export default class Fen implements ChessFen {
        16: 'Black doesn\'t have the right number of kings on the board.',
        17: 'Pawns cannot be on the first or last rank.',
        18: '4th field (en-passant square) does not match a pawn that has just advanced two squares.',
+       19: '3rd field (castling availability) does not match the king and rook positions.',
+       20: 'The player not in turn is in check.',
+    }
+    /**
+     * Is the square at `row` (0 = rank 8) and `file` (0 = a-file) attacked by the given side?
+     * @param squares - The piece placement as 8 rows of 8 characters, rank 8 first, `.` for an empty square.
+     */
+    private static isAttacked (squares: string[], row: number, file: number, byWhite: boolean): boolean {
+        const at = (r: number, f: number) => (r >= 0 && r < 8 && f >= 0 && f < 8 ? squares[r][f] : null)
+        const own = (symbol: string) => byWhite ? symbol.toUpperCase() : symbol
+        // A white pawn attacks towards rank 8, i.e. from the row below the square
+        const pawnRow = byWhite ? row + 1 : row - 1
+        if (at(pawnRow, file - 1) === own('p') || at(pawnRow, file + 1) === own('p')) {
+            return true
+        }
+        const knightJumps = [[-2, -1], [-2, 1], [-1, -2], [-1, 2], [1, -2], [1, 2], [2, -1], [2, 1]]
+        if (knightJumps.some(([r, f]) => at(row + r, file + f) === own('n'))) {
+            return true
+        }
+        const kingSteps = [[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0], [1, 1]]
+        if (kingSteps.some(([r, f]) => at(row + r, file + f) === own('k'))) {
+            return true
+        }
+        // Sliding pieces: the first piece along each line
+        for (const [r, f] of kingSteps) {
+            const sliders = r && f ? [own('b'), own('q')] : [own('r'), own('q')]
+            let [cr, cf] = [row + r, file + f]
+            while (at(cr, cf) === '.') {
+                cr += r
+                cf += f
+            }
+            const piece = at(cr, cf)
+            if (piece && sliders.includes(piece)) {
+                return true
+            }
+        }
+        return false
     }
     /**
      * Validate this FEN string.
@@ -168,6 +205,23 @@ export default class Fen implements ChessFen {
         // Castling rights are normally given in the order KQkq, but any order is accepted
         if (tokens[2] !== '-' && (!/^[KQkq]{1,4}$/.test(tokens[2]) || new Set(tokens[2]).size !== tokens[2].length)) {
             return { isValid: false, errorCode: 9, errorMessage: Fen.ERRORS[9] }
+        }
+        if (rules === 'traditional') {
+            const squares = rows.map(row => row.replace(/[1-8]/g, n => '.'.repeat(parseInt(n))))
+            // Each castling right needs its king and rook on their original squares (rows are listed from rank 8)
+            const homes = { K: [7, 'K', 7, 'R'], Q: [7, 'K', 0, 'R'], k: [0, 'k', 7, 'r'], q: [0, 'k', 0, 'r'] } as const
+            for (const right of tokens[2].replace('-', '')) {
+                const [row, king, rookFile, rook] = homes[right as keyof typeof homes]
+                if (squares[row][4] !== king || squares[row][rookFile] !== rook) {
+                    return { isValid: false, errorCode: 19, errorMessage: Fen.ERRORS[19] }
+                }
+            }
+            // The player who just moved cannot have left their king in check
+            const opponentKing = tokens[1] === 'w' ? 'k' : 'K'
+            const kingRow = squares.findIndex(row => row.includes(opponentKing))
+            if (Fen.isAttacked(squares, kingRow, squares[kingRow].indexOf(opponentKing), tokens[1] === 'w')) {
+                return { isValid: false, errorCode: 20, errorMessage: Fen.ERRORS[20] }
+            }
         }
         // this.fen is valid
         return { isValid: true, errorCode: 0, errorMessage: Fen.ERRORS[0] }

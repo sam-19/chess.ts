@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- FEN validation reports castling rights whose king or rook is not on its original square (error code 19) and positions where the player not in turn is in check (error code 20), under the traditional rules. Loading a FEN still accepts unsupported castling rights and drops them, as before.
+
 ## 1.0.0
 
 ### Breaking

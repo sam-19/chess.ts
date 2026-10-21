@@ -1132,7 +1132,8 @@ export default class Board implements ChessBoard {
         // Check that given FEN is valid
         const gameFen = new Fen(fen)
         const fenError = gameFen.validate()
-        if (fenError.errorCode) {
+        // Castling rights the position does not support are dropped below instead (code 19)
+        if (fenError.errorCode && fenError.errorCode !== 19) {
             Log.error(`Cannot create variation from FEN: ${fenError.errorMessage} (${fen}).`, SCOPE)
             return false
         }
